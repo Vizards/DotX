@@ -6,7 +6,7 @@ import type { GatewayOperation } from '@dotx/shared/gateway';
 import { errorCode } from '@dotx/shared/errors';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../../package.json' with { type: 'json' };
-import { GATEWAY_INSTRUCTIONS } from './instructions.ts';
+import { GATEWAY_INSTRUCTIONS, INSTRUCTIONS_GUIDANCE } from './instructions.ts';
 
 interface McpOptions {
   scopes: string[];
@@ -99,9 +99,15 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
   }
   register(
     'list_connections',
-    'List authorized connections, availability and interface runtime IDs. Includes service metadata for joining another Mac, running versions and a cached latest-release hint.',
+    'List authorized connections, availability and interface runtime IDs. Includes service metadata for joining another Mac, running versions, a cached latest-release hint and guidance on reading DotX instructions.',
     {},
-    connections,
+    async () => ({ ...(await connections()), instructions: INSTRUCTIONS_GUIDANCE }),
+  );
+  register(
+    'get_instructions',
+    `Read DotX usage instructions. ${INSTRUCTIONS_GUIDANCE}`,
+    {},
+    async () => ({ instructions: GATEWAY_INSTRUCTIONS }),
   );
   register(
     'describe_methods',

@@ -6,7 +6,7 @@ import {
   SERVER_INFO_META_KEY,
 } from '@modelcontextprotocol/server';
 import { serveMcp } from '../src/mcp/server.ts';
-import { GATEWAY_INSTRUCTIONS } from '../src/mcp/instructions.ts';
+import { GATEWAY_INSTRUCTIONS, INSTRUCTIONS_GUIDANCE } from '../src/mcp/instructions.ts';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../package.json' with { type: 'json' };
 
@@ -43,6 +43,7 @@ const args = {
 };
 const toolNames = [
   'list_connections',
+  'get_instructions',
   'describe_methods',
   'call',
   'get_request',
@@ -50,7 +51,7 @@ const toolNames = [
   'respond',
 ];
 
-test('MCP 2 discovery, six tools, instructions and write authorization', async () => {
+test('MCP 2 discovery, seven tools, instructions and write authorization', async () => {
   let count = 0;
   const options = {
     connections: async () => ({ connections: [] }),
@@ -81,6 +82,23 @@ test('MCP 2 discovery, six tools, instructions and write authorization', async (
   );
   const callTool = list.result.tools.find((t: any) => t.name === 'call');
   assert(callTool.inputSchema.properties.interface.enum.includes('client_coordination'));
+  const connections = await (
+    await serveMcp(request('tools/call', { name: 'list_connections', arguments: {} }), options)
+  ).json<any>();
+  assert.deepEqual(connections.result.structuredContent, {
+    connections: [],
+    instructions: INSTRUCTIONS_GUIDANCE,
+  });
+  const instructions = await (
+    await serveMcp(request('tools/call', { name: 'get_instructions', arguments: {} }), options)
+  ).json<any>();
+  assert.equal(instructions.result.structuredContent.instructions, GATEWAY_INSTRUCTIONS);
+  assert.deepEqual(
+    JSON.parse(instructions.result.content[0].text),
+    instructions.result.structuredContent,
+    'Instructions must be available in model-visible content as well as structured results',
+  );
+  assert.equal(count, 0, 'Reading instructions requires no native connector');
   const denied = await (
     await serveMcp(request('tools/call', { name: 'call', arguments: args }), options)
   ).json<any>();

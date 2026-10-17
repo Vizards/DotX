@@ -226,7 +226,7 @@ test('standard webhook signatures, callback restrictions and secret validation',
     assert.throws(() => secretBytes(key));
 });
 
-test('MCP events discover alongside six tools; real custom methods and categorized callback failure', async () => {
+test('MCP events discover alongside seven tools; real custom methods and categorized callback failure', async () => {
   const f = fixture(),
     events = f.create();
   const invoke = async (method: string, params: object = {}) => {
@@ -261,7 +261,7 @@ test('MCP events discover alongside six tools; real custom methods and categoriz
     ).json<any>();
   };
   assert.deepEqual((await invoke('server/discover')).result.capabilities.events, {});
-  assert.equal((await invoke('tools/list')).result.tools.length, 6);
+  assert.equal((await invoke('tools/list')).result.tools.length, 7);
   assert.equal((await invoke('events/list')).result.events.length, 2);
   f.echo(false);
   const failure = (await invoke('events/subscribe', input)).error;

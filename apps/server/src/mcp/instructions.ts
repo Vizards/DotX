@@ -1,3 +1,6 @@
+export const INSTRUCTIONS_GUIDANCE =
+  'Before invoking methods through call, read the usage guidance using get_instructions. If the guidance is already available in the current context, follow it without fetching it again.';
+
 export const GATEWAY_INSTRUCTIONS = `Write prompts to Codex as direct requests, preserving the user's intent and wording. Add only context the destination needs. Examples: "Investigate why this build failed."; "Continue with the second approach and preserve the existing API."; "Why does this error occur only on the MacBook?"
 
 DotX connects each Mac through three interfaces: app_tools invokes its desktop tools, app_server runs an independent local App Server, and client_coordination reaches the actual desktop task owner. Native method schemas and results come from describe_methods; connection_id selects an entry point, while hostId/threadId inside native params select the target. Do not substitute the independent App Server for a desktop-owned operation.

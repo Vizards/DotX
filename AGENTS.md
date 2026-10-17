@@ -12,7 +12,7 @@
 ## Architecture
 
 - `apps/desktop/` owns the local MCP, native Codex adapters and setup primitives.
-- `apps/server/` owns Cloudflare hosting, authorization, enrollment, persistent state and notifications. DotX Remote's six tools live in `src/mcp/` within this package.
+- `apps/server/` owns Cloudflare hosting, authorization, enrollment, persistent state and notifications. DotX Remote's seven tools live in `src/mcp/` within this package.
 - `packages/shared/` owns cross-component contracts. Desktop and Server depend on Shared; Shared must not depend on either application.
 - Keep native adapters under `interfaces/`, single-call execution under `gateway/`, and exact-turn observation under `tracking/`.
 - Desktop and Remote have separate installation identities. Desktop and Server ship as separate Release attachments; Desktop contains no Worker or Wrangler deployment materials.
