@@ -5,38 +5,41 @@ description: Plan and perform a user-requested DotX update from GitHub Releases,
 
 # Update DotX
 
-Use the **target Release's** `update-SKILL.md`, `release.json` and release notes, rather than relying on an older installed skill. Published stable Releases are the default; use a Pre-release only when the user chooses it. Drafts and automatically generated source archives are not installation targets.
+## 1. Establish the target and current state
 
-When troubleshooting, read the [online troubleshooting guide](https://github.com/Vizards/DotX/blob/main/docs/troubleshooting/index.md) and follow relevant links.
+Read the target Release's `update-SKILL.md`, `release.json` and release notes. Use a published stable Release unless the user chooses a Pre-release; Drafts and source archives are not installation packages.
 
-## Determine the work
+Use `list_connections` to record Server and each Mac's running `connector_version`, availability and protocol. `desktop_version` identifies Codex itself. Inspect an offline Mac locally if needed; downloaded files do not prove the running version.
 
-`list_connections` provides a version-only update hint. Read the actual `server_version` and each Mac's `connector_version`; `desktop_version` refers to the native Codex application. An offline or unavailable connector does not establish its installed version: inspect locally when necessary. Downloaded files do not prove a new process has loaded.
+## 2. Decide what changes
 
-`updates.channel` reports the deployment's discovery channel: `stable` by default, or `dev` when its owner explicitly chose development updates. Preserve that choice during deployment. A dev-channel hint points to a Pre-release; it does not authorize installation by itself. Successful discovery is cached for six hours, so a just-published version may not appear immediately. Failed lookups can retry after five minutes.
+For each component's own baseline, read the intervening stable Release metadata and OR its `changes.server`, `changes.desktop` or `changes.remote_catalog` flags. Missing history is unknown. A Pre-release compares with its named stable `base_release`, not the previous dev build; when that cannot establish the installed contents, use the release notes to plan replacement and catalog Refresh.
 
-Release metadata has `release`, `base_release`, `wire_protocol` and three reviewed booleans in `changes`: `server`, `desktop`, `remote_catalog`. Each stable release compares against its previous stable release. The first has a null baseline and all three true. Missing history is unknown, not false.
+Check `wire_protocol` separately from product versions. State which Macs, Server and Remote catalog need updating, in what order, and any interruption. Before a protocol-breaking update, prepare local access and attachments so recovery does not depend on the connection being replaced.
 
-For each component's own running baseline, read every intervening stable Release's metadata through the target and OR the relevant flag. A Desktop already at an unchanged intermediate release can stay there even when Server advances. Aggregate `remote_catalog` over Server changes and check whether ChatGPT has already refreshed its definitions. Never decide from just the newest release's flags.
+## 3. Settle execution permissions before dispatch
 
-Pre-release metadata compares with its named stable `base_release`; it is not another link in stable history. When moving to or from a Pre-release and the stable chain cannot establish the installed contents, inspect the release notes and plan a complete replacement of the affected component and a catalog Refresh. Do not treat a numerically lower chosen version as an automatic update.
+Identify the conversation that will actually execute each update, including local Codex work delegated by dot. Check its current permissions and confirm whether to retain them or change them. Reuse a clear user choice that applies to this update; otherwise ask before sending installation or deployment work. Explain that limited permissions can require command approvals. Approval to update does not itself select Full Access.
 
-Compare `wire_protocol` separately. Different product versions do not by themselves require an update or prevent communication. A protocol change may require coordinating both ends. Explain the required components, catalog Refresh and interruptions before acting within the user's authorization.
+Apply the chosen settings through `client_coordination` when using DotX. Then start the execution turn and verify its `currentPermissions`. Saved settings do not change an already-running turn; reconcile its progress before continuing under new permissions. Preserve model and reasoning settings unless asked to change them.
 
-## Apply and resume
+## 4. Install the selected components
 
-Updates may require execution approvals. Check the permissions of the conversation that will actually execute the update, including a local Codex task delegated by dot. If a permission change would help, explain the needed scope and ask whether the user wants to change it, unless their choice is already clear. Apply the user's chosen permissions. For desktop tasks managed through DotX, use `client_coordination` to change settings. Saved settings do not retroactively change a running turn; verify the executing turn's `currentPermissions`, including after starting a new turn.
+- **Server:** Download its separate attachment and follow its deployment instructions with official Wrangler. Reuse the existing account, Worker, origin, secrets, KV/DO resources and actual deployment configuration; change the code path and required settings. Preserve the release discovery channel (`stable` by default, `dev` only by user choice).
+- **Each Mac:** Download the Desktop attachment to a persistent directory and update through the same local marketplace identity, `dotx` / `dotx-desktop`, using the installed Codex's plugin management. Preserve installation state, caller, credentials and service association outside the package.
 
-- Download the target Desktop attachment to a persistent directory, then update through the same local marketplace identity (`dotx` / `dotx-desktop`). Use the actual installed desktop's plugin management capabilities. Preserve state, caller, credentials and service association outside the package.
-- Download the independent Server attachment. Follow its deployment instructions and use official Wrangler with the existing account, Worker, origin and KV/DO resources. Change the code path and required configuration; do not replace the user's deployment configuration wholesale or create another service.
-- After a catalog change, Refresh DotX Remote through ChatGPT's normal management interface and check the definitions in a fresh context. A Worker update changes execution code but does not prove that ChatGPT's cache refreshed. If prior cache state is unknown, inspect it or perform a normal Refresh. No separate Remote ZIP is installed.
+Do not erase persistent state as an implicit upgrade step. Fresh installation is a separate user decision.
 
-Cloudflare [propagates Worker and Durable Object code updates eventually](https://developers.cloudflare.com/durable-objects/platform/known-issues/#code-updates), typically over seconds to minutes. A new Worker can temporarily call an older DeviceHub; `server_version` identifies the Worker and does not prove the DO has updated. After a successful deployment, allow a short convergence window and repeat read-only checks before diagnosing a persistent mismatch. Distinguish this from the release-discovery cache above and ChatGPT's catalog cache; do not attribute every stale response to propagation or redeploy repeatedly to clear it.
+## 5. Activate and refresh
 
-Before a breaking protocol change, prepare the needed local installation access and attachments on each Mac. Do not rely exclusively on forwarding through a connector that the Server update will disconnect. Choose the order from the target release notes, running work and available local access. Handle offline Macs when they return. Do not erase DO state or credentials as an implicit upgrade step; fresh installation is a separate, explicitly scoped action.
+One Desktop MCP process owns the connector lock; others wait. A new version does not preempt the owner. Based on running tasks, retire identified obsolete DotX processes, restart ChatGPT/Codex normally, or ask the user. Include old waiters and every pre-lock instance. Do not delete `connector.lock`; process exit releases it. Verify the active version after reload.
 
-The desktop may start several MCP processes, but only one holds the installation's connector lock and connects to Server. Other processes wait; a newly installed version does not preempt the owner. Choose how and when to retire obsolete processes based on running tasks and available controls: stop the identified old DotX processes, restart ChatGPT/Codex normally, or ask the user. Retire old waiters too, since any waiter can take the lock next. Then verify the active `connector_version` through `list_connections`. Releases predating this lock need all old instances stopped before the constraint takes effect. Do not delete `connector.lock` to force an upgrade; process exit releases it.
+Refresh DotX Remote through ChatGPT's normal settings when its catalog changed; check the definitions in a fresh context. A Server deployment does not refresh ChatGPT's cached tools and instructions.
 
-After interruption, inspect deployment, disk and running state to continue remaining operations. No setup ledger or replay of business requests is needed.
+Cloudflare code propagation can take seconds to minutes, including a new Worker briefly calling an older DO. After successful deployment, allow convergence and repeat read-only checks before redeploying. This differs from GitHub discovery caching (six hours after success, five minutes after failure) and ChatGPT's catalog cache.
 
-Read back Server and connector versions, protocol compatibility, interface availability and any refreshed catalog. Report completed and still pending parts. Installation/update verification does not dispatch synthetic tasks or run the project's test suite.
+## 6. Verify or resume
+
+Read back running Server/Desktop versions, protocol, interfaces, preserved configuration and any refreshed catalog. Report remaining work explicitly. After interruption, compare deployment, disk and running state, then continue only unfinished operations; do not resend an uncertain business request.
+
+Installation and update checks do not run project tests or dispatch synthetic tasks. For problems, start with the [online troubleshooting guide](https://github.com/Vizards/DotX/blob/main/docs/troubleshooting/index.md).
