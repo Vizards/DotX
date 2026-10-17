@@ -4,6 +4,8 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { createDeviceMcp } from './mcp/server.ts';
 import { stateDir } from './runtime/state.ts';
 import { startDevice } from './runtime/runtime.ts';
+import { tryConnectorLock } from './runtime/connector-lock.ts';
+import { safeError } from '@dotx/shared/errors';
 
 process.umask(0o077);
 const dir = stateDir(),
@@ -16,10 +18,12 @@ const stdio = serveStdio(
     createDeviceMcp(
       () =>
         runtime?.status() ?? {
-          availability: 'unavailable',
+          availability: diagnostic === 'CONNECTOR_ACTIVE_ELSEWHERE' ? 'standby' : 'unavailable',
           diagnostic: { code: diagnostic },
           setup:
-            'Run the DotX setup skill. This process will load the connector after local initialization.',
+            diagnostic === 'CONNECTOR_ACTIVE_ELSEWHERE'
+              ? 'Another DotX process owns this installation. Check its health through Remote list_connections. This MCP process waits without starting another connector.'
+              : 'Run the DotX setup skill. This process will load the connector after local initialization.',
         },
     ),
   { onerror: () => process.stderr.write('dotx: MCP_STDIO_ERROR\n') },
@@ -28,11 +32,18 @@ function load() {
   if (runtime) return;
   if (!fs.existsSync(path.join(dir, 'config.json'))) return;
   try {
+    diagnostic = 'CONNECTOR_LOCK_FAILED';
+    if (!tryConnectorLock(dir)) {
+      diagnostic = 'CONNECTOR_ACTIVE_ELSEWHERE';
+      return;
+    }
+    diagnostic = 'CONNECTOR_START_FAILED';
     runtime = startDevice(() => stdio.close());
     clearInterval(timer);
-  } catch {
-    diagnostic = 'SETUP_CONFIG_INVALID';
-    clearInterval(timer);
+  } catch (error) {
+    process.stderr.write(`dotx: ${diagnostic} (${safeError(error).code})\n`);
+    // Fatal startup errors must not leave a nonfunctional process holding the lock.
+    process.exit(1);
   }
 }
 const timer = setInterval(() => {
