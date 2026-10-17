@@ -13,7 +13,7 @@ When troubleshooting, read the [online troubleshooting guide](https://github.com
 
 `list_connections` provides a version-only update hint. Read the actual `server_version` and each Mac's `connector_version`; `desktop_version` refers to the native Codex application. An offline or unavailable connector does not establish its installed version: inspect locally when necessary. Downloaded files do not prove a new process has loaded.
 
-`updates.channel` reports the deployment's discovery channel: `stable` by default, or `dev` when its owner explicitly chose development updates. Preserve that choice during deployment. A dev-channel hint points to a Pre-release; it does not authorize installation by itself. Discovery is cached for six hours, so a just-published version may not appear immediately.
+`updates.channel` reports the deployment's discovery channel: `stable` by default, or `dev` when its owner explicitly chose development updates. Preserve that choice during deployment. A dev-channel hint points to a Pre-release; it does not authorize installation by itself. Successful discovery is cached for six hours, so a just-published version may not appear immediately. Failed lookups can retry after five minutes.
 
 Release metadata has `release`, `base_release`, `wire_protocol` and three reviewed booleans in `changes`: `server`, `desktop`, `remote_catalog`. Each stable release compares against its previous stable release. The first has a null baseline and all three true. Missing history is unknown, not false.
 

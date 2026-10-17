@@ -5,6 +5,15 @@ import { MemoryStore } from './fixtures/store.ts';
 
 const release = (tag = 'v0.0.2') =>
   Response.json({ tag_name: tag, draft: false, prerelease: false });
+test('default fetch does not pass the discovery instance as the native receiver', async (t) => {
+  t.mock.method(globalThis, 'fetch', async function (this: unknown) {
+    if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+    return release();
+  });
+  const result = await new ReleaseUpdates(new MemoryStore(), 'example/dotx').read();
+  assert.equal(result.status, 'ok');
+  assert.equal(result.latest!.version, '0.0.2');
+});
 test('release discovery coalesces calls, persists across hub restarts and compares each baseline', async () => {
   const store = new MemoryStore();
   let requests = 0;
@@ -114,6 +123,13 @@ test('failed checks retain dated evidence without reporting up to date or retryi
   assert.equal(updateAvailable(failed, '0.0.2'), null);
   assert.equal((await updates.read()).cached, true);
   assert.equal(requests, 1);
+  t.mock.timers.tick(5 * 60_000);
+  const recovered = await new ReleaseUpdates(store, 'example/dotx', 'stable', async () =>
+    release(),
+  ).read();
+  assert.equal(recovered.cached, false);
+  assert.equal(recovered.status, 'ok');
+  assert.equal(updateAvailable(recovered, '0.0.2'), false);
 });
 test('no repository, no published stable release and invalid replies remain unknown', async () => {
   assert.equal((await new ReleaseUpdates(new MemoryStore()).read()).status, 'not_configured');

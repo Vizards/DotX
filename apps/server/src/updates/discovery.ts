@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Store } from '../hub/storage.ts';
 
 const interval = 6 * 60 * 60_000;
+const failureInterval = 5 * 60_000;
 const releaseSchema = z.object({
   tag_name: z.string(),
   draft: z.boolean(),
@@ -37,7 +38,8 @@ export class ReleaseUpdates {
     store: Store,
     repository = '',
     channel: ReleaseChannel = 'stable',
-    fetcher: typeof fetch = fetch,
+    // Workers' native fetch rejects a class instance as its receiver.
+    fetcher: typeof fetch = (input, init) => fetch(input, init),
   ) {
     this.store = store;
     this.repository = repository;
@@ -63,7 +65,10 @@ export class ReleaseUpdates {
   private async lookup(): Promise<ReleaseDiscovery> {
     const key = `updates:${this.repository}:${this.channel}`;
     const previous = await this.store.get<CachedRelease>(key);
-    if (previous && Date.now() - previous.attempted_at < interval)
+    if (
+      previous &&
+      Date.now() - previous.attempted_at < (previous.diagnostic ? failureInterval : interval)
+    )
       return {
         ...previous,
         channel: this.channel,
