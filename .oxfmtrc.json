@@ -3,5 +3,5 @@
   "singleQuote": true,
   "printWidth": 100,
   "sortPackageJson": false,
-  "ignorePatterns": []
+  "ignorePatterns": ["CHANGELOG.md", ".release-please-manifest.json"]
 }

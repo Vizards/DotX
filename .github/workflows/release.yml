@@ -206,7 +206,10 @@ jobs:
               if (!data.length) throw new Error(`Empty release asset: ${name}`);
               const existing = release.assets.find(asset => asset.name === name);
               if (existing) await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: existing.id });
-              await github.rest.repos.uploadReleaseAsset({ ...repo, release_id, name, data });
+              const contentType = name.endsWith('.zip') ? 'application/zip'
+                : name.endsWith('.json') ? 'application/json' : 'text/markdown; charset=utf-8';
+              await github.rest.repos.uploadReleaseAsset({ ...repo, release_id, name, data,
+                headers: { 'content-type': contentType } });
             }
             const uploaded = await github.paginate(github.rest.repos.listReleaseAssets, { ...repo, release_id, per_page: 100 });
             for (const name of names) {

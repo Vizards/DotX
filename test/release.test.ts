@@ -212,7 +212,14 @@ test('publication keeps a draft on upload failure and resumes uploads before pub
         1,
       );
     },
-    uploadReleaseAsset: async ({ name }: any) => {
+    uploadReleaseAsset: async ({ name, headers }: any) => {
+      const types: Record<string, string> = {
+        'dotx-desktop-0.0.1.zip': 'application/zip',
+        'dotx-server-0.0.1.zip': 'application/zip',
+        'release.json': 'application/json',
+        'update-SKILL.md': 'text/markdown; charset=utf-8',
+      };
+      assert.equal(headers['content-type'], types[name]);
       if (fail && name === 'release.json') throw new Error('upload failed');
       assets.push({ id: assets.length + 1, name, size: 1 });
     },
