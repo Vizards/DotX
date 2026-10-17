@@ -50,7 +50,7 @@ export class DeviceHub {
   constructor(ctx: HubContext, env: Partial<Env>) {
     this.ctx = ctx;
     this.env = env;
-    this.updates = new ReleaseUpdates(ctx.storage, env.RELEASE_REPOSITORY);
+    this.updates = new ReleaseUpdates(ctx.storage, env.RELEASE_REPOSITORY, env.RELEASE_CHANNEL);
     this.enrollment = new Enrollment(
       ctx.storage,
       env.OWNER_KEY_HASH ?? '',

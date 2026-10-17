@@ -26,7 +26,8 @@
   ],
   "vars": {
     "PUBLIC_ORIGIN": "http://localhost:8787",
-    "RELEASE_REPOSITORY": ""
+    "RELEASE_REPOSITORY": "",
+    "RELEASE_CHANNEL": "stable"
   },
   "observability": {
     "enabled": true,

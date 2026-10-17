@@ -10,6 +10,8 @@ Keep your real Wrangler configuration outside the downloaded attachment and plug
 
 Use DotX Desktop's `setup.mjs owner-key-hash` to create or reuse the administrator credential. Pipe its digest to `wrangler secret put OWNER_KEY_HASH --config <your-config>`. The original key stays on the administrator's Mac. Complete the Desktop setup skill to enroll devices and authorize ChatGPT/dot.
 
+`RELEASE_CHANNEL` defaults to `stable`. Set it to `dev` only on a deployment whose owner chooses development updates. The dev channel discovers published `-dev.*` Pre-releases; neither channel includes Drafts. Discovery is cached for six hours per repository and channel and never installs an update automatically.
+
 ## Update
 
 Use the target Release's `update-SKILL.md` and release notes to determine which components need updates. Deploy through the existing configuration and resources; change the code path and target-required fields, without replacing credentials or clearing DO data. Preserve the service origin and OAuth connection.

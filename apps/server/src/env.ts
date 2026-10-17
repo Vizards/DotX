@@ -4,6 +4,7 @@ export interface Env {
   OAUTH_KV: KVNamespace;
   PUBLIC_ORIGIN: string;
   RELEASE_REPOSITORY?: string;
+  RELEASE_CHANNEL?: 'stable' | 'dev';
   DEVICES: DurableObjectNamespace;
   OWNER_KEY_HASH: string;
   OAUTH_PROVIDER: OAuthHelpers;

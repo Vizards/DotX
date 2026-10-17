@@ -1,13 +1,14 @@
-import { gt, valid } from 'semver';
+import { gt, prerelease, valid } from 'semver';
 import { z } from 'zod';
 import type { Store } from '../hub/storage.ts';
 
 const interval = 6 * 60 * 60_000;
 const releaseSchema = z.object({
   tag_name: z.string(),
-  draft: z.literal(false),
-  prerelease: z.literal(false),
+  draft: z.boolean(),
+  prerelease: z.boolean(),
 });
+export type ReleaseChannel = 'stable' | 'dev';
 interface LatestRelease {
   version: string;
   url: string;
@@ -20,6 +21,7 @@ interface CachedRelease {
   diagnostic?: string;
 }
 export interface ReleaseDiscovery extends CachedRelease {
+  channel: ReleaseChannel;
   status: 'ok' | 'unavailable' | 'not_configured';
   cached: boolean;
 }
@@ -29,15 +31,23 @@ export class ReleaseUpdates {
   private pending?: Promise<ReleaseDiscovery>;
   private readonly store: Store;
   private readonly repository: string;
+  private readonly channel: ReleaseChannel;
   private readonly fetcher: typeof fetch;
-  constructor(store: Store, repository = '', fetcher: typeof fetch = fetch) {
+  constructor(
+    store: Store,
+    repository = '',
+    channel: ReleaseChannel = 'stable',
+    fetcher: typeof fetch = fetch,
+  ) {
     this.store = store;
     this.repository = repository;
+    this.channel = channel;
     this.fetcher = fetcher;
   }
   async read(): Promise<ReleaseDiscovery> {
     if (!this.repository)
       return {
+        channel: this.channel,
         status: 'not_configured',
         cached: false,
         attempted_at: 0,
@@ -51,32 +61,65 @@ export class ReleaseUpdates {
     return this.pending;
   }
   private async lookup(): Promise<ReleaseDiscovery> {
-    const key = `updates:${this.repository}`;
+    const key = `updates:${this.repository}:${this.channel}`;
     const previous = await this.store.get<CachedRelease>(key);
     if (previous && Date.now() - previous.attempted_at < interval)
-      return { ...previous, status: previous.diagnostic ? 'unavailable' : 'ok', cached: true };
+      return {
+        ...previous,
+        channel: this.channel,
+        status: previous.diagnostic ? 'unavailable' : 'ok',
+        cached: true,
+      };
     const next: CachedRelease = {
       attempted_at: Date.now(),
       checked_at: previous?.checked_at ?? null,
       latest: previous?.latest ?? null,
     };
     try {
-      const response = await this.fetcher(
-        `https://api.github.com/repos/${this.repository}/releases/latest`,
-        {
-          headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'DotX' },
-          signal: AbortSignal.timeout(3000),
-        },
-      );
-      if (!response.ok) throw new Error(`GITHUB_HTTP_${response.status}`);
-      const release = releaseSchema.parse(await response.json());
-      const version = valid(release.tag_name);
-      if (!version || version.includes('-')) throw new Error('INVALID_RELEASE_VERSION');
-      next.latest = {
-        version,
-        url: `https://github.com/${this.repository}/releases/tag/${encodeURIComponent(release.tag_name)}`,
-        update_skill_url: `https://github.com/${this.repository}/releases/download/${encodeURIComponent(release.tag_name)}/update-SKILL.md`,
+      const signal = AbortSignal.timeout(3000);
+      const read = async (suffix: string) => {
+        const response = await this.fetcher(
+          `https://api.github.com/repos/${this.repository}/releases${suffix}`,
+          {
+            headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'DotX' },
+            signal,
+          },
+        );
+        if (!response.ok) throw new Error(`GITHUB_HTTP_${response.status}`);
+        return response.json();
       };
+      let selected: z.infer<typeof releaseSchema> | undefined;
+      if (this.channel === 'stable') {
+        selected = releaseSchema.parse(await read('/latest'));
+        const version = valid(selected.tag_name);
+        if (selected.draft || selected.prerelease || !version || prerelease(version))
+          throw new Error('INVALID_RELEASE_VERSION');
+      } else {
+        // GitHub's latest endpoint excludes previews. Compare dev versions numerically,
+        // across pages, rather than relying on publication order or tag string order.
+        for (let page = 1; ; page++) {
+          const releases = z.array(releaseSchema).parse(await read(`?per_page=100&page=${page}`));
+          for (const release of releases) {
+            const version = valid(release.tag_name);
+            if (
+              !release.draft &&
+              release.prerelease &&
+              version &&
+              prerelease(version)?.[0] === 'dev' &&
+              (!selected || gt(version, selected.tag_name))
+            )
+              selected = release;
+          }
+          if (releases.length < 100) break;
+        }
+      }
+      next.latest = selected
+        ? {
+            version: valid(selected.tag_name)!,
+            url: `https://github.com/${this.repository}/releases/tag/${encodeURIComponent(selected.tag_name)}`,
+            update_skill_url: `https://github.com/${this.repository}/releases/download/${encodeURIComponent(selected.tag_name)}/update-SKILL.md`,
+          }
+        : null;
       next.checked_at = next.attempted_at;
     } catch (error) {
       next.diagnostic =
@@ -85,7 +128,12 @@ export class ReleaseUpdates {
           : 'RELEASE_LOOKUP_FAILED';
     }
     await this.store.put(key, next);
-    return { ...next, status: next.diagnostic ? 'unavailable' : 'ok', cached: false };
+    return {
+      ...next,
+      channel: this.channel,
+      status: next.diagnostic ? 'unavailable' : 'ok',
+      cached: false,
+    };
   }
 }
 

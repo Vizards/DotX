@@ -13,11 +13,12 @@ test('release discovery coalesces calls, persists across hub restarts and compar
     requests++;
     return release();
   };
-  const updates = new ReleaseUpdates(store, 'example/dotx', fetcher);
+  const updates = new ReleaseUpdates(store, 'example/dotx', undefined, fetcher);
   const [a, b] = await Promise.all([updates.read(), updates.read()]);
   assert.equal(requests, 1);
   assert.deepEqual(a, b);
-  const cached = await new ReleaseUpdates(store, 'example/dotx', fetcher).read();
+  assert.equal(a.channel, 'stable');
+  const cached = await new ReleaseUpdates(store, 'example/dotx', 'stable', fetcher).read();
   assert.equal(cached.cached, true);
   assert.equal(requests, 1);
   assert.equal(updateAvailable(cached, '0.0.1'), true);
@@ -28,13 +29,80 @@ test('release discovery coalesces calls, persists across hub restarts and compar
   assert.equal(updateAvailable(cached, 'unknown'), null);
   assert.match(cached.latest!.update_skill_url, /v0\.0\.2\/update-SKILL\.md$/);
 });
+test('dev discovery selects the highest published dev version across pages and isolates its cache', async () => {
+  const store = new MemoryStore();
+  await new ReleaseUpdates(store, 'example/dotx', 'stable', async () => release()).read();
+  const item = (tag_name: string, prerelease = true, draft = false) => ({
+    tag_name,
+    prerelease,
+    draft,
+  });
+  const first = [
+    item('v0.0.2-dev.9.1'),
+    item('v0.0.2-dev.99.1', true, true),
+    item('v9.0.0', false),
+    item('v9.0.0-beta.1'),
+    item('invalid'),
+    ...Array.from({ length: 95 }, () => item('v0.0.1-dev.1.1')),
+  ];
+  let requests = 0;
+  const fetcher: typeof fetch = async (url) => {
+    requests++;
+    assert.equal(
+      url,
+      `https://api.github.com/repos/example/dotx/releases?per_page=100&page=${requests}`,
+    );
+    return Response.json(requests === 1 ? first : [item('v0.0.2-dev.10.1')]);
+  };
+  const value = await new ReleaseUpdates(store, 'example/dotx', 'dev', fetcher).read();
+  assert.equal(value.channel, 'dev');
+  assert.equal(value.status, 'ok');
+  assert.equal(value.latest!.version, '0.0.2-dev.10.1');
+  assert.equal(requests, 2);
+  assert.equal(updateAvailable(value, '0.0.2-dev.9.1'), true);
+  assert.equal(updateAvailable(value, '0.0.2-dev.10.1'), false);
+  assert.equal(updateAvailable(value, '0.0.2'), false);
+  assert.match(value.latest!.update_skill_url, /v0\.0\.2-dev\.10\.1\/update-SKILL\.md$/);
+  assert.equal(
+    (await new ReleaseUpdates(store, 'example/dotx', 'dev', fetcher).read()).cached,
+    true,
+  );
+  const stable = await new ReleaseUpdates(store, 'example/dotx', 'stable', fetcher).read();
+  assert.equal(stable.latest!.version, '0.0.2');
+  assert.equal(requests, 2);
+});
+test('an empty dev channel has no update target and network failure retains dated dev evidence', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1000 });
+  const store = new MemoryStore();
+  const empty = await new ReleaseUpdates(store, 'example/dotx', 'dev', async () =>
+    Response.json([]),
+  ).read();
+  assert.equal(empty.status, 'ok');
+  assert.equal(empty.latest, null);
+  assert.equal(updateAvailable(empty, '0.0.1'), null);
+  t.mock.timers.tick(6 * 60 * 60_000);
+  await new ReleaseUpdates(store, 'example/dotx', 'dev', async () =>
+    Response.json([{ tag_name: 'v0.0.1-dev.5.1', prerelease: true, draft: false }]),
+  ).read();
+  t.mock.timers.tick(6 * 60 * 60_000);
+  const failed = await new ReleaseUpdates(
+    store,
+    'example/dotx',
+    'dev',
+    async () => new Response('', { status: 403 }),
+  ).read();
+  assert.equal(failed.status, 'unavailable');
+  assert.equal(failed.latest!.version, '0.0.1-dev.5.1');
+  assert.equal(updateAvailable(failed, '0.0.1-dev.4.1'), true);
+  assert.equal(updateAvailable(failed, '0.0.1-dev.5.1'), null);
+});
 test('failed checks retain dated evidence without reporting up to date or retrying each call', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: 1000 });
   const store = new MemoryStore();
-  await new ReleaseUpdates(store, 'example/dotx', async () => release()).read();
+  await new ReleaseUpdates(store, 'example/dotx', 'stable', async () => release()).read();
   t.mock.timers.tick(6 * 60 * 60_000);
   let requests = 0;
-  const updates = new ReleaseUpdates(store, 'example/dotx', async () => {
+  const updates = new ReleaseUpdates(store, 'example/dotx', 'stable', async () => {
     requests++;
     return new Response('', { status: 403 });
   });
@@ -57,7 +125,7 @@ test('no repository, no published stable release and invalid replies remain unkn
       throw new Error('network unavailable');
     },
   ]) {
-    const result = await new ReleaseUpdates(new MemoryStore(), 'example/dotx', async () =>
+    const result = await new ReleaseUpdates(new MemoryStore(), 'example/dotx', 'stable', async () =>
       reply(),
     ).read();
     assert.equal(result.status, 'unavailable');
