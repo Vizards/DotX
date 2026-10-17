@@ -6,7 +6,8 @@ import type { GatewayOperation } from '@dotx/shared/gateway';
 import { errorCode } from '@dotx/shared/errors';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../../package.json' with { type: 'json' };
-import { GATEWAY_INSTRUCTIONS, INSTRUCTIONS_GUIDANCE } from './instructions.ts';
+import { getInstructions, INSTRUCTION_GUIDES, INSTRUCTIONS_GUIDANCE } from './instructions.ts';
+import type { InstructionGoal } from './instructions.ts';
 
 interface McpOptions {
   scopes: string[];
@@ -19,7 +20,7 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
   const server = new McpServer(
     { name: 'dotx-remote', title: 'DotX Remote', version: packageInfo.version },
     {
-      instructions: GATEWAY_INSTRUCTIONS,
+      instructions: INSTRUCTIONS_GUIDANCE,
       capabilities,
       supportedProtocolVersions: [MCP_PROTOCOL_VERSION],
     },
@@ -57,7 +58,8 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
     server.registerTool(
       name,
       {
-        description,
+        description:
+          name === 'get_instructions' ? description : `${description}\n\n${INSTRUCTIONS_GUIDANCE}`,
         inputSchema,
         annotations: {
           readOnlyHint: !write,
@@ -99,15 +101,19 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
   }
   register(
     'list_connections',
-    'List authorized connections, availability and interface runtime IDs. Includes service metadata for joining another Mac, running versions, a cached latest-release hint and guidance on reading DotX instructions.',
+    'List authorized connections, availability and interface runtime IDs. Includes service metadata for joining another Mac, running versions and a cached latest-release hint.',
     {},
-    async () => ({ ...(await connections()), instructions: INSTRUCTIONS_GUIDANCE }),
+    connections,
   );
   register(
     'get_instructions',
-    `Read DotX usage instructions. ${INSTRUCTIONS_GUIDANCE}`,
-    {},
-    async () => ({ instructions: GATEWAY_INSTRUCTIONS }),
+    'Read DotX guidance for a task goal. Omit goal to list guides and when to use them; pass a goal from the directory to read only that guide.',
+    {
+      goal: z
+        .enum(Object.keys(INSTRUCTION_GUIDES) as [InstructionGoal, ...InstructionGoal[]])
+        .optional(),
+    },
+    async ({ goal }) => getInstructions(goal),
   );
   register(
     'describe_methods',

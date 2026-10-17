@@ -6,7 +6,7 @@ import {
   SERVER_INFO_META_KEY,
 } from '@modelcontextprotocol/server';
 import { serveMcp } from '../src/mcp/server.ts';
-import { GATEWAY_INSTRUCTIONS, INSTRUCTIONS_GUIDANCE } from '../src/mcp/instructions.ts';
+import { INSTRUCTIONS_GUIDANCE } from '../src/mcp/instructions.ts';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../package.json' with { type: 'json' };
 
@@ -74,12 +74,19 @@ test('MCP 2 discovery, seven tools, instructions and write authorization', async
     undefined,
     'Do not advertise unimplemented webhooks',
   );
-  assert.equal(discovery.result.instructions, GATEWAY_INSTRUCTIONS);
+  assert.equal(discovery.result.instructions, INSTRUCTIONS_GUIDANCE);
   const list = await (await serveMcp(request('tools/list', {}), options)).json<any>();
   assert.deepEqual(
     list.result.tools.map((t: any) => t.name),
     toolNames,
   );
+  for (const tool of list.result.tools) {
+    assert.equal(
+      tool.description.includes(INSTRUCTIONS_GUIDANCE),
+      tool.name !== 'get_instructions',
+      `${tool.name} should expose the guide entry point without a self-reference`,
+    );
+  }
   const callTool = list.result.tools.find((t: any) => t.name === 'call');
   assert(callTool.inputSchema.properties.interface.enum.includes('client_coordination'));
   const connections = await (
@@ -87,18 +94,7 @@ test('MCP 2 discovery, seven tools, instructions and write authorization', async
   ).json<any>();
   assert.deepEqual(connections.result.structuredContent, {
     connections: [],
-    instructions: INSTRUCTIONS_GUIDANCE,
   });
-  const instructions = await (
-    await serveMcp(request('tools/call', { name: 'get_instructions', arguments: {} }), options)
-  ).json<any>();
-  assert.equal(instructions.result.structuredContent.instructions, GATEWAY_INSTRUCTIONS);
-  assert.deepEqual(
-    JSON.parse(instructions.result.content[0].text),
-    instructions.result.structuredContent,
-    'Instructions must be available in model-visible content as well as structured results',
-  );
-  assert.equal(count, 0, 'Reading instructions requires no native connector');
   const denied = await (
     await serveMcp(request('tools/call', { name: 'call', arguments: args }), options)
   ).json<any>();
@@ -122,6 +118,40 @@ test('MCP 2 discovery, seven tools, instructions and write authorization', async
   ).json<any>();
   assert(invalid.result?.isError || invalid.error);
   assert.equal(count, 1, 'Invalid arguments must not reach the router');
+});
+
+test('instruction discovery returns a directory and reads only the requested goal without a connector', async () => {
+  const options = {
+    scopes: ['mcp:read'],
+    connections: async () => assert.fail('Guides must not require a connection'),
+    invoke: async () => assert.fail('Guides must not dispatch native calls'),
+  };
+  const read = async (args: Record<string, unknown>) =>
+    (
+      await serveMcp(request('tools/call', { name: 'get_instructions', arguments: args }), options)
+    ).json<any>();
+  const directory = await read({});
+  const { guides, ...rest } = directory.result.structuredContent;
+  assert.deepEqual(rest, {}, 'The directory must not preload any guide body');
+  assert(guides.length > 0);
+  assert.deepEqual(JSON.parse(directory.result.content[0].text), { guides });
+  for (const guide of guides) {
+    assert.deepEqual(Object.keys(guide).sort(), ['description', 'goal', 'title']);
+    const response = await read({ goal: guide.goal });
+    const { instructions, ...metadata } = response.result.structuredContent;
+    assert.deepEqual(metadata, guide, 'Each directory entry must resolve to its own guide');
+    assert.equal(typeof instructions, 'string');
+    assert(instructions.length > 0);
+    assert.deepEqual(
+      JSON.parse(response.result.content[0].text),
+      response.result.structuredContent,
+      'The selected guide must be available in model-visible content',
+    );
+  }
+  for (const goal of ['unknown', 'all']) {
+    const invalid = await read({ goal });
+    assert(invalid.result?.isError || invalid.error, 'Unknown goals must not return all guides');
+  }
 });
 
 test('modern-only endpoint rejects old protocol and mismatched method headers before dispatch', async () => {
