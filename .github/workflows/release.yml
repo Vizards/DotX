@@ -71,7 +71,7 @@ jobs:
             let release = releases.find(item => item.tag_name === tag);
             if (preview && !release) ({ data: release } = await github.rest.repos.createRelease({
               ...repo, tag_name: tag, target_commitish: sha, name: tag,
-              draft: true, prerelease: true, body: `Development build from ${sha}. Not selected by automatic update discovery.`,
+              draft: true, prerelease: true, body: `Development build from ${sha}. Discovered only by deployments explicitly configured with RELEASE_CHANNEL=dev; stable deployments ignore this Pre-release.`,
             }));
             if (!preview && process.env.RELEASE_TAG !== tag) throw new Error('Release tag and source version differ');
             if (!release) throw new Error('Release draft not found');
