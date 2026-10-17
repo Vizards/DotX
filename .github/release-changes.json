@@ -1,0 +1,8 @@
+{
+  "base_release": null,
+  "changes": {
+    "server": true,
+    "desktop": true,
+    "remote_catalog": true
+  }
+}

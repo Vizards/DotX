@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Dependencies are bundled or ship platform binaries; installation runs no build scripts.
+ignoreScripts: true

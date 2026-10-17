@@ -1,0 +1,46 @@
+import { randomUUID } from 'node:crypto';
+import { Native, NativeRpcError } from './transport.ts';
+import type { Adapter, Method } from '../adapter.ts';
+import type { InterfaceStatus, NativeResponse } from '@dotx/shared/gateway';
+export class AppToolsAdapter implements Adapter {
+  readonly runtimeId = randomUUID();
+  ready = false;
+  constructor(readonlyOptions: { native: Native; version: string }) {
+    this.native = readonlyOptions.native;
+    this.version = readonlyOptions.version;
+  }
+  readonly native: Native;
+  readonly version: string;
+  status(): InterfaceStatus {
+    return {
+      name: 'app_tools',
+      runtime_id: this.runtimeId,
+      availability: this.ready ? 'online' : 'unavailable',
+      version: this.version,
+    };
+  }
+  async methods(): Promise<Method[]> {
+    const c = await this.native.capabilities();
+    this.ready = true;
+    return c.schemaDigestSource.map((x) => ({
+      name: `${x.namespace}.${x.name}`,
+      description: x.description as string | undefined,
+      input_schema: x.inputSchema,
+      output_schema: x.outputSchema,
+      kind: 'request',
+      tracking:
+        x.namespace === 'codex_app' && x.name === 'send_message_to_thread'
+          ? ['native', 'thread_turn']
+          : ['native'],
+    }));
+  }
+  async call(method: string, params: Record<string, unknown>): Promise<NativeResponse> {
+    try {
+      return { result: await this.native.rawCall(method, params) };
+    } catch (e) {
+      if (e instanceof NativeRpcError) return { error: e.native };
+      throw e;
+    }
+  }
+  close() {}
+}

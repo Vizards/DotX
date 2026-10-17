@@ -1,0 +1,217 @@
+name: Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Source branch, tag or commit to build as a Pre-release
+        required: true
+        default: main
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: dotx-release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      sha: ${{ steps.plan.outputs.sha }}
+      version: ${{ steps.plan.outputs.version }}
+      release_id: ${{ steps.plan.outputs.release_id }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      base_release: ${{ steps.plan.outputs.base_release }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        if: github.event_name == 'push'
+      # Only API calls run with write permission. No selected source code is executed here.
+      - uses: actions/github-script@v9
+        id: plan
+        env:
+          RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          SOURCE_REF: ${{ inputs.ref }}
+        with:
+          script: |
+            const repo = context.repo;
+            const preview = context.eventName === 'workflow_dispatch';
+            if (!preview && process.env.RELEASE_CREATED !== 'true') {
+              core.setOutput('publish', 'false');
+              return;
+            }
+            const ref = preview ? process.env.SOURCE_REF : process.env.RELEASE_SHA;
+            const { data: commit } = await github.rest.repos.getCommit({ ...repo, ref });
+            const sha = commit.sha;
+            const { data: file } = await github.rest.repos.getContent({ ...repo, path: 'package.json', ref: sha });
+            const sourceVersion = JSON.parse(Buffer.from(file.content, 'base64')).version;
+            if (!/^\d+\.\d+\.\d+$/.test(sourceVersion)) throw new Error('Source must have a stable product version');
+            const version = preview ? `${sourceVersion}-dev.${context.runNumber}.${process.env.GITHUB_RUN_ATTEMPT}` : sourceVersion;
+            const tag = `v${version}`;
+            const { data: changeFile } = await github.rest.repos.getContent({ ...repo, path: '.github/release-changes.json', ref: sha });
+            const change = JSON.parse(Buffer.from(changeFile.content, 'base64'));
+            const base = change.base_release;
+            if (!preview) {
+              let latest = null;
+              try {
+                const { data } = await github.rest.repos.getLatestRelease(repo);
+                latest = data.tag_name.replace(/^v/, '');
+              } catch (error) { if (error.status !== 404) throw error; }
+              if (base !== latest) throw new Error('Review release-changes.json against the current stable release');
+            }
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...repo, per_page: 100 });
+            let release = releases.find(item => item.tag_name === tag);
+            if (preview && !release) ({ data: release } = await github.rest.repos.createRelease({
+              ...repo, tag_name: tag, target_commitish: sha, name: tag,
+              draft: true, prerelease: true, body: `Development build from ${sha}. Not selected by automatic update discovery.`,
+            }));
+            if (!preview && process.env.RELEASE_TAG !== tag) throw new Error('Release tag and source version differ');
+            if (!release) throw new Error('Release draft not found');
+            if (!release.draft) throw new Error('Release is already published');
+            for (const [key, value] of Object.entries({ publish: 'true', sha, version, release_id: release.id, prerelease: preview, base_release: base ?? '' }))
+              core.setOutput(key, String(value));
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check && pnpm lint && pnpm check && pnpm test
+      - name: Set artifact version
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          for (const path of ['package.json', 'apps/desktop/package.json', 'apps/server/package.json', 'packages/shared/package.json', 'apps/desktop/plugin/.codex-plugin/plugin.json']) {
+            const value = JSON.parse(fs.readFileSync(path, 'utf8'));
+            value.version = process.env.VERSION;
+            fs.writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
+          }
+          JS
+      - run: pnpm build
+      - name: Assemble release attachments
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
+          BASE_RELEASE: ${{ needs.prepare.outputs.base_release }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { WIRE_VERSION } from './packages/shared/src/gateway.ts';
+          const version = process.env.VERSION;
+          const repository = process.env.GITHUB_REPOSITORY;
+          const change = JSON.parse(fs.readFileSync('.github/release-changes.json', 'utf8'));
+          const flags = ['server', 'desktop', 'remote_catalog'];
+          if (change.base_release !== (process.env.BASE_RELEASE || null) ||
+              Object.keys(change.changes).length !== flags.length ||
+              flags.some(key => typeof change.changes[key] !== 'boolean') ||
+              (change.changes.remote_catalog && !change.changes.server) ||
+              (!change.base_release && flags.some(key => !change.changes[key])))
+            throw new Error('Invalid reviewed release changes');
+          const desktop = 'dist/release/desktop';
+          const plugin = `${desktop}/plugins/dotx-desktop`;
+          const server = 'dist/release/server';
+          const assets = {
+            desktop: `dotx-desktop-${version}.zip`,
+            server: `dotx-server-${version}.zip`,
+            update_skill: 'update-SKILL.md',
+          };
+          const metadata = { release: version, repository, source_commit: process.env.SOURCE_SHA,
+            base_release: change.base_release, wire_protocol: WIRE_VERSION, changes: change.changes, assets };
+          const write = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+          for (const dir of [plugin, server, `${desktop}/.agents/plugins`, 'dist/release/assets'])
+            fs.mkdirSync(dir, { recursive: true });
+          fs.cpSync('apps/desktop/plugin', plugin, { recursive: true });
+          fs.cpSync('apps/desktop/skills', `${plugin}/skills`, { recursive: true });
+          for (const [from, to] of [
+            ['LICENSE', `${desktop}/LICENSE`],
+            ['LICENSE', `${plugin}/LICENSE`],
+            ['LICENSE', `${server}/LICENSE`],
+            ['apps/desktop/dist/plugin.mjs', `${plugin}/connector.mjs`],
+            ['apps/desktop/dist/setup/cli.mjs', `${plugin}/setup.mjs`],
+            ['apps/desktop/marketplace.json', `${desktop}/.agents/plugins/marketplace.json`],
+            ['apps/desktop/README.md', `${desktop}/README.md`],
+            ['apps/server/dist/worker.mjs', `${server}/worker.mjs`],
+            ['apps/server/README.md', `${server}/README.md`],
+            ['apps/desktop/skills/update/SKILL.md', 'dist/release/assets/update-SKILL.md'],
+          ]) fs.copyFileSync(from, to);
+          const config = JSON.parse(fs.readFileSync('apps/server/wrangler.json', 'utf8'));
+          delete config.$schema;
+          config.main = 'worker.mjs';
+          config.vars.PUBLIC_ORIGIN = 'https://your-service.example.com';
+          config.vars.RELEASE_REPOSITORY = repository;
+          write(`${server}/wrangler.json`, config);
+          const pkg = JSON.parse(fs.readFileSync('apps/server/package.json', 'utf8'));
+          write(`${server}/toolchain.json`, { wrangler: pkg.devDependencies.wrangler });
+          for (const directory of [plugin, server, 'dist/release/assets'])
+            write(path.join(directory, 'release.json'), metadata);
+          JS
+          cd dist/release/desktop
+          zip -qr "../assets/dotx-desktop-${VERSION}.zip" .
+          cd ../server
+          zip -qr "../assets/dotx-server-${VERSION}.zip" .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: dist/release/assets/*
+          if-no-files-found: error
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Do not check out or execute the selected build's code in this job.
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: assets
+      - uses: actions/github-script@v9
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const repo = context.repo;
+            const release_id = Number(process.env.RELEASE_ID);
+            const { data: release } = await github.rest.repos.getRelease({ ...repo, release_id });
+            if (!release.draft) throw new Error('Published releases cannot be replaced');
+            const version = process.env.VERSION;
+            const names = [`dotx-desktop-${version}.zip`, `dotx-server-${version}.zip`, 'release.json', 'update-SKILL.md'];
+            for (const name of names) {
+              const data = fs.readFileSync(`assets/${name}`);
+              if (!data.length) throw new Error(`Empty release asset: ${name}`);
+              const existing = release.assets.find(asset => asset.name === name);
+              if (existing) await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: existing.id });
+              await github.rest.repos.uploadReleaseAsset({ ...repo, release_id, name, data });
+            }
+            const uploaded = await github.paginate(github.rest.repos.listReleaseAssets, { ...repo, release_id, per_page: 100 });
+            for (const name of names) {
+              const asset = uploaded.find(asset => asset.name === name);
+              if (!asset || asset.size !== fs.statSync(`assets/${name}`).size) throw new Error(`Incomplete upload: ${name}`);
+            }
+            await github.rest.repos.updateRelease({ ...repo, release_id, draft: false,
+              prerelease: process.env.PRERELEASE === 'true', make_latest: process.env.PRERELEASE === 'true' ? 'false' : 'true' });

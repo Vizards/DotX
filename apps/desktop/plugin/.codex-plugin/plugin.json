@@ -1,0 +1,22 @@
+{
+  "name": "dotx-desktop",
+  "version": "0.0.1",
+  "description": "Connect this Mac\u2019s native Codex to your self-hosted DotX Server.",
+  "author": {
+    "name": "Vizards"
+  },
+  "skills": "./skills",
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/setup/SKILL.md"
+    }
+  },
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "DotX Desktop",
+    "shortDescription": "Connect this Mac\u2019s Codex to DotX, with guided setup and a local connector.",
+    "developerName": "Vizards",
+    "category": "Productivity",
+    "capabilities": []
+  }
+}

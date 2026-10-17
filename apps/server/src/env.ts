@@ -1,0 +1,13 @@
+import type { OAuthHelpers } from '@cloudflare/workers-oauth-provider';
+// Secrets are explicit: `wrangler types` on a fresh checkout need not read local credentials.
+export interface Env {
+  OAUTH_KV: KVNamespace;
+  PUBLIC_ORIGIN: string;
+  RELEASE_REPOSITORY?: string;
+  DEVICES: DurableObjectNamespace;
+  OWNER_KEY_HASH: string;
+  OAUTH_PROVIDER: OAuthHelpers;
+}
+export interface OAuthProps {
+  owner: true;
+}

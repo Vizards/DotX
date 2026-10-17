@@ -1,0 +1,20 @@
+{
+  "name": "dotx",
+  "interface": {
+    "displayName": "DotX"
+  },
+  "plugins": [
+    {
+      "name": "dotx-desktop",
+      "source": {
+        "source": "local",
+        "path": "./plugins/dotx-desktop"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
