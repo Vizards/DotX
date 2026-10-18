@@ -1,6 +1,7 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import type { Observations } from './observations.ts';
 import { WIRE_VERSION } from '@dotx/shared/gateway';
-import type { DeviceOperation as Operation, Restore } from '@dotx/shared/state';
+import type { DeviceOperation as Operation } from '@dotx/shared/state';
 import WebSocket from 'ws';
 import type { EventEmitter } from 'node:events';
 import type { ConnectionCredentials } from '../runtime/config.ts';
@@ -18,12 +19,11 @@ interface ConnectionOptions {
   execute: (operation: Operation, args: unknown) => Promise<unknown>;
   diagnostic?: (diagnostic: Diagnostic | null) => void;
   observations?: Pick<Observations, 'pending' | 'ack'>;
-  restore?: (state: Restore, reconnect: boolean) => void;
   Socket?: new (url: string, options: WebSocket.ClientOptions) => RelaySocket;
 }
 import { BridgeError, safeError } from '@dotx/shared/errors';
 
-// Transport recovery never retries commands. Durable state belongs to the DO; restore packets carry observation intents only.
+// Transport recovery never retries commands or reconstructs native subscriptions.
 export class DeviceConnection {
   readonly credentials: ConnectionOptions['credentials'];
   readonly deviceId: string;
@@ -32,7 +32,6 @@ export class DeviceConnection {
   readonly diagnostic: NonNullable<ConnectionOptions['diagnostic']>;
   readonly Socket: NonNullable<ConnectionOptions['Socket']>;
   readonly observations: ConnectionOptions['observations'];
-  readonly restore: ConnectionOptions['restore'];
   eventInterval: ReturnType<typeof setInterval> | undefined;
   delay: number;
   stopped: boolean;
@@ -48,7 +47,6 @@ export class DeviceConnection {
     diagnostic = () => {},
     Socket = WebSocket,
     observations,
-    restore,
   }: ConnectionOptions) {
     this.credentials = credentials;
     this.deviceId = deviceId;
@@ -57,7 +55,6 @@ export class DeviceConnection {
     this.diagnostic = diagnostic;
     this.Socket = Socket;
     this.observations = observations;
-    this.restore = restore;
     this.delay = 1000;
     this.stopped = true;
   }
@@ -105,8 +102,7 @@ export class DeviceConnection {
           Authorization: `Bearer ${credentials.deviceToken}`,
           'X-Device-Id': this.deviceId,
         },
-        handshakeTimeout: 10000,
-        maxPayload: 2 * 1024 * 1024,
+        handshakeTimeout: DEFAULT_TIMEOUT_MS,
       });
     } catch (error) {
       this.diagnostic(safeError(error));
@@ -120,7 +116,6 @@ export class DeviceConnection {
       this.sendHeartbeat();
       this.sendEvents();
     });
-    let firstRestore = true;
     socket.on('message', async (bytes: unknown) => {
       let raw: unknown;
       try {
@@ -140,11 +135,6 @@ export class DeviceConnection {
         return;
       }
       const control = raw as any;
-      if (control?.type === 'restore' && control.protocol === WIRE_VERSION) {
-        this.restore?.(control, firstRestore);
-        firstRestore = false;
-        return;
-      }
       if (control?.type === 'observations_ack' && Array.isArray(control.ids)) {
         this.observations?.ack(control.ids);
         this.sendEvents();

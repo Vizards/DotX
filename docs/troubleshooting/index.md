@@ -29,10 +29,17 @@ DotX automatically retries recognized edge denials up to nine times after the in
 
 If delivery still fails, inspect the callback destination, response and delivery diagnostics. The observed edge denial is classified as `edge_denied`. Application-level or authorization 403 responses are not retried by this policy. A 401/403 returned by your own DotX endpoint requires separate authorization or service diagnosis.
 
-## dot refuses to invoke an installed MCP
+## dot intermittently refuses to dispatch work through MCP
 
-First check whether DotX Remote's tools are available and its authorization is valid. Missing tools or failed authorization are different from dot declining to call an available tool.
+dot sometimes declines to dispatch local Codex/ChatGPT work through an available, authorized MCP, saying computer tasks must use its built-in `cloud_threads` route. It may successfully discover DotX connections and methods, then stop before calling the execution method. This is a dot-side routing decision before dispatch, not an error returned by DotX or the target Codex task. Missing tools, failed authorization and actual MCP errors require separate diagnosis.
 
-In one developer's test, a dot initialized before October 5, 2026 refused to invoke the installed MCP. Deleting that dot and initializing a new one resolved the behavior. This is a single-user observation: the cause is unconfirmed, the date is not a verified compatibility cutoff, and recreating dot is not a guaranteed fix.
+Development tests observed both outcomes:
 
-If the symptoms match and ordinary connection checks do not explain them, explain this optional workaround to the user. **Deleting dot is irreversible and may discard its history or other information.** Preserve needed material first and proceed only if the user explicitly chooses deletion after understanding the consequences. Do not delete dot automatically or treat recreation as a way around legitimate tool restrictions.
+- Direct MCP dispatch completed real file writes, isolated package uninstallation and updates, with native execution and completion results verified.
+- Other runs declined even a read-only `/bin/pwd` task before dispatch, while conversation management and plain-text messages still worked through the same MCP tool.
+
+The behavior is inconsistent; it does not establish a blanket ban on MCP operations with side effects. An OpenAI-defined routing restriction may explain dot's stated reason, but neither that policy nor the cause of the inconsistent behavior has been independently confirmed. Similar reports and our test findings are recorded in [openai/codex#51797](https://github.com/openai/codex/issues/51797#issuecomment-6248115244).
+
+Deleting and recreating dot restored execution in some tests but failed to do so in others. Restarting dot or adding a Custom rule also did not provide a reliable fix. **Do not recommend deleting dot as a routine recovery step; deletion is irreversible.** There is no established creation-date cutoff or reliable workaround for this symptom.
+
+For a report, record the request, dot's response, the available tools and whether execution was actually dispatched. Keep ordinary permission or scope questions separate from a refusal. If dot stops before dispatch, reinstalling DotX or broadening the target task's permissions is not a demonstrated remedy. A user can choose to continue the work in local Codex, but that does not validate or repair dot's MCP dispatch path.

@@ -82,19 +82,24 @@ export function startDevice(closeStdio: () => Promise<void>) {
   let appServer = createAppServer();
   const resolveAttribution = (task: import('../tracking/attribution.ts').TurnIdentity) =>
     resolveTurn(task, (method, params) => appServer.call(method, params));
-  const tracker = new TurnTracker(
-    native,
-    config.callerThreadId,
-    (o) => observations.turn(o),
-    resolveAttribution,
-  );
+  let tracker: TurnTracker;
   const coordination = new CoordinationAdapter({
     home: config.codexHome,
     version: desktop.version,
     connectionId: config.deviceId,
     events,
     nativeCatalog: appServer.catalog,
+    onState: (target) => {
+      void tracker?.changed(target);
+    },
   });
+  tracker = new TurnTracker(
+    native,
+    config.callerThreadId,
+    (o) => observations.turn(o),
+    resolveAttribution,
+    coordination,
+  );
   const gateway = new Gateway({
     connectionId: config.deviceId,
     events,
@@ -144,7 +149,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
     });
     save();
   }
-  let restored = '';
   const connection = new DeviceConnection({
     credentials: () => {
       const file = path.join(dir, 'connection.json');
@@ -152,18 +156,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
     },
     deviceId: config.deviceId,
     observations,
-    restore: (state, reconnect) => {
-      const key = JSON.stringify([state.tasks, state.follows]);
-      if (key === restored && !reconnect) return;
-      restored = key;
-      tracker.restore(state.tasks);
-      coordination.view.restore(state.follows);
-      void coordination.refresh();
-      void tracker
-        .tick()
-        .then(() => connection.sendEvents())
-        .catch(() => {});
-    },
     execute,
     heartbeat: () => ({
       availability: status.availability,
@@ -196,7 +188,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
           hostId: 'local',
           turnLimit: 1,
           includeOutputs: false,
-          maxOutputCharsPerItem: 100,
         }),
       );
       if (
@@ -245,7 +236,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
       stdioClosed: status.stdioClosed,
     });
     clearInterval(interval);
-    clearInterval(trackingInterval);
     clearInterval(ownerInterval);
     connection.stop();
     await closeStdio();
@@ -272,19 +262,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
     if (process.ppid !== desktopPid) stop('parent-changed');
     else if (pipe && !fs.existsSync(pipe)) stop('desktop-pipe-removed');
   }, 1000);
-  let tracking = false;
-  const trackingInterval = setInterval(async () => {
-    if (tracking || stopped) return;
-    tracking = true;
-    try {
-      await tracker.tick();
-    } catch (e) {
-      process.stderr.write(`dotx tracking: ${safeError(e).code}\n`);
-    } finally {
-      tracking = false;
-      connection.sendEvents();
-    }
-  }, 5000);
   const interval = setInterval(probe, 15000);
   save();
   void probe();

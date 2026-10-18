@@ -98,7 +98,9 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check && pnpm lint && pnpm check && pnpm test
+      - run: pnpm format:check && pnpm lint && pnpm check
+      - name: Test Server interfaces
+        run: pnpm test
       - name: Set artifact version
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -138,7 +140,6 @@ jobs:
           const assets = {
             desktop: `dotx-desktop-${version}.zip`,
             server: `dotx-server-${version}.zip`,
-            update_skill: 'update-SKILL.md',
           };
           const metadata = { release: version, repository, source_commit: process.env.SOURCE_SHA,
             base_release: change.base_release, wire_protocol: WIRE_VERSION, changes: change.changes, assets };
@@ -157,7 +158,6 @@ jobs:
             ['apps/desktop/README.md', `${desktop}/README.md`],
             ['apps/server/dist/worker.mjs', `${server}/worker.mjs`],
             ['apps/server/README.md', `${server}/README.md`],
-            ['apps/desktop/skills/update/SKILL.md', 'dist/release/assets/update-SKILL.md'],
           ]) fs.copyFileSync(from, to);
           const config = JSON.parse(fs.readFileSync('apps/server/wrangler.json', 'utf8'));
           delete config.$schema;
@@ -203,14 +203,13 @@ jobs:
             const { data: release } = await github.rest.repos.getRelease({ ...repo, release_id });
             if (!release.draft) throw new Error('Published releases cannot be replaced');
             const version = process.env.VERSION;
-            const names = [`dotx-desktop-${version}.zip`, `dotx-server-${version}.zip`, 'release.json', 'update-SKILL.md'];
+            const names = [`dotx-desktop-${version}.zip`, `dotx-server-${version}.zip`, 'release.json'];
             for (const name of names) {
               const data = fs.readFileSync(`assets/${name}`);
               if (!data.length) throw new Error(`Empty release asset: ${name}`);
               const existing = release.assets.find(asset => asset.name === name);
               if (existing) await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: existing.id });
-              const contentType = name.endsWith('.zip') ? 'application/zip'
-                : name.endsWith('.json') ? 'application/json' : 'text/markdown; charset=utf-8';
+              const contentType = name.endsWith('.zip') ? 'application/zip' : 'application/json';
               await github.rest.repos.uploadReleaseAsset({ ...repo, release_id, name, data,
                 headers: { 'content-type': contentType } });
             }

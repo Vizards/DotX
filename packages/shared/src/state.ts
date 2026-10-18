@@ -13,20 +13,21 @@ export const trackedParams = z.strictObject({
   thinking: z.string().min(1).optional(),
 });
 
-// Only the DO owns these records. Restoring a task authorizes observation, never dispatch.
+// Only the DO persists these records; querying one never authorizes redispatch.
 export interface TrackedTask {
   id: string;
   request_id: string;
   connection_id: string;
   hostId: string;
   threadId: string;
-  startedAt: number;
   turnId: string | null;
   state: RequestState;
+  error?: unknown;
 }
 export interface TurnObservation {
   task_id: string;
   state: RequestState;
+  error?: unknown;
   turnId: string | null;
   diagnostic?: Diagnostic | null;
 }
@@ -39,12 +40,6 @@ export interface FollowTarget {
 export type DeviceOperation = z.infer<typeof gatewayCommand>['operation'];
 export interface DispatchArgs extends Call {
   task?: TrackedTask;
-}
-export interface Restore {
-  type: 'restore';
-  protocol: typeof WIRE_VERSION;
-  tasks: TrackedTask[];
-  follows: FollowTarget[];
 }
 export const observation = z.discriminatedUnion('kind', [
   z.object({
@@ -63,6 +58,7 @@ export const observation = z.discriminatedUnion('kind', [
       'unknown',
     ]),
     turnId: z.string().nullable(),
+    error: z.unknown().optional(),
     diagnostic: z
       .object({ code: z.string(), message: z.string().optional() })
       .nullable()

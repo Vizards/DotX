@@ -3,7 +3,8 @@ import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import readline from 'node:readline';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { BridgeError } from '@dotx/shared/errors';
+import { BridgeError, errorCode } from '@dotx/shared/errors';
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import type { InterfaceStatus, NativeResponse, NativeEvent } from '@dotx/shared/gateway';
 import type { Adapter, Method } from '../adapter.ts';
 import { readNativeCatalog } from './schema.ts';
@@ -13,7 +14,11 @@ export class AppServerAdapter implements Adapter {
   readonly process: ChildProcessWithoutNullStreams;
   readonly pending = new Map<
     string,
-    { resolve: (v: NativeResponse) => void; reject: (e: Error) => void }
+    {
+      resolve: (v: NativeResponse) => void;
+      reject: (e: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
   >();
   readonly catalog: Method[];
   readonly catalogReady: boolean;
@@ -66,6 +71,7 @@ export class AppServerAdapter implements Adapter {
           const p = this.pending.get(String(m.id));
           if (p) {
             this.pending.delete(String(m.id));
+            clearTimeout(p.timer);
             p.resolve(m.error ? { error: m.error } : { result: m.result });
           }
         }
@@ -83,7 +89,10 @@ export class AppServerAdapter implements Adapter {
       this.ended = true;
       this.ready = false;
       this.diagnostic ??= 'APP_SERVER_EXITED';
-      for (const p of this.pending.values()) p.reject(new BridgeError('APP_SERVER_EXITED'));
+      for (const p of this.pending.values()) {
+        clearTimeout(p.timer);
+        p.reject(new BridgeError('APP_SERVER_EXITED'));
+      }
       this.pending.clear();
       options.onExit(this.runtimeId);
       log.end();
@@ -107,19 +116,13 @@ export class AppServerAdapter implements Adapter {
       this.write({ method: 'initialized', params: {} });
       this.ready = catalogReady;
     })();
-    const initTimeout = setTimeout(() => {
-      if (!this.ready) {
-        this.diagnostic = 'APP_SERVER_INITIALIZE_TIMEOUT';
-        this.close();
-      }
-    }, 30000);
-    initTimeout.unref();
-    void this.initialized
-      .finally(() => clearTimeout(initTimeout))
-      .catch(() => {
-        this.diagnostic = 'APP_SERVER_INITIALIZE_FAILED';
-        this.close();
-      });
+    void this.initialized.catch((error) => {
+      this.diagnostic =
+        errorCode(error) === 'APP_SERVER_TIMEOUT'
+          ? 'APP_SERVER_INITIALIZE_TIMEOUT'
+          : 'APP_SERVER_INITIALIZE_FAILED';
+      void this.close();
+    });
   }
   readonly version: string;
   status(): InterfaceStatus {
@@ -143,10 +146,22 @@ export class AppServerAdapter implements Adapter {
   call(method: string, params: Record<string, unknown>): Promise<NativeResponse> {
     const id = randomUUID();
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      // JSON-RPC over stdio has no response deadline. Expiry releases this waiter;
+      // it does not cancel the native operation or permit a duplicate dispatch.
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(
+          new BridgeError(
+            'APP_SERVER_TIMEOUT',
+            `No response to ${method}; reconcile, do not resend`,
+          ),
+        );
+      }, DEFAULT_TIMEOUT_MS);
+      this.pending.set(id, { resolve, reject, timer });
       try {
         this.write({ id, method, params });
       } catch (e) {
+        clearTimeout(timer);
         this.pending.delete(id);
         reject(e);
       }
@@ -158,7 +173,7 @@ export class AppServerAdapter implements Adapter {
   async close() {
     if (this.ended) return;
     this.process.stdin.end();
-    const t = setTimeout(() => this.process.kill('SIGTERM'), 3000);
+    const t = setTimeout(() => this.process.kill('SIGTERM'), DEFAULT_TIMEOUT_MS);
     t.unref();
     await this.exited;
     clearTimeout(t);

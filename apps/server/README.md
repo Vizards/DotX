@@ -14,6 +14,6 @@ Use DotX Desktop's `setup.mjs owner-key-hash` to create or reuse the administrat
 
 ## Update
 
-Use the target Release's `update-SKILL.md` and release notes to determine which components need updates. Deploy through the existing configuration and resources; change the code path and target-required fields, without replacing credentials or clearing DO data. Preserve the service origin and OAuth connection.
+ChatGPT/dot coordinates updates through DotX Remote's `get_instructions(goal="update")`; a local Codex executor uses the installed Desktop update skill. Read the target Release's notes for version-specific requirements and `release.json` for component changes. Deploy through the existing configuration and resources; change the code path and target-required fields, without replacing credentials or clearing DO data. Preserve the service origin and OAuth association; the transport may briefly disconnect during deployment and reconnect afterwards.
 
 Deployment updates Remote's running code. A changed tool catalog, schema or model instructions also requires Refresh in ChatGPT's normal plugin management. Read `/health` and authenticated `list_connections` to verify the running Server, protocol and connections. Installation/update does not run project tests or dispatch synthetic tasks.

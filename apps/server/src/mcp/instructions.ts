@@ -1,3 +1,5 @@
+import updateSkill from '../../skills/update/SKILL.md';
+
 export const INSTRUCTIONS_GUIDANCE =
   'Before using DotX tools for a task, read the relevant guidance with get_instructions. Reuse guidance already available in the current context.';
 
@@ -5,10 +7,8 @@ export const INSTRUCTION_GUIDES = {
   update: {
     title: 'Plan and coordinate a DotX update',
     description:
-      'Read the target release workflow and settle the update scope and execution permissions before delegating local work.',
-    instructions: `The ChatGPT, dot or local Codex conversation receiving the user's update request coordinates the update. Read the target Release's update skill yourself before creating an execution task or dispatching update work; passing its link to another conversation does not complete this step. list_connections provides running versions and an updates.latest.update_skill_url hint; use the user's chosen release when specified. The web-readable source is https://raw.githubusercontent.com/Vizards/DotX/<release-tag>/apps/desktop/skills/update/SKILL.md with the target Release tag substituted; the Release's update-SKILL.md attachment has the same contents. If the guide cannot be read, report that blocker instead of creating a task to read it.
-
-Use that skill to settle scope, permissions and execution order with the user. Pass the agreed choices to local executors; do not delegate unresolved user choices or answer them on the user's behalf. Read the conversations and settings guides when creating or configuring an execution conversation.`,
+      'Coordinate the update from ChatGPT or dot: read release notes, resolve permissions, delegate local work and verify the result.',
+    instructions: updateSkill,
   },
   connections: {
     title: 'Find connections and choose an interface',
@@ -21,7 +21,7 @@ DotX exposes three interfaces:
 - app_server runs an independent local App Server.
 - client_coordination reaches the actual desktop task owner.
 
-Use describe_methods to discover native methods and read their input/output schemas. Do not substitute the independent App Server for a desktop-owned operation. Rediscover runtime IDs after a connector restart.`,
+Use describe_methods to discover native methods and read their input/output schemas. Do not substitute the independent App Server for a desktop-owned operation. Rediscover runtime IDs after a connector restart. For an unavailable client_coordination transport, describe_methods explicitly attempts to connect again; it does not restore subscriptions.`,
   },
   conversations: {
     title: 'Create or continue a Codex conversation',
@@ -58,7 +58,7 @@ On an explicit Fast change, update only threadSettings.serviceTier: priority ena
 
 Save request_id before call. Use get_request to inspect execution state or a tracked-turn receipt. Reusing request_id does not replay an ordinary RPC payload. Use a new ID for a new query; an unknown outcome does not permit resending the original operation with a new ID. Reconcile its native state first.
 
-tracking=thread_turn on app_tools/codex_app.send_message_to_thread tracks the exact new idle-thread turn. Match the receipt to its request and turn before reporting completion. Execution metadata survives connector restarts in the service; tracked result content is read from the native thread and requires an online connector. Cross-host tracking also needs the target Mac's registered connector to locate the turn.
+tracking=thread_turn on app_tools/codex_app.send_message_to_thread tracks the exact new idle-thread turn. Match the receipt to its request and turn before reporting completion. Confirmed terminal status survives connector restarts in the service. Native observation stops on disconnects or state gaps and is not automatically restored. Use get_request to check current state; it reads a fresh snapshot and observes the turn if still running. If the owner or target turn is unavailable, the receipt stays unknown. DotX does not search historical pages or infer completion from output text. Result content is read by exact turnId through the target Mac's App Server; cross-host tracking needs that Mac's registered connector. Results contain one native content page in descending order; a non-null nextCursor means more content is available through app_server/thread/items/list with the same threadId, turnId and sortDirection="desc".
 
 For completion notifications, read the interactions guide and subscribe before work. With an active subscription, wait for notifications and inspect the referenced receipt instead of continuously polling.`,
   },
@@ -70,7 +70,7 @@ For completion notifications, read the interactions guide and subscribe before w
 
 Use MCP Events on this endpoint via the host's events/subscribe support, not call: gateway.request.updated for tracked receipts and gateway.native.event for desktop interactions. Subscribe before work; with an active subscription, wait for notifications instead of continuous polling. Event definitions describe filters and defaults. Notifications point to get_request or read_events(read_cursor); deduplicate eventId and read current state. Read the results guide when interpreting execution receipts.
 
-Subscriptions survive reconnects, but runtime IDs and native interaction handles must be rediscovered. Native event payloads are bounded process-local memory. A gap, expired runtime or missed pre-upload notification requires reading the current native snapshot; old handles cannot be restored. The MCP client renews subscriptions (up to 24 hours).
+MCP Events subscriptions live on the service, but native desktop follows do not survive connector/IPC restarts or state gaps. On subscription/unavailable, runtime expiry or missing progress, use get_request for a tracked turn, or explicitly follow the target again for current interactions. Rediscover runtime IDs and read_events handles before responding. Native event payloads are bounded process-local memory; old handles cannot be restored. The MCP client renews MCP Events subscriptions (up to 24 hours).
 
 Answer blocking server_request events (approvals, synchronous input and MCP elicitation) using respond and their response_schema. Resolution acknowledges the interaction, not task completion. Unknown outcomes require reconciliation, not another submission. Ordinary messages do not unblock synchronous input.
 

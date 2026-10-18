@@ -8,9 +8,9 @@
   },
   "scripts": {
     "check": "pnpm types:generate && tsc --noEmit",
-    "test": "node --test test/*.test.ts",
+    "test": "node --test --test-timeout=30000 test/*.test.ts",
     "dev": "wrangler dev",
-    "build": "esbuild src/worker.ts --bundle --platform=browser --target=es2023 --format=esm --conditions=workerd,worker,browser '--external:node:*' '--external:cloudflare:*' --outfile=dist/worker.mjs",
+    "build": "esbuild src/worker.ts --bundle --platform=browser --target=es2023 --format=esm --conditions=workerd,worker,browser --loader:.md=text '--external:node:*' '--external:cloudflare:*' --outfile=dist/worker.mjs",
     "build:worker": "wrangler deploy --dry-run",
     "types:generate": "mkdir -p types && wrangler types types/cloudflare.d.ts --include-env=false"
   },

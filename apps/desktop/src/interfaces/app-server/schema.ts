@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,11 +11,11 @@ import { loadCatalog } from './catalog.ts';
 export function readNativeCatalog(cli: string) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dotx-schema-'));
   try {
-    const options = { encoding: 'utf8' as const, timeout: 15000, maxBuffer: 32 * 1024 * 1024 };
     execFileSync(
       cli,
       ['app-server', 'generate-json-schema', '--experimental', '--out', directory],
-      options,
+      // The schema is written to files; command output is not consumed.
+      { timeout: DEFAULT_TIMEOUT_MS, stdio: 'ignore' },
     );
     return loadCatalog(directory);
   } catch {

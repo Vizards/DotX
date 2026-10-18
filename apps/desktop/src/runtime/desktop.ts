@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { BridgeError } from '@dotx/shared/errors';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,7 +34,7 @@ export function discoverDesktop(appPath = process.env.DOTX_APP_PATH) {
           version: execFileSync(
             '/usr/libexec/PlistBuddy',
             ['-c', 'Print CFBundleShortVersionString', path.join(app, 'Contents/Info.plist')],
-            { encoding: 'utf8' },
+            { encoding: 'utf8', timeout: DEFAULT_TIMEOUT_MS },
           ).trim(),
         };
     }

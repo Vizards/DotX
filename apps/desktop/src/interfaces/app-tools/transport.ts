@@ -1,7 +1,9 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import net from 'node:net';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { BridgeError, errorCode } from '@dotx/shared/errors';
+import { FrameDecoder } from '../framing.ts';
 const toolSchema = z
   .object({
     namespace: z.string(),
@@ -48,14 +50,15 @@ export function pipeRpc(
   pipe: string | undefined,
   method: string,
   params: unknown,
-  timeoutMs = 15000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
   observe?: ObserveRpc,
 ): Promise<unknown> {
   if (!pipe) return Promise.reject(new BridgeError('DESKTOP_PIPE_MISSING'));
   return new Promise((resolve, reject) => {
     const id = randomUUID(),
       socket = net.createConnection(pipe);
-    let data = Buffer.alloc(0),
+    const decoder = new FrameDecoder();
+    let receivedBytes = 0,
       done = false;
     const startedAt = Date.now();
     const start = performance.now();
@@ -70,6 +73,7 @@ export function pipeRpc(
       if (done) return;
       done = true;
       clearTimeout(timer);
+      decoder.reset();
       socket.destroy();
       try {
         observe?.({
@@ -78,7 +82,7 @@ export function pipeRpc(
           phase: error ? phase : 'complete',
           elapsedMs: Math.round(performance.now() - start),
           timeoutMs,
-          receivedBytes: data.length,
+          receivedBytes,
           outcome: error ? errorCode(error) || 'INTERNAL_ERROR' : 'ok',
         });
       } catch {
@@ -92,7 +96,7 @@ export function pipeRpc(
         finish(
           new BridgeError(
             'DESKTOP_TIMEOUT',
-            `Desktop ${operation} timed out after ${Math.round(performance.now() - start)}ms (${phase}, receivedBytes=${data.length})`,
+            `Desktop ${operation} timed out after ${Math.round(performance.now() - start)}ms (${phase}, receivedBytes=${receivedBytes})`,
           ),
         ),
       timeoutMs,
@@ -105,17 +109,18 @@ export function pipeRpc(
       socket.write(Buffer.concat([header, body]));
     });
     socket.on('data', (chunk) => {
+      if (done) return;
       phase = 'receiving_response';
-      data = Buffer.concat([data, chunk]);
-      if (data.length < 4) return;
-      const size = data.readUInt32LE();
-      if (size > 16 * 1024 * 1024) return finish(new BridgeError('DESKTOP_FRAME_TOO_LARGE'));
-      if (data.length < size + 4) return;
+      receivedBytes += chunk.length;
+      // Decode the native reply here. Remote response limits belong to the relay.
       try {
-        const reply = rpcReply.parse(JSON.parse(data.subarray(4, size + 4).toString('utf8')));
-        if (reply.id !== id) throw new BridgeError('DESKTOP_RESPONSE_MISMATCH');
-        if (reply.error) throw new NativeRpcError(reply.error);
-        finish(null, reply.result);
+        for (const frame of decoder.push(chunk)) {
+          const reply = rpcReply.parse(JSON.parse(frame.toString('utf8')));
+          if (reply.id !== id) throw new BridgeError('DESKTOP_RESPONSE_MISMATCH');
+          if (reply.error) throw new NativeRpcError(reply.error);
+          finish(null, reply.result);
+          return;
+        }
       } catch (e) {
         finish(e);
       }
@@ -164,7 +169,13 @@ export class Native {
     const parsed = z
       .object({ tools: z.array(toolSchema) })
       .safeParse(
-        await this.rpc(this.pipe, 'tools/list', { threadStartKind: 'all' }, 15000, this.observeRpc),
+        await this.rpc(
+          this.pipe,
+          'tools/list',
+          { threadStartKind: 'all' },
+          undefined,
+          this.observeRpc,
+        ),
       );
     if (!parsed.success) throw new BridgeError('UNSUPPORTED_CAPABILITY_SCHEMA');
     const result = parsed.data;
@@ -175,7 +186,7 @@ export class Native {
     return {
       protocol: 1,
       tools: entries.map((t) => `${t.namespace}.${t.name}`),
-      schemaDigestSource: entries,
+      toolDefinitions: entries,
     };
   }
   async rawCall(
@@ -205,7 +216,7 @@ export class Native {
         // parent_turn_id on the target, outside the prompt. This is not native deduplication.
         turnId: context?.turnId ?? randomUUID(),
       },
-      30000,
+      undefined,
       this.observeRpc,
     );
   }

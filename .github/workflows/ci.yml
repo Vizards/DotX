@@ -18,5 +18,8 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check && pnpm lint && pnpm check && pnpm test && pnpm build
+      - run: pnpm format:check && pnpm lint && pnpm check
+      - name: Test Server interfaces
+        run: pnpm test
+      - run: pnpm build
       - run: pnpm --filter @dotx/server build:worker

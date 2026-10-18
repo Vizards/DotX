@@ -1,9 +1,8 @@
 import { z } from 'zod';
-export const WIRE_VERSION = 1;
+export const WIRE_VERSION = 2;
 const id = z
   .string()
   .min(1)
-  .max(160)
   .regex(/^[a-zA-Z0-9_.:-]+$/);
 export const interfaceName = z.enum(['app_tools', 'app_server', 'client_coordination']);
 export const address = { connection_id: id, interface: interfaceName };
@@ -13,7 +12,7 @@ export const gatewaySchemas = {
     ...address,
     runtime_id: id,
     request_id: id,
-    method: z.string().min(1).max(200),
+    method: z.string().min(1),
     params: z.record(z.string(), z.unknown()),
     tracking: z.enum(['native', 'thread_turn']).default('native'),
   }),
@@ -21,8 +20,8 @@ export const gatewaySchemas = {
   read_events: z.strictObject({
     ...address,
     runtime_id: id,
-    cursor: z.string().max(500).optional(),
-    limit: z.number().int().min(1).max(100).default(50),
+    cursor: z.string().optional(),
+    limit: z.number().int().min(1).default(50),
   }),
   respond: z.strictObject({
     event_id: id,
@@ -67,6 +66,7 @@ export const gatewayCommand = z.object({
     'read_events',
     'respond',
     'read_turn',
+    'read_turn_result',
     'resolve_turn',
   ]),
   args: z.unknown(),
@@ -93,7 +93,8 @@ export function canonical(value: unknown): string {
       '{' +
       Object.entries(value)
         .filter(([, v]) => v !== undefined)
-        .sort(([a], [b]) => a.localeCompare(b))
+        // Content identities must not depend on the process locale.
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
         .map(([k, v]) => JSON.stringify(k) + ':' + canonical(v))
         .join(',') +
       '}'

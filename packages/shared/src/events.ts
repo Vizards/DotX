@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { interfaceName } from './gateway.ts';
-const id = z.string().min(1).max(160);
+const id = z.string().min(1);
 export const eventName = z.enum(['gateway.request.updated', 'gateway.native.event']);
 const base = { connection_id: id };
 export const requestFilter = z.strictObject({
   ...base,
   request_id: id.optional(),
-  statuses: z.array(z.string().min(1).max(100)).min(1).max(20).optional(),
+  statuses: z.array(z.string().min(1)).min(1).optional(),
 });
 export const nativeFilter = z.strictObject({
   ...base,
@@ -14,11 +14,10 @@ export const nativeFilter = z.strictObject({
   host_id: id.optional(),
   thread_id: id.optional(),
   turn_id: id.optional(),
-  methods: z.array(z.string().min(1).max(200)).min(1).max(30).optional(),
+  methods: z.array(z.string().min(1)).min(1).optional(),
   kinds: z
     .array(z.enum(['notification', 'server_request', 'lifecycle']))
     .min(1)
-    .max(3)
     .optional(),
 });
 export const noticeData = z.strictObject({
@@ -27,15 +26,15 @@ export const noticeData = z.strictObject({
   runtime_id: id,
   request_id: id.optional(),
   tracking: z.enum(['native', 'thread_turn']).optional(),
-  rpc_status: z.string().max(30).optional(),
-  status: z.string().max(100).optional(),
+  rpc_status: z.string().optional(),
+  status: z.string().optional(),
   host_id: id.optional(),
   thread_id: id.optional(),
   turn_id: id.optional(),
   source_event_id: id.optional(),
-  read_cursor: z.string().max(500).optional(),
+  read_cursor: z.string().optional(),
   kind: z.enum(['notification', 'server_request', 'lifecycle']).optional(),
-  method: z.string().max(200).optional(),
+  method: z.string().optional(),
   interaction_key: id.optional(),
 });
 export type NoticeData = z.infer<typeof noticeData>;
@@ -46,12 +45,12 @@ export const notice = z.strictObject({
   data: noticeData,
 });
 export type Notice = z.infer<typeof notice>;
-const delivery = z.strictObject({ mode: z.literal('webhook'), url: z.url().max(4096) });
+const delivery = z.strictObject({ mode: z.literal('webhook'), url: z.url() });
 export const subscribeSchema = z.object({
   name: eventName,
   arguments: z.record(z.string(), z.unknown()),
-  delivery: delivery.extend({ secret: z.string().max(100) }),
-  cursor: z.string().max(100).nullable().optional(),
+  delivery: delivery.extend({ secret: z.string() }),
+  cursor: z.string().nullable().optional(),
   ttlMs: z.number().int().positive().nullable().optional(),
 });
 export const unsubscribeSchema = z.object({

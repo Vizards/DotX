@@ -40,4 +40,4 @@ After an interruption, inspect `status`, the actual deployment configuration, `/
 
 Read local `device_status` and Remote `list_connections` to verify the loaded connector and interfaces. If a reload is needed, use normal desktop controls at a suitable time around running tasks. Installation does not run test scripts or send synthetic tasks.
 
-For an existing installation's upgrade, use the target Release's update skill. Server deployment and ChatGPT catalog Refresh are separate operations; use normal plugin management, never private refresh APIs or identity overrides.
+For an existing installation's upgrade, use the installed Desktop update skill and the target Release's notes and `release.json`. ChatGPT/dot coordinates through DotX Remote's `get_instructions(goal="update")`. Server deployment and ChatGPT catalog Refresh are separate operations; use normal plugin management, never private refresh APIs or identity overrides.

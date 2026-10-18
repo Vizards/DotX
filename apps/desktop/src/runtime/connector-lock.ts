@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -11,6 +12,7 @@ export function tryConnectorLock(dir: string): boolean {
     // Do not release it while adapters or the cloud connection may still be alive.
     execFileSync('/usr/bin/lockf', ['-s', '-t', '0', '3'], {
       stdio: ['ignore', 'ignore', 'pipe', fd],
+      timeout: DEFAULT_TIMEOUT_MS,
     });
     return true;
   } catch (error) {

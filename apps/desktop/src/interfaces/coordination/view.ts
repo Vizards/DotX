@@ -12,24 +12,14 @@ export interface Interaction extends FollowTarget {
   native: Record<string, any>;
   responseSchema?: unknown;
   status: NonNullable<NativeEvent['response_status']>;
+  eventId?: string;
+  publishedState?: string;
   responseResult?: unknown;
   diagnostic?: { code: string };
 }
 // A view of the current desktop snapshot, not an execution/answer ledger.
 export class CoordinationView {
-  readonly following = new Map<string, FollowTarget>();
   readonly interactions = new Map<string, Interaction>();
-  follow(target: FollowTarget, following: boolean) {
-    if (following) this.following.set(targetKey(target), target);
-    else this.following.delete(targetKey(target));
-  }
-  targets() {
-    return [...this.following.values()];
-  }
-  restore(targets: FollowTarget[]) {
-    this.following.clear();
-    for (const t of targets) this.follow(t, true);
-  }
   get(key: string) {
     return this.interactions.get(key) ?? null;
   }
@@ -42,15 +32,9 @@ export class CoordinationView {
     else if (prior.status === 'pending') prior.owner = i.owner;
     return this.interactions.get(i.key)!;
   }
-  update(key: string, changes: Partial<Interaction>) {
-    const row = this.interactions.get(key)!;
-    if (row.status === 'resolved') delete changes.status;
-    Object.assign(row, changes);
-    return row;
-  }
   decorate(event: NativeEvent): NativeEvent {
     const current = event.interaction_key && this.get(event.interaction_key);
-    return current
+    return current && current.eventId === event.event_id
       ? {
           ...event,
           response_status: current.status,

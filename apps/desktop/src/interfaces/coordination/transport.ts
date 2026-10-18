@@ -1,7 +1,9 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import net from 'node:net';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { BridgeError } from '@dotx/shared/errors';
+import { FrameDecoder } from '../framing.ts';
 
 export type WireMessage = Record<string, any>;
 /**
@@ -19,7 +21,7 @@ export class CoordinationWire {
   socket?: net.Socket;
   clientId?: string;
   connecting?: Promise<void>;
-  buffer = Buffer.alloc(0);
+  private readonly decoder = new FrameDecoder();
   readonly pending = new Map<
     string,
     {
@@ -45,7 +47,7 @@ export class CoordinationWire {
     const st = fs.lstatSync(this.options.endpoint);
     if (!st.isSocket() || st.uid !== process.getuid?.() || st.mode & 0o077)
       throw new BridgeError('COORDINATION_SOCKET_IDENTITY_MISMATCH');
-    this.buffer = Buffer.alloc(0);
+    this.decoder.reset();
     const socket = net.createConnection(this.options.endpoint);
     this.socket = socket;
     socket.on('data', (chunk) => {
@@ -57,7 +59,7 @@ export class CoordinationWire {
       const timer = setTimeout(() => {
         socket.destroy();
         reject(new BridgeError('COORDINATION_CONNECT_TIMEOUT'));
-      }, this.options.timeoutMs ?? 12000);
+      }, this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
       socket.once('connect', () => {
         clearTimeout(timer);
         resolve();
@@ -82,6 +84,7 @@ export class CoordinationWire {
     if (this.socket !== socket) return;
     this.socket = undefined;
     this.clientId = undefined;
+    this.decoder.reset();
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
       p.reject(new BridgeError('COORDINATION_DISCONNECTED'));
@@ -90,53 +93,41 @@ export class CoordinationWire {
     this.options.onDisconnect();
   }
   private receive(chunk: Buffer) {
-    this.buffer = Buffer.concat([this.buffer, chunk]);
-    while (this.buffer.length >= 4) {
-      const length = this.buffer.readUInt32LE();
-      if (length > 32 * 1024 * 1024) {
-        this.close();
-        return;
-      }
-      if (this.buffer.length < length + 4) return;
-      let message: WireMessage;
-      try {
-        message = JSON.parse(this.buffer.subarray(4, length + 4).toString());
-      } catch {
-        this.close();
-        return;
-      }
-      this.buffer = this.buffer.subarray(length + 4);
-      if (message.type === 'response') {
-        const p = this.pending.get(message.requestId);
-        if (!p) continue;
-        this.pending.delete(message.requestId);
-        clearTimeout(p.timer);
-        // Broker failures (for example no-client-found after desktop restart)
-        // contain only requestId/resultType/error. Successful owner responses
-        // must still identify both the method and the selected owner.
-        const brokerError =
-          message.resultType === 'error' &&
-          typeof message.error === 'string' &&
-          message.method === undefined;
-        if (
-          (!brokerError && message.method !== p.method) ||
-          (message.resultType === 'success' && p.owner && message.handledByClientId !== p.owner)
-        )
-          p.reject(new BridgeError('COORDINATION_RESPONSE_SOURCE_MISMATCH'));
-        else p.resolve(message);
-      } else if (message.type === 'client-discovery-request') {
-        this.write({
-          type: 'client-discovery-response',
-          requestId: message.requestId,
-          response: { canHandle: false },
-        });
-      } else {
-        try {
+    try {
+      // Full native snapshots stay local; only derived summaries leave the Mac.
+      for (const frame of this.decoder.push(chunk)) {
+        const message: WireMessage = JSON.parse(frame.toString());
+        if (message.type === 'response') {
+          const p = this.pending.get(message.requestId);
+          if (!p) continue;
+          this.pending.delete(message.requestId);
+          clearTimeout(p.timer);
+          // Broker failures (for example no-client-found after desktop restart)
+          // contain only requestId/resultType/error. Successful owner responses
+          // must still identify both the method and the selected owner.
+          const brokerError =
+            message.resultType === 'error' &&
+            typeof message.error === 'string' &&
+            message.method === undefined;
+          if (
+            (!brokerError && message.method !== p.method) ||
+            (message.resultType === 'success' && p.owner && message.handledByClientId !== p.owner)
+          )
+            p.reject(new BridgeError('COORDINATION_RESPONSE_SOURCE_MISMATCH'));
+          else p.resolve(message);
+        } else if (message.type === 'client-discovery-request') {
+          this.write({
+            type: 'client-discovery-response',
+            requestId: message.requestId,
+            response: { canHandle: false },
+          });
+        } else {
           this.options.onMessage(message);
-        } catch {
-          this.close();
         }
+        if (this.socket?.destroyed) return;
       }
+    } catch {
+      this.close();
     }
   }
   write(message: WireMessage) {
@@ -156,18 +147,15 @@ export class CoordinationWire {
   ): Promise<WireMessage> {
     // version belongs to this native message method, not the desktop release or MCP protocol.
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => {
-          this.pending.delete(requestId);
-          reject(
-            new BridgeError(
-              'COORDINATION_TIMEOUT',
-              `No response to ${method}; reconcile, do not resend`,
-            ),
-          );
-        },
-        (this.options.timeoutMs ?? 12000) + 1000,
-      );
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId);
+        reject(
+          new BridgeError(
+            'COORDINATION_TIMEOUT',
+            `No response to ${method}; reconcile, do not resend`,
+          ),
+        );
+      }, this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
       this.pending.set(requestId, { method, owner, resolve, reject, timer });
       try {
         this.write({
@@ -178,7 +166,7 @@ export class CoordinationWire {
           params,
           version,
           targetClientId: owner,
-          timeoutMs: this.options.timeoutMs ?? 12000,
+          timeoutMs: this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
           ...(hostId && hostId !== 'local' ? { hostId } : {}),
         });
       } catch (e) {
@@ -199,6 +187,7 @@ export class CoordinationWire {
     });
   }
   close() {
+    this.decoder.reset();
     this.socket?.destroy();
   }
 }
@@ -206,7 +195,7 @@ export class CoordinationWire {
 /**
  * Private desktop state uses Immer array-path patches, not JSON Pointer strings.
  * Patch semantics are not covered by the public App Server schema. A revision gap or
- * unsupported patch must trigger a new snapshot, never a guessed approval/turn state.
+ * unsupported patch invalidates the stream until an explicit read, never a guessed approval/turn state.
  */
 export function applyStatePatches(state: WireMessage, patches: WireMessage[]) {
   let next = structuredClone(state);

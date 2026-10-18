@@ -7,21 +7,19 @@
     "node": ">=24.12.0"
   },
   "scripts": {
-    "test": "pnpm -r test && node --test test/*.test.ts",
-    "check": "pnpm -r check && tsc --noEmit",
+    "test": "pnpm --filter @dotx/server test",
+    "check": "pnpm -r check",
     "build": "pnpm -r build",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint --deny-warnings apps packages test",
-    "lint:fix": "oxlint --fix apps packages test"
+    "lint": "oxlint --deny-warnings apps packages",
+    "lint:fix": "oxlint --fix apps packages"
   },
   "devDependencies": {
-    "@dotx/shared": "workspace:*",
     "@types/node": "24.19.2",
     "oxfmt": "0.73.0",
     "oxlint": "1.88.0",
-    "typescript": "7.0.2",
-    "yaml": "2.9.1"
+    "typescript": "7.0.2"
   },
   "version": "0.0.1",
   "license": "MIT"

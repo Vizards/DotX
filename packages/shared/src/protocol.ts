@@ -6,7 +6,6 @@ import { z } from 'zod';
 export const id = z
   .string()
   .min(1)
-  .max(160)
   .regex(/^[a-zA-Z0-9_.:-]+$/);
 export const nativeHost = z
   .string()
@@ -59,7 +58,7 @@ export type RequestState =
 
 // Private App Tools read_thread response, not the public App Server thread/read schema.
 // schemaVersion below is a payload revision, not a desktop release gate. Preserve extra fields;
-// changes to consumed identity/turn fields require rechecking health and exact-turn tracking.
+// changes to consumed identity/status fields require rechecking health and send preflight.
 export const threadStatusSchema = z
   .object({ type: z.string(), activeFlags: z.array(z.string()).optional() })
   .passthrough();
@@ -72,34 +71,17 @@ export const threadSchema = z
     status: threadStatusSchema.optional(),
   })
   .passthrough();
-export const itemSchema = z
-  .object({
-    type: z.string(),
-    namespace: z.string().optional(),
-    name: z.string().optional(),
-    text: z.string().optional(),
-    output: z.unknown().optional(),
-  })
-  .passthrough();
-export const turnSchema = z
-  .object({
-    id: z.string(),
-    status: z.string(),
-    items: z.array(itemSchema).optional(),
-    error: z.unknown().optional(),
-  })
-  .passthrough();
 export const readSchema = z
   .object({
     schemaVersion: z.literal(1),
     thread: threadSchema,
-    turns: z.array(turnSchema),
-    page: z.object({ nextCursor: z.string().nullable().optional() }).passthrough().optional(),
   })
   .passthrough();
 export type NativeRead = z.infer<typeof readSchema>;
-export type NativeTurn = z.infer<typeof turnSchema>;
-export type NativeItem = z.infer<typeof itemSchema>;
+export interface NativeItem {
+  type: string;
+  [key: string]: unknown;
+}
 export type ThreadStatus = z.infer<typeof threadStatusSchema>;
 export const heartbeatSchema = z.object({
   type: z.literal('heartbeat'),

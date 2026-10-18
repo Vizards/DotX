@@ -166,9 +166,6 @@ importers:
 
   .:
     devDependencies:
-      '@dotx/shared':
-        specifier: workspace:*
-        version: link:packages/shared
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
@@ -181,9 +178,6 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-      yaml:
-        specifier: 2.9.1
-        version: 2.9.1
 
   apps/desktop:
     dependencies:
@@ -1167,11 +1161,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  yaml@2.9.1:
-    resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
-    engines: {node: '>= 14.6'}
-    hasBin: true
-
   youch-core@0.3.3:
     resolution: {integrity: sha512-ho7XuGjLaJ2hWHoK8yFnsUGy2Y5uDpqSTq1FkHLK4/oqKtyUU1AFbOOxY4IpC9f0fTLjwYbslUz0Po5BpD1wrA==}
 
@@ -1825,8 +1814,6 @@ snapshots:
   ws@8.21.0: {}
 
   ws@8.22.0: {}
-
-  yaml@2.9.1: {}
 
   youch-core@0.3.3:
     dependencies:

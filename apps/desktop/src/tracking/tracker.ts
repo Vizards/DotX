@@ -1,10 +1,11 @@
 import { BridgeError, safeError } from '@dotx/shared/errors';
 import { readSchema } from '@dotx/shared/protocol';
-import type { NativeRead, NativeItem } from '@dotx/shared/protocol';
-import type { TrackedTask, TurnObservation } from '@dotx/shared/state';
+import type { NativeRead } from '@dotx/shared/protocol';
+import type { FollowTarget, TrackedTask, TurnObservation } from '@dotx/shared/state';
 import type { ResolveTurn } from './attribution.ts';
 import { terminal } from '@dotx/shared/state';
 import type { NativeClient } from '../interfaces/app-tools/transport.ts';
+import type { CoordinationAdapter } from '../interfaces/coordination/adapter.ts';
 
 export function validateThread(input: unknown, threadId: string, hostId = 'local'): NativeRead {
   const parsed = readSchema.safeParse(input);
@@ -14,59 +15,48 @@ export function validateThread(input: unknown, threadId: string, hostId = 'local
     throw new BridgeError('TARGET_IDENTITY_MISMATCH');
   return data;
 }
+const target = (task: TrackedTask): FollowTarget => ({
+  hostId: task.hostId,
+  conversationId: task.threadId,
+});
 
 export class TurnTracker {
   readonly tasks = new Map<string, TrackedTask>();
-  readonly busy = new Set<string>();
   readonly native: NativeClient;
   readonly caller: string;
-  readonly resolveTurn: ResolveTurn;
   readonly report: (observation: TurnObservation) => void;
+  readonly resolveTurn: ResolveTurn;
+  readonly coordination: Pick<CoordinationAdapter, 'current' | 'read'>;
   constructor(
     native: NativeClient,
     caller: string,
     report: (observation: TurnObservation) => void,
     resolveTurn: ResolveTurn,
+    coordination: Pick<CoordinationAdapter, 'current' | 'read'>,
   ) {
     this.native = native;
     this.caller = caller;
     this.report = report;
     this.resolveTurn = resolveTurn;
+    this.coordination = coordination;
   }
 
-  restore(tasks: TrackedTask[]) {
-    const ids = new Set(tasks.map((t) => t.id));
-    for (const id of this.tasks.keys()) if (!ids.has(id)) this.tasks.delete(id);
-    for (const task of tasks) {
-      const previous = this.tasks.get(task.id);
-      this.tasks.set(
-        task.id,
-        previous?.turnId && !task.turnId ? { ...task, turnId: previous.turnId } : task,
-      );
-    }
-  }
-  async read(task: TrackedTask, cursor?: string, small = false) {
-    if (task.threadId === this.caller) throw new BridgeError('CALLER_IS_NOT_A_TARGET');
-    return validateThread(
-      await this.native.call('read_thread', {
-        hostId: task.hostId,
-        threadId: task.threadId,
-        turnLimit: small ? 1 : 10,
-        includeOutputs: !small,
-        maxOutputCharsPerItem: small ? 100 : 16000,
-        ...(cursor ? { cursor } : {}),
-      }),
-      task.threadId,
-      task.hostId,
-    );
-  }
   async send(task: TrackedTask, params: Record<string, unknown>) {
-    // No replay queue. Only the one cloud dispatch carries a prompt; restore never does.
+    // Only this one cloud dispatch carries a prompt. Queries never resend it.
     let sent = false;
     let observation: TurnObservation;
-    this.busy.add(task.id);
     try {
-      const before = await this.read(task, undefined, true);
+      if (task.threadId === this.caller) throw new BridgeError('CALLER_IS_NOT_A_TARGET');
+      const before = validateThread(
+        await this.native.call('read_thread', {
+          hostId: task.hostId,
+          threadId: task.threadId,
+          turnLimit: 1,
+          includeOutputs: false,
+        }),
+        task.threadId,
+        task.hostId,
+      );
       if (!['idle', 'notLoaded'].includes(before.thread.status?.type ?? ''))
         throw new BridgeError('TARGET_BUSY');
       sent = true;
@@ -82,105 +72,66 @@ export class TurnTracker {
         turnId: null,
         diagnostic: safeError(error),
       };
-    } finally {
-      this.busy.delete(task.id);
     }
-    this.tasks.set(task.id, { ...task, ...observation });
     return observation;
   }
-  async inspect(task: TrackedTask): Promise<{
-    observation: TurnObservation;
-    result?: {
-      turnId: string;
-      status: string;
-      error: unknown;
-      items: NativeItem[];
-      contentLimit: { maxOutputCharsPerItem: number; truncationPossible: boolean };
-    };
-  }> {
-    let cursor: string | null | undefined;
+  async inspect(task: TrackedTask): Promise<{ observation: TurnObservation }> {
+    let turnId = task.turnId;
     try {
-      // A remote target's rollout belongs to its own connector. The DO resolves
-      // that attribution and restores the bound turnId to this original route.
-      const turnId = task.turnId ?? (task.hostId === 'local' ? await this.resolveTurn(task) : null);
-      if (!turnId)
-        return {
-          observation: {
-            task_id: task.id,
-            state:
-              task.state === 'accepted' && Date.now() - task.startedAt < 30000
-                ? 'accepted'
-                : 'unknown',
-            turnId: null,
-            diagnostic: { code: 'TURN_ATTRIBUTION_PENDING' },
-          },
-        };
-      task = { ...task, turnId };
-      for (let page = 0; page < 20; page++) {
-        const data = await this.read(task, cursor ?? undefined);
-        const found = data.turns.find((t) => t.id === turnId);
-        if (found) {
-          const state = ['completed', 'failed', 'interrupted'].includes(found.status)
-            ? (found.status as 'completed' | 'failed' | 'interrupted')
-            : data.thread.status?.activeFlags?.some((x) => /approval|input/i.test(x))
-              ? 'waiting_approval'
-              : 'running';
-          return {
-            observation: {
-              task_id: task.id,
-              state,
-              turnId: found.id,
-              diagnostic: null,
-            } satisfies TurnObservation,
-            ...(terminal(state)
-              ? {
-                  result: {
-                    turnId: found.id,
-                    status: found.status,
-                    error: found.error,
-                    items: (found.items ?? []).filter((i) => i.type === 'agentMessage'),
-                    contentLimit: { maxOutputCharsPerItem: 16000, truncationPossible: true },
-                  },
-                }
-              : {}),
-          };
-        }
-        cursor = data.page?.nextCursor;
-        if (!cursor) break;
-      }
-      return {
-        observation: {
-          task_id: task.id,
-          state:
-            task.state === 'accepted' && Date.now() - task.startedAt < 30000
-              ? 'accepted'
-              : 'unknown',
-          turnId: task.turnId,
-          diagnostic: { code: cursor ? 'RECONCILIATION_PAGE_LIMIT' : 'TURN_NOT_YET_OBSERVED' },
-        } satisfies TurnObservation,
-      };
+      // Cross-host attribution is resolved by the DO at the target Mac's connector.
+      turnId ??= task.hostId === 'local' ? await this.resolveTurn(task) : null;
+      if (!turnId) throw new BridgeError('TURN_ATTRIBUTION_PENDING');
+      await this.coordination.read(target(task));
+      return { observation: this.observe({ ...task, turnId }) };
     } catch (error) {
       return {
-        observation: {
-          task_id: task.id,
-          state: 'unknown',
-          turnId: task.turnId,
-          diagnostic: safeError(error),
-        } satisfies TurnObservation,
+        observation: { task_id: task.id, state: 'unknown', turnId, diagnostic: safeError(error) },
       };
     }
   }
-  async tick() {
+  private observe(task: TrackedTask): TurnObservation {
+    const snapshot = this.coordination.current(target(task));
+    const turn = snapshot?.turns.find((t) => t.turnId === task.turnId);
+    if (!turn)
+      return {
+        task_id: task.id,
+        state: 'unknown',
+        turnId: task.turnId,
+        diagnostic: { code: snapshot ? 'TURN_NOT_IN_CURRENT_SNAPSHOT' : 'TURN_STATE_UNAVAILABLE' },
+      };
+    // PRIVATE CODEX STATE: only the exact turn's status proves completion. An idle
+    // thread or another completed turn does not. Gaps require an explicit query,
+    // never automatic snapshot recovery or historical scanning.
+    const state = ['completed', 'failed', 'interrupted'].includes(turn.status)
+      ? (turn.status as 'completed' | 'failed' | 'interrupted')
+      : turn.status === 'inProgress'
+        ? snapshot!.threadRuntimeStatus?.activeFlags?.some((x: string) => /approval|input/i.test(x))
+          ? 'waiting_approval'
+          : 'running'
+        : 'unknown';
+    return {
+      task_id: task.id,
+      state,
+      turnId: task.turnId,
+      error: turn.error ?? null,
+      diagnostic: state === 'unknown' ? { code: 'TURN_STATUS_UNKNOWN' } : null,
+    };
+  }
+  private remember(task: TrackedTask, observation: TurnObservation) {
+    if (terminal(observation.state) || observation.state === 'unknown') this.tasks.delete(task.id);
+    else this.tasks.set(task.id, { ...task, ...observation });
+  }
+  async query(task: TrackedTask) {
+    const read = await this.inspect(task);
+    this.remember(task, read.observation);
+    return read;
+  }
+  changed(changed: FollowTarget) {
     for (const task of this.tasks.values()) {
-      if (this.busy.has(task.id) || terminal(task.state)) continue;
-      this.busy.add(task.id);
-      try {
-        const { observation } = await this.inspect(task);
-        this.tasks.set(task.id, { ...task, ...observation });
-        this.report(observation);
-      } finally {
-        this.busy.delete(task.id);
-      }
+      if (task.hostId !== changed.hostId || task.threadId !== changed.conversationId) continue;
+      const observation = this.observe(task);
+      this.remember(task, observation);
+      this.report(observation);
     }
   }
 }

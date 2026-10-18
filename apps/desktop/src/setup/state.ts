@@ -78,6 +78,7 @@ export async function api<T = Record<string, unknown>>(
   body?: unknown,
   token?: string,
 ) {
+  // Node fetch already bounds connect, response headers and body inactivity.
   const response = await fetch(origin + route, {
     method: body === undefined ? 'GET' : 'POST',
     redirect: 'error',
@@ -86,7 +87,6 @@ export async function api<T = Record<string, unknown>>(
       ...(token ? { Authorization: 'Bearer ' + token } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(20_000),
   });
   const data = (await response.json()) as T & { error?: string };
   if (!response.ok)

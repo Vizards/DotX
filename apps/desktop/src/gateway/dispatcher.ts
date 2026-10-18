@@ -5,6 +5,7 @@ import type { DeviceOperation, DispatchArgs, TrackedTask } from '@dotx/shared/st
 import type { Adapter } from '../interfaces/adapter.ts';
 import { EventBuffer } from '../events/buffer.ts';
 import type { ResolveTurn, TurnIdentity } from '../tracking/attribution.ts';
+import { readTurnResult } from '../tracking/result.ts';
 import { TurnTracker } from '../tracking/tracker.ts';
 
 // Execution only. Every side effect arrives through the DO's durable reservation.
@@ -30,7 +31,11 @@ export class Gateway {
     const a = input as any;
     if (operation === 'resolve_turn')
       return { turnId: await this.options.resolveTurn(a.task as TurnIdentity) };
-    if (operation === 'read_turn') return this.options.tracker.inspect(a.task as TrackedTask);
+    if (operation === 'read_turn_result')
+      return readTurnResult(a.task as TrackedTask, (method, params) =>
+        this.adapters.get('app_server')!.call(method, params),
+      );
+    if (operation === 'read_turn') return this.options.tracker.query(a.task as TrackedTask);
     if (operation === 'respond') {
       const event = this.options.events.event(a.event_id);
       if (!event) throw new BridgeError('EVENT_EXPIRED');

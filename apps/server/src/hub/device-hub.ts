@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { ReleaseUpdates } from '../updates/discovery.ts';
 import { z } from 'zod';
 import { Coordinator } from '../state/coordinator.ts';
@@ -11,7 +12,6 @@ import type { Outcome } from '@dotx/shared/protocol';
 import { Enrollment } from '../enrollment/service.ts';
 import { heartbeatSchema, responseSchema } from '@dotx/shared/protocol';
 import { gatewayCommand as commandSchema } from '@dotx/shared/gateway';
-import { isCurrentHub } from './namespace.ts';
 import type { Env } from '../env.ts';
 import type { Heartbeat } from '@dotx/shared/protocol';
 export interface SocketInfo extends Partial<Heartbeat> {
@@ -27,7 +27,7 @@ export interface HubSocket {
   close(code?: number): void;
 }
 export interface HubContext {
-  id: Pick<DurableObjectId, 'jurisdiction' | 'toString'>;
+  id: Pick<DurableObjectId, 'jurisdiction'>;
   storage: EventStore;
   getWebSockets(tag?: string): HubSocket[];
   acceptWebSocket(socket: WebSocket, tags?: string[]): void;
@@ -113,7 +113,6 @@ export class DeviceHub {
       });
   }
   async fetch(request: Request): Promise<Response> {
-    this.checkPlacement();
     const url = new URL(request.url);
     if (url.pathname === '/updates') return json(await this.updates.read());
     if (url.pathname === '/registry') return json(await this.enrollment.devices());
@@ -235,10 +234,10 @@ export class DeviceHub {
         ) ?? undefined)
       : operation === 'describe_methods'
         ? this.discoverySockets(args.connection_id, args.interface)[0]
-        : operation === 'read_turn' || operation === 'resolve_turn'
+        : ['read_turn', 'read_turn_result', 'resolve_turn'].includes(operation)
           ? this.discoverySockets(
               args.connection_id,
-              operation === 'read_turn' ? 'app_tools' : 'app_server',
+              operation === 'read_turn' ? 'client_coordination' : 'app_server',
             )[0]
           : compatible[0];
     if (!entry)
@@ -274,7 +273,7 @@ export class DeviceHub {
             },
           }),
         );
-      }, 55000);
+      }, DEFAULT_TIMEOUT_MS);
       this.pending.set(id, { socket: entry.socket, resolve, timer });
       try {
         entry.socket.send(
@@ -288,7 +287,6 @@ export class DeviceHub {
     });
   }
   async webSocketMessage(socket: HubSocket, data: string | ArrayBuffer) {
-    this.checkPlacement();
     if (typeof data !== 'string' || data.length > 4 * 1024 * 1024) {
       socket.close(1009);
       return;
@@ -338,7 +336,6 @@ export class DeviceHub {
               : null,
       });
       socket.send(JSON.stringify({ type: 'heartbeat_ack', protocol: WIRE_VERSION }));
-      await this.restoreDevice(previous.deviceId);
     } else if (response.success) {
       const msg = response.data;
       const pending = this.pending.get(msg.id);
@@ -358,31 +355,8 @@ export class DeviceHub {
       pending.resolve(json(msg));
     }
   }
-  async restoreDevice(deviceId: string) {
-    const state = await this.coordinator.restore(deviceId);
-    const tools = this.discoverySockets(deviceId, 'app_tools')[0]?.socket;
-    const coordination = this.discoverySockets(deviceId, 'client_coordination')[0]?.socket;
-    for (const { socket } of this.discoverySockets(deviceId)) {
-      try {
-        socket.send(
-          JSON.stringify({
-            type: 'restore',
-            protocol: WIRE_VERSION,
-            tasks: socket === tools ? state.tasks : [],
-            follows: socket === coordination ? state.follows : [],
-          }),
-        );
-      } catch {
-        /* next heartbeat restores observation only */
-      }
-    }
-  }
   async alarm() {
-    this.checkPlacement();
     await this.events.alarm();
-  }
-  checkPlacement() {
-    if (!isCurrentHub(this.ctx.id, this.env)) throw new Error('HUB_IDENTITY_MISMATCH');
   }
   webSocketClose(socket: HubSocket) {
     this.disconnect(socket);

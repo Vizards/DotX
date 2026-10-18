@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { isIP } from 'node:net';
 import { timingSafeEqual } from 'node:crypto';
 import packageInfo from '../../package.json' with { type: 'json' };
@@ -25,7 +26,6 @@ export function callbackURL(input: string) {
     url.username ||
     url.password ||
     url.hash ||
-    (url.port && url.port !== '443') ||
     isIP(hostname) ||
     !hostname.includes('.') ||
     /(?:^|\.)(?:localhost|local|internal|test|invalid|home|lan)$/.test(hostname)
@@ -70,16 +70,20 @@ export function responseHeaders(response: Response) {
   const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
   const date = Date.parse(response.headers.get('date') ?? '');
   const retry = response.headers.get('retry-after');
-  const retryDate = retry ? Date.parse(retry) : NaN;
+  const now = Date.now();
+  // Use the scheduler's date range rather than an arbitrary number of digits.
+  const retryAt =
+    retry && /^\d+$/.test(retry)
+      ? new Date(now + Number(retry) * 1000).getTime()
+      : retry?.endsWith('GMT')
+        ? Date.parse(retry)
+        : NaN;
   return {
     date: Number.isFinite(date) ? new Date(date).toISOString() : undefined,
-    clock_skew_ms: Number.isFinite(date) ? date - Date.now() : undefined,
-    retry_after_seconds:
-      retry && /^\d{1,6}$/.test(retry)
-        ? Number(retry)
-        : retry && retry.endsWith('GMT') && Number.isFinite(retryDate)
-          ? Math.max(0, Math.ceil((retryDate - Date.now()) / 1000))
-          : undefined,
+    clock_skew_ms: Number.isFinite(date) ? date - now : undefined,
+    retry_after_seconds: Number.isFinite(retryAt)
+      ? Math.max(0, Math.ceil((retryAt - now) / 1000))
+      : undefined,
     content_type:
       contentType === 'text/html' || contentType === 'application/json' ? contentType : 'other',
     request_id: token(response.headers.get('x-request-id')),
@@ -88,10 +92,6 @@ export function responseHeaders(response: Response) {
     edge_mitigated: token(response.headers.get('cf-mitigated')),
     edge_error_type: token(response.headers.get('cf-error-type')),
     edge_error_origin: token(response.headers.get('cf-error-origin')),
-    callback_jurisdiction:
-      response.headers.get('x-dot-callback-jurisdiction') === 'us' ? 'us' : undefined,
-    callback_probe_country: token(response.headers.get('x-dot-callback-probe-country')),
-    callback_probe_colo: token(response.headers.get('x-dot-callback-probe-colo')),
   };
 }
 export interface CallbackAttempt {
@@ -121,7 +121,7 @@ export interface CallbackAttempt {
     body_signals?: string[];
     body_prefix_sha256?: string;
     body_prefix_bytes?: number;
-    reported_client_ip?: { family: number; sha256: string; kind: 'workers_cross_zone' | 'other' };
+    reported_client_ip?: { family: number; kind: 'workers_cross_zone' | 'other' };
   };
 }
 export async function beginAttempt(
@@ -181,7 +181,7 @@ export async function responseDiagnostic(response: Response) {
   else if (/schema|payload|validation/i.test(text)) category = 'payload_rejected';
   else if (/forbidden|permission/i.test(text)) category = 'forbidden';
   // Cloudflare's own block page sometimes identifies the address it evaluated.
-  // Keep only a hash/family and the documented shared Workers sentinel, never an IP.
+  // Keep only its family and shared Workers classification, never an address or IP digest.
   const reported = text.match(/id=["']cf-footer-ip["'][^>]*>\s*([a-fA-F0-9:.]+)\s*</)?.[1];
   const family = reported ? isIP(reported) : 0;
   return {
@@ -193,7 +193,6 @@ export async function responseDiagnostic(response: Response) {
       reported && family
         ? {
             family,
-            sha256: await digest(reported.toLowerCase()),
             kind:
               reported.toLowerCase() === '2a06:98c0:3600::103'
                 ? ('workers_cross_zone' as const)
@@ -221,8 +220,13 @@ export async function responseDiagnostic(response: Response) {
 // retains HTTPS hostname verification, and blocks private resolutions. A separate
 // application DNS lookup followed by fetch would introduce a rebinding race.
 // Never replace this with a private origin binding or unrestricted local fetch.
+// This transport owns the HTTP timeout for both verification and event delivery.
 export const webhookFetch: WebhookFetch = async (url, init) =>
-  fetch(callbackURL(url), { ...init, redirect: 'manual', signal: AbortSignal.timeout(10000) });
+  fetch(callbackURL(url), {
+    ...init,
+    redirect: 'manual',
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+  });
 export async function postSigned(
   transport: WebhookFetch,
   sub: { id: string; url: string; secret: string; oldSecret?: string; oldUntil?: number },
@@ -244,7 +248,6 @@ export async function postSigned(
   return transport(callbackURL(sub.url), {
     method: 'POST',
     redirect: 'manual',
-    signal: AbortSignal.timeout(10000),
     headers: {
       'Content-Type': 'application/json',
       'User-Agent': `dotx-server/${packageInfo.version}`,

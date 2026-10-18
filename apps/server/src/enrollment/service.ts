@@ -10,7 +10,7 @@ const uuid = z.string().uuid();
 export const enrollmentInput = z.strictObject({
   operation_id: uuid,
   device_id: uuid,
-  label: z.string().trim().min(1).max(100),
+  label: z.string().trim().min(1),
   token_hash: hash,
   claim_hash: hash,
 });
@@ -104,7 +104,6 @@ export class Enrollment {
         };
       }
       const live = pending.filter((p) => p.expires > Date.now());
-      if (live.length >= 64) throw deny('ENROLLMENT_CAPACITY');
       const device = (await this.devices(tx)).find((d) => d.id === value.device_id);
       if (device && (device.tokenHash !== value.token_hash || device.label !== value.label))
         throw deny('DEVICE_ID_CONFLICT');
@@ -124,7 +123,6 @@ export class Enrollment {
       if (existing && (existing.tokenHash !== row.token_hash || existing.label !== row.label))
         throw deny('DEVICE_ID_CONFLICT');
       if (!existing) {
-        if (devices.length >= 32) throw deny('DEVICE_CAPACITY');
         devices.push({ id: row.device_id, label: row.label, tokenHash: row.token_hash });
         await tx.put(registryKey, devices);
       }
@@ -200,10 +198,6 @@ export class Enrollment {
           if (!ticket || ticket.hash !== ticketHash || ticket.expires <= Date.now())
             throw deny('LOGIN_LINK_EXPIRED');
           await tx.put('setup:ticket', { hash: '', expires: 0 });
-          // Single browser admin session, renewed explicitly by the deployment owner.
-          const old = await tx.get<string>('setup:current-session');
-          if (old) await tx.put('setup:session:' + old, { expires: 0, ownerHash: '' });
-          await tx.put('setup:current-session', sessionHash);
           await tx.put('setup:session:' + sessionHash, {
             expires: Date.now() + 3600_000,
             ownerHash: this.ownerHash,

@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { canonical } from '@dotx/shared/gateway';
 import {
   eventCatalog,
@@ -68,6 +69,9 @@ interface Subscription {
 const RETENTION = 7 * 86400000;
 const RETRY_DELAYS_MS = [2000, 4000, 8000, 15000, 15000, 15000, 15000, 15000, 15000];
 const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
+// A claim must outlive the HTTP deadline, with another budget for signing and
+// recording its outcome, so an overlapping alarm cannot redeliver an active attempt.
+const DELIVERY_LEASE_MS = 2 * DEFAULT_TIMEOUT_MS;
 const subKey = (id: string) => 'events:sub:' + id;
 const historyKey = (seq: number) => 'events:history:' + String(seq).padStart(16, '0');
 const cursor = (seq: number) => `e1:${seq}`;
@@ -215,17 +219,14 @@ export class Events {
     for (const e of events) {
       if (e.data.connection_id !== connectionId) throw new BridgeError('EVENT_SOURCE_MISMATCH');
       const seen = 'events:seen:' + connectionId + ':' + e.eventId;
-      const fingerprint = await hash(e);
-      const previous = await tx.get<{ fingerprint: string; at: number }>(seen);
-      if (previous && previous.fingerprint !== fingerprint)
-        throw new BridgeError('EVENT_ID_CONFLICT');
+      const previous = await tx.get<boolean>(seen);
       if (!previous) {
         await tx.put(historyKey(++seq), {
           seq,
           receivedAt: Date.now(),
           event: e,
         } satisfies History);
-        await tx.put(seen, { fingerprint, at: Date.now() });
+        await tx.put(seen, true);
       }
       ids.push(e.eventId);
     }
@@ -335,11 +336,11 @@ export class Events {
       }
       const lease = crypto.randomUUID();
       const claimed = await this.change(s, (next) => {
-        next.pending = { ...pending, lease, leaseUntil: Date.now() + 30000 };
+        next.pending = { ...pending, lease, leaseUntil: Date.now() + DELIVERY_LEASE_MS };
       });
       if (!claimed) continue;
       // Persist lease and recovery alarm before network I/O (a crash may lose the response).
-      await this.wake(Date.now() + 30000);
+      await this.wake(claimed.pending!.leaseUntil!);
       let status = 0;
       let detail: Subscription['responseDiagnostic'];
       const body = JSON.stringify({ ...pending.row.event, cursor: cursor(pending.row.seq) });

@@ -4,10 +4,10 @@ import type { Observation, TurnObservation } from '@dotx/shared/state';
 import type { NoticeData } from '@dotx/shared/events';
 const object = (v: unknown): Record<string, any> =>
   v && typeof v === 'object' ? (v as Record<string, any>) : {};
-const string = (v: unknown) => (typeof v === 'string' && v.length <= 160 ? v : undefined);
+const string = (v: unknown) => (typeof v === 'string' ? v : undefined);
 
 // Bounded memory only. An exit before upload may lose intermediate observations;
-// restored tracking/follow intents reconstruct current state, never old commands.
+// get_request or an explicit follow reads current native state after a gap.
 export class Observations {
   readonly queue = new Map<string, Observation>();
   readonly limit: number;

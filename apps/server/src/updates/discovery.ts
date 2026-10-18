@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { gt, prerelease, valid } from 'semver';
 import { z } from 'zod';
 import type { Store } from '../hub/storage.ts';
@@ -13,7 +14,6 @@ export type ReleaseChannel = 'stable' | 'dev';
 interface LatestRelease {
   version: string;
   url: string;
-  update_skill_url: string;
 }
 interface CachedRelease {
   attempted_at: number;
@@ -81,13 +81,12 @@ export class ReleaseUpdates {
       latest: previous?.latest ?? null,
     };
     try {
-      const signal = AbortSignal.timeout(3000);
       const read = async (suffix: string) => {
         const response = await this.fetcher(
           `https://api.github.com/repos/${this.repository}/releases${suffix}`,
           {
             headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'DotX' },
-            signal,
+            signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
           },
         );
         if (!response.ok) throw new Error(`GITHUB_HTTP_${response.status}`);
@@ -100,30 +99,20 @@ export class ReleaseUpdates {
         if (selected.draft || selected.prerelease || !version || prerelease(version))
           throw new Error('INVALID_RELEASE_VERSION');
       } else {
-        // GitHub's latest endpoint excludes previews. Compare dev versions numerically,
-        // across pages, rather than relying on publication order or tag string order.
-        for (let page = 1; ; page++) {
-          const releases = z.array(releaseSchema).parse(await read(`?per_page=100&page=${page}`));
-          for (const release of releases) {
-            const version = valid(release.tag_name);
-            if (
-              !release.draft &&
-              release.prerelease &&
-              version &&
-              prerelease(version)?.[0] === 'dev' &&
-              (!selected || gt(version, selected.tag_name))
-            )
-              selected = release;
-          }
-          if (releases.length < 100) break;
-        }
+        // The dev channel is for development testing: inspect only the latest
+        // 100 entries in GitHub's release list, without searching older pages.
+        const releases = z.array(releaseSchema).parse(await read('?per_page=100&page=1'));
+        selected = releases.find((release) => {
+          const version = valid(release.tag_name);
+          return (
+            !release.draft && release.prerelease && version && prerelease(version)?.[0] === 'dev'
+          );
+        });
       }
       next.latest = selected
         ? {
             version: valid(selected.tag_name)!,
             url: `https://github.com/${this.repository}/releases/tag/${encodeURIComponent(selected.tag_name)}`,
-            // ChatGPT's web reader can reject Release attachments; the workflow copies this file unchanged.
-            update_skill_url: `https://raw.githubusercontent.com/${this.repository}/${encodeURIComponent(selected.tag_name)}/apps/desktop/skills/update/SKILL.md`,
           }
         : null;
       next.checked_at = next.attempted_at;

@@ -1,4 +1,5 @@
 import { BridgeError } from '@dotx/shared/errors';
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -81,9 +82,15 @@ export class AppServer {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new BridgeError('BOOTSTRAP_TIMEOUT', method));
-      }, 60000);
+      }, DEFAULT_TIMEOUT_MS);
       this.pending.set(id, { resolve, reject, timer });
-      this.write({ jsonrpc: '2.0', id, method, params });
+      try {
+        this.write({ jsonrpc: '2.0', id, method, params });
+      } catch (error) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(error);
+      }
     });
   }
   async initialize() {
@@ -93,9 +100,11 @@ export class AppServer {
     this.write({ jsonrpc: '2.0', method: 'initialized', params: {} });
   }
   close() {
-    this.process.stdin.end();
     const p = this.process;
-    const t = setTimeout(() => p.kill('SIGTERM'), 3000);
+    if (p.exitCode !== null || p.signalCode !== null) return;
+    p.stdin.end();
+    const t = setTimeout(() => p.kill('SIGTERM'), DEFAULT_TIMEOUT_MS);
     t.unref();
+    p.once('exit', () => clearTimeout(t));
   }
 }

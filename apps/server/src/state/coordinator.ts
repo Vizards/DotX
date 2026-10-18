@@ -8,7 +8,6 @@ import type {
   TrackedTask,
   TurnObservation,
   Observation,
-  FollowTarget,
   ResponseRoute,
 } from '@dotx/shared/state';
 import type { Store } from '../hub/storage.ts';
@@ -33,6 +32,7 @@ interface CallRecord extends Omit<Call, 'params'> {
   diagnostic?: { code: string; message?: string };
   task?: TrackedTask;
   attribution_connections?: string[];
+  result_connection_id?: string;
 }
 interface Answer {
   route: ResponseRoute;
@@ -43,7 +43,6 @@ interface Answer {
 }
 const requestKey = (principal: string, id: string) => 'state:request:' + canonical([principal, id]);
 const callKey = (id: string) => 'state:call:' + id;
-const activeKey = (r: CallRecord) => 'state:active:' + r.connection_id + ':' + r.id;
 const eventKey = (principal: string, id: string) => 'state:event:' + canonical([principal, id]);
 const answerKey = (key: string) => 'state:answer:' + key;
 async function digest(v: unknown) {
@@ -94,22 +93,26 @@ export class Coordinator {
         await this.recordReply(r.id, { ok: false, error: { code: 'DISPATCH_OUTCOME_UNKNOWN' } });
       }
       let result: unknown;
+      let resultDiagnostic: string | undefined;
       if (r.task && r.task.state !== 'rejected') {
-        r = await this.resolveAttribution(r, auth.devices);
-        const reply = await this.dispatch('read_turn', {
-          connection_id: r.connection_id,
-          interface: 'app_tools',
-          task: r.task,
-        });
-        if (reply.ok) {
-          const read = reply.result as { observation: TurnObservation; result?: unknown };
-          await this.observe(r.connection_id, [
-            { ...read.observation, id: crypto.randomUUID(), kind: 'turn' },
-          ]);
-          result = read.result;
+        r = await this.readTask(r, auth.devices);
+        if (r.task!.turnId && terminal(r.task!.state)) {
+          // A remote host's files belong to its own connector, not the original entry point.
+          const connection = r.result_connection_id ?? r.connection_id;
+          this.authorize(auth, connection);
+          const reply = await this.dispatch('read_turn_result', {
+            connection_id: connection,
+            interface: 'app_server',
+            task: r.task,
+          });
+          if (reply.ok) result = reply.result;
+          else resultDiagnostic = reply.error.code;
         }
       }
-      return this.public((await this.store.get<CallRecord>(callKey(r.id)))!, undefined, result);
+      return {
+        ...this.public((await this.store.get<CallRecord>(callKey(r.id)))!, undefined, result),
+        ...(resultDiagnostic ? { result_unavailable_reason: resultDiagnostic } : {}),
+      };
     }
     if (operation === 'respond') return this.respond(auth, gatewaySchemas.respond.parse(input));
     const args = gatewaySchemas[operation].parse(input);
@@ -188,7 +191,6 @@ export class Coordinator {
           threadId: String(args.params.threadId),
           turnId: null,
           state: 'reserved',
-          startedAt: now,
         };
       // The selected entry point may send to another native host. Only connectors
       // authorized for this request may supply its hidden attribution metadata.
@@ -196,25 +198,6 @@ export class Coordinator {
         record.attribution_connections = [...auth.devices];
       await tx.put(key, id);
       await tx.put(callKey(id), record);
-      if (record.task) await tx.put(activeKey(record), id);
-      // Following is a durable observation intent, never a stored settings mutation.
-      if (
-        args.interface === 'client_coordination' &&
-        ['thread-stream-following-changed', 'thread-follower-update-thread-settings'].includes(
-          args.method,
-        )
-      ) {
-        const t = {
-          hostId: String(args.params.hostId ?? 'local'),
-          conversationId: args.params.conversationId,
-        };
-        if (typeof t.conversationId === 'string' && t.conversationId) {
-          const follow = 'state:follow:' + args.connection_id + ':' + canonical(t);
-          if (args.method === 'thread-stream-following-changed' && args.params.following === false)
-            await tx.delete(follow);
-          else await tx.put(follow, t);
-        }
-      }
       return { created: true, record };
     });
     if (!reserved.created) return this.invoke(auth, 'get_request', { request_id: args.request_id });
@@ -227,7 +210,10 @@ export class Coordinator {
       this.inFlight.delete(r.id);
     }
     await this.recordReply(r.id, reply);
-    const latest = (await this.store.get<CallRecord>(callKey(r.id)))!;
+    let latest = (await this.store.get<CallRecord>(callKey(r.id)))!;
+    // Establish observation once after dispatch. There is no heartbeat/restart restore path.
+    if (latest.task && latest.rpc_status === 'returned')
+      latest = await this.readTask(latest, auth.devices);
     return this.public(latest, reply.ok ? (reply.result as any).native : undefined);
   }
   async recordReply(
@@ -259,10 +245,10 @@ export class Coordinator {
         }
         if (r.task) {
           if (result?.observation) await this.mergeTurn(tx, r, result.observation);
-          else if (!reply.ok && r.rpc_status === 'rejected')
+          else if (!reply.ok && (r.rpc_status === 'rejected' || !r.task.turnId))
             await this.mergeTurn(tx, r, {
               task_id: r.id,
-              state: 'rejected',
+              state: r.rpc_status === 'rejected' ? 'rejected' : 'unknown',
               turnId: null,
               diagnostic: reply.error,
             });
@@ -301,13 +287,12 @@ export class Coordinator {
       throw new BridgeError('TURN_ID_CONFLICT');
     if (terminal(old.state)) return;
     // Dispatch receipt may arrive after the watcher has already located the turn.
-    if (old.turnId && ['accepted', 'reserved'].includes(o.state)) return;
+    if (old.turnId && !o.turnId && ['accepted', 'reserved', 'unknown'].includes(o.state)) return;
     const changed = old.state !== o.state || (!old.turnId && !!o.turnId);
-    r.task = { ...old, state: o.state, turnId: old.turnId ?? o.turnId };
+    r.task = { ...old, state: o.state, turnId: old.turnId ?? o.turnId, error: o.error ?? null };
     r.diagnostic = o.diagnostic ?? undefined;
     r.updated_at = Date.now();
     await tx.put(callKey(r.id), r);
-    if (terminal(o.state)) await tx.delete(activeKey(r));
     if (changed)
       await this.events.record(tx, r.connection_id, [
         {
@@ -358,21 +343,22 @@ export class Coordinator {
     await this.events.wake();
     return ids;
   }
-  async restore(connection: string) {
-    const tasks: TrackedTask[] = [];
-    for (const id of (
-      await this.store.list<string>({ prefix: 'state:active:' + connection + ':' })
-    ).values()) {
-      let r = await this.store.get<CallRecord>(callKey(id));
-      if (r) r = await this.resolveAttribution(r);
-      if (r?.task && !terminal(r.task.state)) tasks.push(r.task);
+  async readTask(record: CallRecord, allowed: string[]) {
+    const r = await this.resolveAttribution(record, allowed);
+    if (!terminal(r.task!.state)) {
+      const reply = await this.dispatch('read_turn', {
+        connection_id: r.connection_id,
+        interface: 'client_coordination',
+        task: r.task,
+      });
+      const observation: TurnObservation = reply.ok
+        ? (reply.result as { observation: TurnObservation }).observation
+        : { task_id: r.id, state: 'unknown', turnId: r.task!.turnId, diagnostic: reply.error };
+      await this.observe(r.connection_id, [
+        { ...observation, id: crypto.randomUUID(), kind: 'turn' },
+      ]);
     }
-    const follows = [
-      ...(
-        await this.store.list<FollowTarget>({ prefix: 'state:follow:' + connection + ':' })
-      ).values(),
-    ];
-    return { tasks, follows };
+    return (await this.store.get<CallRecord>(callKey(r.id)))!;
   }
   async resolveAttribution(record: CallRecord, allowed?: string[]): Promise<CallRecord> {
     if (
@@ -414,10 +400,25 @@ export class Coordinator {
           current.diagnostic = { code: 'TURN_ID_CONFLICT' };
           await tx.put(callKey(current.id), current);
         } else if (ids.size === 1) {
-          // Bind metadata only; the original App Tools route reads status and content.
+          // Preserve the source for exact-turn content reads; desktop status still
+          // comes from the original entry point's coordination stream.
           current.task.turnId = [...ids][0];
+          current.result_connection_id =
+            sources[
+              replies.findIndex(
+                (reply) =>
+                  reply.ok && (reply.result as { turnId?: string }).turnId === current.task!.turnId,
+              )
+            ];
           current.diagnostic = undefined;
           await tx.put(callKey(current.id), current);
+        } else {
+          await this.mergeTurn(tx, current, {
+            task_id: current.id,
+            state: 'unknown',
+            turnId: null,
+            diagnostic: { code: 'TURN_ATTRIBUTION_PENDING' },
+          });
         }
         return current;
       });
@@ -487,6 +488,7 @@ export class Coordinator {
       principal: _principal,
       digest: _digest,
       attribution_connections: _connections,
+      result_connection_id: _resultConnection,
       task,
       ...fields
     } = r;
@@ -503,6 +505,7 @@ export class Coordinator {
               state: task.state,
               turnId: task.turnId,
               completed: task.state === 'completed',
+              ...(task.error == null ? {} : { error: task.error }),
               ...(result === undefined ? {} : { result }),
             },
           }

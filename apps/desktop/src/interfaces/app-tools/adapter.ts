@@ -22,7 +22,7 @@ export class AppToolsAdapter implements Adapter {
   async methods(): Promise<Method[]> {
     const c = await this.native.capabilities();
     this.ready = true;
-    return c.schemaDigestSource.map((x) => ({
+    return c.toolDefinitions.map((x) => ({
       name: `${x.namespace}.${x.name}`,
       description: x.description as string | undefined,
       input_schema: x.inputSchema,
