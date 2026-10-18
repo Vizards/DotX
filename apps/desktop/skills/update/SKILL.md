@@ -34,7 +34,7 @@ Do not erase persistent state as an implicit upgrade step. Fresh installation is
 
 One Desktop MCP process owns the connector lock; others wait. A new version does not preempt the owner. Based on running tasks, retire identified obsolete DotX processes, restart ChatGPT/Codex normally, or ask the user. Include old waiters and every pre-lock instance. Do not delete `connector.lock`; process exit releases it. Verify the active version after reload.
 
-Refresh DotX Remote through ChatGPT's normal settings when its catalog changed; check the definitions in a fresh context. A Server deployment does not refresh ChatGPT's cached tools and instructions.
+Refresh DotX Remote through ChatGPT's normal settings when its catalog changed; verify the definitions in the client that will use it. A Server deployment does not refresh ChatGPT's cached tools and instructions. If an existing dot still sees old definitions after Refresh, consider restarting it when ongoing work can be interrupted, then verify the new declarations and a read-only call. See [stale tool definitions](https://github.com/Vizards/DotX/blob/main/docs/troubleshooting/index.md#dot-still-sees-old-tool-definitions-after-an-update).
 
 Cloudflare code propagation can take seconds to minutes, including a new Worker briefly calling an older DO. After successful deployment, allow convergence and repeat read-only checks before redeploying. This differs from GitHub discovery caching (six hours after success, five minutes after failure) and ChatGPT's catalog cache.
 

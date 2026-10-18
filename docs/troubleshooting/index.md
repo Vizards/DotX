@@ -11,6 +11,16 @@ Two plugins are expected:
 
 They have separate roles and installation identities. Keep both for the complete connection; do not merge their identities or remove either as a duplicate. Additional entries from obsolete installations are a separate cleanup issue.
 
+## dot still sees old tool definitions after an update
+
+An existing dot can retain old tool descriptions or parameter schemas even after DotX Remote's catalog is refreshed. Calls may reach the updated Server and return new results while dot still lacks the parameters needed to use them.
+
+1. Check the running Server version and refresh DotX Remote through ChatGPT's normal plugin settings if its catalog changed.
+2. Compare the tool declarations visible to the affected dot with a fresh ChatGPT conversation. Use a read-only call to check the actual response. A successful new-chat test does not establish that an existing dot has refreshed; the plugin's display name is not the running Server version.
+3. If only the existing dot retains old definitions, consider its **Restart** menu action. ChatGPT's dialog says conversations, memories and scheduled tasks are retained, but ongoing work may be interrupted; choose the timing accordingly. After restart, verify the declarations and a read-only call using the changed parameters.
+
+In one development test, dot still declared `get_instructions(args: {})` while the Server returned the new guide directory. After Restart, dot saw the optional `goal` parameter and successfully read `get_instructions({"goal":"settings"})`. This is an observed recovery path, not a platform guarantee or a mandatory step for every update. This case did not require deleting dot, reinstalling the plugin or redeploying Server.
+
 ## Notifications intermittently fail with Cloudflare HTTP 403
 
 During development, some outgoing MCP Events callbacks from DotX Server to OpenAI were rejected by Cloudflare's edge protection. Retrying often succeeded. This observation concerns notification delivery, not every HTTP 403 involving Cloudflare.
