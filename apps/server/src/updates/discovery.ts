@@ -122,7 +122,8 @@ export class ReleaseUpdates {
         ? {
             version: valid(selected.tag_name)!,
             url: `https://github.com/${this.repository}/releases/tag/${encodeURIComponent(selected.tag_name)}`,
-            update_skill_url: `https://github.com/${this.repository}/releases/download/${encodeURIComponent(selected.tag_name)}/update-SKILL.md`,
+            // ChatGPT's web reader can reject Release attachments; the workflow copies this file unchanged.
+            update_skill_url: `https://raw.githubusercontent.com/${this.repository}/${encodeURIComponent(selected.tag_name)}/apps/desktop/skills/update/SKILL.md`,
           }
         : null;
       next.checked_at = next.attempted_at;

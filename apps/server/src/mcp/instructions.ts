@@ -6,7 +6,7 @@ export const INSTRUCTION_GUIDES = {
     title: 'Plan and coordinate a DotX update',
     description:
       'Read the target release workflow and settle the update scope and execution permissions before delegating local work.',
-    instructions: `The ChatGPT, dot or local Codex conversation receiving the user's update request coordinates the update. Read the target Release's update-SKILL.md yourself before creating an execution task or dispatching update work; passing its link to another conversation does not complete this step. list_connections provides running versions and an updates.latest.update_skill_url hint; use the user's chosen release when specified.
+    instructions: `The ChatGPT, dot or local Codex conversation receiving the user's update request coordinates the update. Read the target Release's update skill yourself before creating an execution task or dispatching update work; passing its link to another conversation does not complete this step. list_connections provides running versions and an updates.latest.update_skill_url hint; use the user's chosen release when specified. The web-readable source is https://raw.githubusercontent.com/Vizards/DotX/<release-tag>/apps/desktop/skills/update/SKILL.md with the target Release tag substituted; the Release's update-SKILL.md attachment has the same contents. If the guide cannot be read, report that blocker instead of creating a task to read it.
 
 Use that skill to settle scope, permissions and execution order with the user. Pass the agreed choices to local executors; do not delegate unresolved user choices or answer them on the user's behalf. Read the conversations and settings guides when creating or configuring an execution conversation.`,
   },

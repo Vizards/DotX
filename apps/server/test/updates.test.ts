@@ -36,7 +36,10 @@ test('release discovery coalesces calls, persists across hub restarts and compar
   assert.equal(updateAvailable(cached, '0.0.2-dev.1'), true);
   assert.equal(updateAvailable(cached, null), null);
   assert.equal(updateAvailable(cached, 'unknown'), null);
-  assert.match(cached.latest!.update_skill_url, /v0\.0\.2\/update-SKILL\.md$/);
+  assert.equal(
+    cached.latest!.update_skill_url,
+    'https://raw.githubusercontent.com/example/dotx/v0.0.2/apps/desktop/skills/update/SKILL.md',
+  );
 });
 test('dev discovery selects the highest published dev version across pages and isolates its cache', async () => {
   const store = new MemoryStore();
@@ -71,7 +74,10 @@ test('dev discovery selects the highest published dev version across pages and i
   assert.equal(updateAvailable(value, '0.0.2-dev.9.1'), true);
   assert.equal(updateAvailable(value, '0.0.2-dev.10.1'), false);
   assert.equal(updateAvailable(value, '0.0.2'), false);
-  assert.match(value.latest!.update_skill_url, /v0\.0\.2-dev\.10\.1\/update-SKILL\.md$/);
+  assert.equal(
+    value.latest!.update_skill_url,
+    'https://raw.githubusercontent.com/example/dotx/v0.0.2-dev.10.1/apps/desktop/skills/update/SKILL.md',
+  );
   assert.equal(
     (await new ReleaseUpdates(store, 'example/dotx', 'dev', fetcher).read()).cached,
     true,
