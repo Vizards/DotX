@@ -2,6 +2,14 @@ export const INSTRUCTIONS_GUIDANCE =
   'Before using DotX tools for a task, read the relevant guidance with get_instructions. Reuse guidance already available in the current context.';
 
 export const INSTRUCTION_GUIDES = {
+  update: {
+    title: 'Plan and coordinate a DotX update',
+    description:
+      'Read the target release workflow and settle the update scope and execution permissions before delegating local work.',
+    instructions: `The ChatGPT, dot or local Codex conversation receiving the user's update request coordinates the update. Read the target Release's update-SKILL.md yourself before creating an execution task or dispatching update work; passing its link to another conversation does not complete this step. list_connections provides running versions and an updates.latest.update_skill_url hint; use the user's chosen release when specified.
+
+Use that skill to settle scope, permissions and execution order with the user. Pass the agreed choices to local executors; do not delegate unresolved user choices or answer them on the user's behalf. Read the conversations and settings guides when creating or configuring an execution conversation.`,
+  },
   connections: {
     title: 'Find connections and choose an interface',
     description:

@@ -5,6 +5,8 @@ description: Plan and perform a user-requested DotX update from GitHub Releases,
 
 # Update DotX
 
+The conversation receiving the user's update request coordinates this workflow, whether it is ChatGPT, dot or local Codex. Read this skill before delegating. The coordinator resolves the scope, execution permissions and order with the user, then gives each local executor its agreed work and choices. A delegated executor applies that plan and reports unresolved choices back to the coordinator; reading this skill locally does not replace the coordinator's preparation.
+
 ## 1. Establish the target and current state
 
 Read the target Release's `update-SKILL.md`, `release.json` and release notes. Use a published stable Release unless the user chooses a Pre-release; Drafts and source archives are not installation packages.
@@ -19,9 +21,9 @@ Check `wire_protocol` separately from product versions. State which Macs, Server
 
 ## 3. Settle execution permissions before dispatch
 
-Identify the conversation that will actually execute each update, including local Codex work delegated by dot. Check its current permissions and confirm whether to retain them or change them. Reuse a clear user choice that applies to this update; otherwise ask before sending installation or deployment work. Explain that limited permissions can require command approvals. Approval to update does not itself select Full Access.
+The coordinator identifies where each update will execute and settles permissions before dispatching installation or deployment work. For an existing conversation, inspect its permissions and reuse the applicable user choice without asking again. For a new conversation without an applicable choice, ask the user before creating it. Explain that limited permissions can require command approvals; an update request alone does not select Full Access. Pass the resolved choice to the executor. If an executor asks about an unresolved choice, bring it to the user rather than selecting on their behalf.
 
-Apply the chosen settings through `client_coordination` when using DotX. Then start the execution turn and verify its `currentPermissions`. Saved settings do not change an already-running turn; reconcile its progress before continuing under new permissions. Preserve model and reasoning settings unless asked to change them.
+App Tools `create_thread` starts its first turn immediately and has no permission argument. After the user chooses permissions for a new task, create it with an initialization-only prompt and wait for that turn to finish. Apply the chosen settings through `client_coordination`, verify a fresh settings snapshot, then send the actual update work. Check the new execution turn's `currentPermissions`; saved settings do not change an already-running turn. Reconcile progress before continuing under changed permissions. Preserve model and reasoning settings unless asked to change them.
 
 ## 4. Install the selected components
 
