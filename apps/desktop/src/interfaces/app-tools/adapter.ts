@@ -1,7 +1,8 @@
+import { NativeError } from '@dotx/shared/errors';
 import { randomUUID } from 'node:crypto';
-import { Native, NativeRpcError } from './transport.ts';
+import { Native } from './transport.ts';
 import type { Adapter, Method } from '../adapter.ts';
-import type { InterfaceStatus, NativeResponse } from '@dotx/shared/gateway';
+import type { Call, InterfaceStatus, NativeResponse } from '@dotx/shared/gateway';
 export class AppToolsAdapter implements Adapter {
   readonly runtimeId = randomUUID();
   ready = false;
@@ -21,10 +22,10 @@ export class AppToolsAdapter implements Adapter {
   }
   async methods(): Promise<Method[]> {
     const c = await this.native.capabilities();
-    this.ready = true;
     return c.toolDefinitions.map((x) => ({
       name: `${x.namespace}.${x.name}`,
       description: x.description as string | undefined,
+      annotations: x.annotations,
       input_schema: x.inputSchema,
       output_schema: x.outputSchema,
       kind: 'request',
@@ -34,11 +35,11 @@ export class AppToolsAdapter implements Adapter {
           : ['native'],
     }));
   }
-  async call(method: string, params: Record<string, unknown>): Promise<NativeResponse> {
+  async call(method: string, params: Call['params']): Promise<NativeResponse> {
     try {
       return { result: await this.native.rawCall(method, params) };
     } catch (e) {
-      if (e instanceof NativeRpcError) return { error: e.native };
+      if (e instanceof NativeError) return { error: e.value };
       throw e;
     }
   }

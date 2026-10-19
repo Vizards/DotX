@@ -4,8 +4,14 @@ import type { TestContext } from 'node:test';
 import { createTestHarness } from 'wrangler';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 
-export const origin = 'http://localhost';
-export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+const origin = 'http://localhost';
+const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+
+export function toolData(result: any) {
+  assert.equal(result.content.length, 1);
+  assert.equal(result.content[0].type, 'text');
+  return JSON.parse(result.content[0].text);
+}
 
 // Run the real Worker with disposable local KV/DO storage. Tests use only its
 // public HTTP, MCP and device WebSocket interfaces, never internal storage/classes.
@@ -58,12 +64,12 @@ export async function startServer(t: TestContext) {
     return { cookie: cookies(response), link: link.url as string };
   }
 
-  async function authorize(scopes = ['mcp:read', 'mcp:write']) {
+  async function authorizeSession(scopes = ['mcp:read', 'mcp:write']) {
     const registration = await post('/oauth/register', {
       client_name: 'DotX API test',
       redirect_uris: ['https://client.example/callback'],
       token_endpoint_auth_method: 'none',
-      grant_types: ['authorization_code'],
+      grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
     });
     assert.equal(registration.status, 201);
@@ -110,8 +116,25 @@ export async function startServer(t: TestContext) {
         resource: `${origin}/mcp`,
       }).toString(),
     });
-    return (await json(token)).access_token as string;
+    const tokens = await json(token);
+    return {
+      token: tokens.access_token as string,
+      async revoke() {
+        assert(tokens.refresh_token, 'revoking the grant requires its refresh token');
+        const response = await request('/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id,
+            token: tokens.refresh_token,
+            token_type_hint: 'refresh_token',
+          }).toString(),
+        });
+        assert.equal(response.status, 200, await response.text());
+      },
+    };
   }
+  const authorize = async (scopes?: string[]) => (await authorizeSession(scopes)).token;
 
   async function rpc(token: string, method: string, params: Record<string, unknown> = {}) {
     return json(
@@ -156,5 +179,5 @@ export async function startServer(t: TestContext) {
     await json(await post('/setup/approve', { operation_id: input.operation_id }, ownerHeaders));
     return { input, token, claim };
   }
-  return { request, post, json, ownerHeaders, adminSession, authorize, rpc, tool, enroll };
+  return { request, authorize, authorizeSession, rpc, tool, enroll };
 }

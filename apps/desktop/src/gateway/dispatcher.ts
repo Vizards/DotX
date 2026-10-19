@@ -1,4 +1,4 @@
-import { BridgeError, safeError } from '@dotx/shared/errors';
+import { BridgeError, errorValue } from '@dotx/shared/errors';
 import { gatewaySchemas } from '@dotx/shared/gateway';
 import type { Call, NativeResponse } from '@dotx/shared/gateway';
 import type { DeviceOperation, DispatchArgs, TrackedTask } from '@dotx/shared/state';
@@ -8,7 +8,7 @@ import type { ResolveTurn, TurnIdentity } from '../tracking/attribution.ts';
 import { readTurnResult } from '../tracking/result.ts';
 import { TurnTracker } from '../tracking/tracker.ts';
 
-// Execution only. Every side effect arrives through the DO's durable reservation.
+// Execution only. Calls with request_id and interaction answers use a DO reservation.
 // No local retry queue, durable receipt, or database proxy.
 export class Gateway {
   readonly options: {
@@ -49,7 +49,7 @@ export class Gateway {
       try {
         await adapter.prepareResponse?.(event, a.response as NativeResponse);
       } catch (error) {
-        return { response_status: 'rejected', diagnostic: safeError(error) };
+        return { response_status: 'rejected', diagnostic: errorValue(error) };
       }
       try {
         const result = await adapter.respond(event, a.response);
@@ -57,9 +57,12 @@ export class Gateway {
           event.event_id,
           result?.status ?? 'submitted',
         );
-        return { response_status: current.response_status };
+        return {
+          response_status: current.response_status,
+          ...(result?.diagnostic === undefined ? {} : { diagnostic: result.diagnostic }),
+        };
       } catch (error) {
-        return { response_status: 'unknown', diagnostic: safeError(error) };
+        return { response_status: 'unknown', diagnostic: errorValue(error) };
       }
     }
     if (a.connection_id !== this.options.connectionId) throw new BridgeError('WRONG_CONNECTION');
@@ -96,11 +99,10 @@ export class Gateway {
     const args = gatewaySchemas.call.parse(envelope);
     if (adapter.status().runtime_id !== args.runtime_id) throw new BridgeError('RUNTIME_CHANGED');
     if (adapter.status().availability !== 'online') throw new BridgeError('INTERFACE_UNAVAILABLE');
-    const method = (await adapter.methods()).find(
-      (m) => m.name === args.method && m.kind === 'request',
-    );
-    if (!method) throw new BridgeError('NATIVE_METHOD_NOT_FOUND');
-    if (method.managed) throw new BridgeError('PROTOCOL_LIFECYCLE_MANAGED');
+    // Discovery is guidance, not an execution allowlist. The connector alone owns
+    // App Server initialization, even when its method catalog is unavailable.
+    if (args.interface === 'app_server' && ['initialize', 'initialized'].includes(args.method))
+      throw new BridgeError('PROTOCOL_LIFECYCLE_MANAGED');
     if (args.tracking === 'thread_turn') {
       if (!task) throw new BridgeError('TRACKING_CONTEXT_REQUIRED');
       const observation = await this.options.tracker.send(task, args.params);
@@ -116,9 +118,9 @@ export class Gateway {
     }
     try {
       const native = await adapter.call(args.method, args.params);
-      return { rpc_status: native.error ? 'error' : 'returned', native };
+      return { rpc_status: 'error' in native ? 'error' : 'returned', native };
     } catch (error) {
-      return { rpc_status: 'unknown', diagnostic: safeError(error) };
+      return { rpc_status: 'unknown', diagnostic: errorValue(error) };
     }
   }
 }

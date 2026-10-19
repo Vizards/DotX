@@ -3,7 +3,7 @@ import { McpServer, createMcpHandler, ProtocolError } from '@modelcontextprotoco
 import { z } from 'zod';
 import { gatewaySchemas } from '@dotx/shared/gateway';
 import type { GatewayOperation } from '@dotx/shared/gateway';
-import { errorCode } from '@dotx/shared/errors';
+import { errorCode, errorValue } from '@dotx/shared/errors';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../../package.json' with { type: 'json' };
 import { getInstructions, INSTRUCTION_GUIDES, INSTRUCTIONS_GUIDANCE } from './instructions.ts';
@@ -43,7 +43,7 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
               'CallbackEndpointError',
               'data' in e ? e.data : undefined,
             );
-          throw new ProtocolError(-32602, errorCode(e) ?? 'INVALID_EVENT_ARGUMENTS');
+          throw new ProtocolError(-32602, errorCode(e) ?? 'INVALID_EVENT_ARGUMENTS', errorValue(e));
         }
       });
   }
@@ -64,7 +64,7 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
         annotations: {
           readOnlyHint: !write,
           destructiveHint: write,
-          idempotentHint: true,
+          idempotentHint: name !== 'call',
           openWorldHint: true,
         },
       },
@@ -78,7 +78,6 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
           value = await handler(args);
           return {
             content: [{ type: 'text', text: JSON.stringify(value) }],
-            structuredContent: { ...value },
           };
         } catch (e) {
           return {
@@ -87,10 +86,7 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
               {
                 type: 'text',
                 text: JSON.stringify({
-                  error: {
-                    code: errorCode(e) || 'BRIDGE_ERROR',
-                    message: e instanceof Error ? e.message : 'Bridge error',
-                  },
+                  error: errorValue(e),
                 }),
               },
             ],
@@ -123,14 +119,14 @@ function createServer({ invoke, connections, scopes, events }: McpOptions) {
   );
   register(
     'call',
-    'Call a native method and return its raw RPC result/error in native. request_id deduplicates execution; ordinary RPC payloads are not retained. tracking=thread_turn supports App Tools send_message_to_thread and returns the dispatch receipt while its turn is tracked.',
+    'Call a native method and return its raw RPC result/error in native. Omit request_id for ordinary read-only queries: no durable receipt or deduplication. Provide request_id for side effects or uncertain methods to persist deduplication and enable get_request; RPC payloads are not retained. tracking=thread_turn requires request_id and supports App Tools send_message_to_thread for exact-turn receipts.',
     gatewaySchemas.call.shape,
     (args) => invoke('call', args),
     true,
   );
   register(
     'get_request',
-    'Read execution state and any tracked-turn receipt for request_id. Ordinary RPC payloads are available only in the original call response. RPC returned is not task completion.',
+    'Read execution state and any tracked-turn receipt for a call made with request_id, including after missing or interrupted notifications. Calls without request_id have no stored receipt. Ordinary RPC payloads are available only in the original call response. RPC returned is not task completion.',
     gatewaySchemas.get_request.shape,
     (args) => invoke('get_request', args),
   );

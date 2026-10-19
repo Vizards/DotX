@@ -22,7 +22,8 @@ export function selfContained(root: Schema, body: Schema): Schema {
 }
 export function loadCatalog(dir: string): Method[] {
   // App Server has public protocol docs; this parser still depends on the CLI generator's
-  // oneOf/definitions layout and Params -> Response file naming, including experimental APIs.
+  // oneOf/definitions layout, including experimental APIs. Answer schemas for ServerRequest
+  // still depend on its Params -> Response file naming convention.
   const methods: Method[] = [];
   for (const [file, kind] of [
     ['ClientRequest', 'request'],
@@ -35,8 +36,11 @@ export function loadCatalog(dir: string): Method[] {
       const ref = variant.properties.params ?? { type: 'object' };
       const type = ref.$ref?.split('/').at(-1);
       const schema = selfContained(root, type ? root.definitions[type] : ref);
-      const base = type?.replace(/(?:Params|Notification)$/, 'Response');
-      const responsePath = base ? findSchema(dir, base + '.json') : null;
+      // Only reverse requests need an answer schema. Do not guess ordinary result schemas.
+      const responsePath =
+        kind === 'server_request' && type
+          ? findSchema(dir, type.replace(/Params$/, 'Response') + '.json')
+          : null;
       const output = responsePath ? JSON.parse(fs.readFileSync(responsePath, 'utf8')) : undefined;
       methods.push({
         name,

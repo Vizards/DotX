@@ -63,7 +63,7 @@ export const eventCatalog = [
   {
     name: 'gateway.request.updated',
     description:
-      'Tracked-turn state changed. statuses matches the tracked operation state. Read get_request for the result. Ordinary RPC replies are returned directly by call and do not emit this event.',
+      'Tracked-turn state changed. statuses matches the tracked operation state. Subscribe before work; delivery is best effort with no history or cursor replay. Read get_request for current state and the result, including after missed notifications. Ordinary RPC replies are returned directly by call and do not emit this event.',
     delivery: ['webhook'],
     inputSchema: z.toJSONSchema(requestFilter),
     payloadSchema: z.toJSONSchema(noticeData),
@@ -71,7 +71,7 @@ export const eventCatalog = [
   {
     name: 'gateway.native.event',
     description:
-      'Native events; desktop tasks must first be followed through client_coordination. Defaults to questions, lifecycle and turn/interaction state changes; methods/kinds select other non-delta events. Subscriptions survive runtime changes. Read the event at read_cursor for its payload; only server_request events accept respond.',
+      'Native events; desktop tasks must first be followed through client_coordination. Defaults to questions, lifecycle and turn/interaction state changes; explicit methods/kinds can select any emitted event, including delta, log and progress events. Subscribe before work; delivery is best effort with no history or cursor replay. Subscriptions survive runtime changes; native follows must be re-established explicitly after a gap. Read the event at read_cursor for its payload; only server_request events accept respond.',
     delivery: ['webhook'],
     inputSchema: z.toJSONSchema(nativeFilter),
     payloadSchema: z.toJSONSchema(noticeData),

@@ -1,6 +1,7 @@
-import { BridgeError, safeError } from '@dotx/shared/errors';
+import { BridgeError, errorValue } from '@dotx/shared/errors';
 import { readSchema } from '@dotx/shared/protocol';
 import type { NativeRead } from '@dotx/shared/protocol';
+import type { Call } from '@dotx/shared/gateway';
 import type { FollowTarget, TrackedTask, TurnObservation } from '@dotx/shared/state';
 import type { ResolveTurn } from './attribution.ts';
 import { terminal } from '@dotx/shared/state';
@@ -9,10 +10,16 @@ import type { CoordinationAdapter } from '../interfaces/coordination/adapter.ts'
 
 export function validateThread(input: unknown, threadId: string, hostId = 'local'): NativeRead {
   const parsed = readSchema.safeParse(input);
-  if (!parsed.success) throw new BridgeError('UNSUPPORTED_READ_SCHEMA');
+  if (!parsed.success)
+    throw new BridgeError('UNSUPPORTED_READ_SCHEMA', undefined, { cause: parsed.error });
   const data = parsed.data;
   if (data.thread.id !== threadId || data.thread.kind !== 'codex' || data.thread.hostId !== hostId)
-    throw new BridgeError('TARGET_IDENTITY_MISMATCH');
+    throw new BridgeError('TARGET_IDENTITY_MISMATCH', undefined, {
+      cause: {
+        expected: { threadId, hostId, kind: 'codex' },
+        received: { threadId: data.thread.id, hostId: data.thread.hostId, kind: data.thread.kind },
+      },
+    });
   return data;
 }
 const target = (task: TrackedTask): FollowTarget => ({
@@ -41,7 +48,7 @@ export class TurnTracker {
     this.coordination = coordination;
   }
 
-  async send(task: TrackedTask, params: Record<string, unknown>) {
+  async send(task: TrackedTask, params: Call['params']) {
     // Only this one cloud dispatch carries a prompt. Queries never resend it.
     let sent = false;
     let observation: TurnObservation;
@@ -58,19 +65,24 @@ export class TurnTracker {
         task.hostId,
       );
       if (!['idle', 'notLoaded'].includes(before.thread.status?.type ?? ''))
-        throw new BridgeError('TARGET_BUSY');
+        throw new BridgeError('TARGET_BUSY', undefined, {
+          cause: { status: before.thread.status },
+        });
       sent = true;
       const reply = (await this.native.call('send_message_to_thread', params, {
         turnId: task.id,
       })) as { threadId?: string };
-      if (reply.threadId !== task.threadId) throw new BridgeError('SEND_RESPONSE_MISMATCH');
+      if (reply?.threadId !== task.threadId)
+        throw new BridgeError('SEND_RESPONSE_MISMATCH', undefined, {
+          cause: { expected: task.threadId, received: reply?.threadId },
+        });
       observation = { task_id: task.id, state: 'accepted', turnId: null };
     } catch (error) {
       observation = {
         task_id: task.id,
         state: sent ? 'unknown' : 'rejected',
         turnId: null,
-        diagnostic: safeError(error),
+        diagnostic: errorValue(error),
       };
     }
     return observation;
@@ -85,7 +97,7 @@ export class TurnTracker {
       return { observation: this.observe({ ...task, turnId }) };
     } catch (error) {
       return {
-        observation: { task_id: task.id, state: 'unknown', turnId, diagnostic: safeError(error) },
+        observation: { task_id: task.id, state: 'unknown', turnId, diagnostic: errorValue(error) },
       };
     }
   }
@@ -114,7 +126,7 @@ export class TurnTracker {
       state,
       turnId: task.turnId,
       error: turn.error ?? null,
-      diagnostic: state === 'unknown' ? { code: 'TURN_STATUS_UNKNOWN' } : null,
+      diagnostic: state === 'unknown' ? { code: 'TURN_STATUS_UNKNOWN', status: turn.status } : null,
     };
   }
   private remember(task: TrackedTask, observation: TurnObservation) {

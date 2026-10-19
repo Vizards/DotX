@@ -2,7 +2,8 @@ import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import net from 'node:net';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { BridgeError, errorCode } from '@dotx/shared/errors';
+import { BridgeError, NativeError, errorCode } from '@dotx/shared/errors';
+import type { Call } from '@dotx/shared/gateway';
 import { FrameDecoder } from '../framing.ts';
 const toolSchema = z
   .object({
@@ -12,36 +13,18 @@ const toolSchema = z
     inputSchema: z.unknown().optional(),
   })
   .passthrough();
-type ToolSchema = z.infer<typeof toolSchema>['inputSchema'];
 const rpcReply = z.object({
   id: z.string(),
   result: z.unknown().optional(),
   error: z
     .object({ code: z.number(), message: z.string(), data: z.unknown().optional() })
+    .passthrough()
     .optional(),
 });
 export interface NativeClient {
-  call(tool: string, args: Record<string, unknown>, context?: { turnId: string }): Promise<unknown>;
-}
-export class NativeRpcError extends BridgeError {
-  readonly native: { code: number; message: string; data?: unknown };
-  constructor(error: { code: number; message: string; data?: unknown }) {
-    super('DESKTOP_RPC_ERROR', error.message);
-    this.native = error;
-  }
+  call(tool: string, args: Call['params'], context?: { turnId: string }): Promise<unknown>;
 }
 type Rpc = typeof pipeRpc;
-export interface RpcObservation {
-  startedAt: number;
-  operation: string;
-  phase: 'connecting' | 'awaiting_response' | 'receiving_response' | 'complete';
-  elapsedMs: number;
-  timeoutMs: number;
-  receivedBytes: number;
-  outcome: string;
-}
-type ObserveRpc = (observation: RpcObservation) => void;
-
 // PRIVATE CODEX API: the desktop-injected App Tools pipe uses length-prefixed JSON-RPC.
 // Despite tools/list and tools/call names, its framing and envelopes are not public MCP.
 // A desktop update can change either independently of the discovered tool schemas.
@@ -51,58 +34,30 @@ export function pipeRpc(
   method: string,
   params: unknown,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-  observe?: ObserveRpc,
 ): Promise<unknown> {
   if (!pipe) return Promise.reject(new BridgeError('DESKTOP_PIPE_MISSING'));
   return new Promise((resolve, reject) => {
     const id = randomUUID(),
       socket = net.createConnection(pipe);
     const decoder = new FrameDecoder();
-    let receivedBytes = 0,
-      done = false;
-    const startedAt = Date.now();
-    const start = performance.now();
-    const tool = params && typeof params === 'object' && 'tool' in params ? params.tool : null;
-    const operation =
-      typeof tool === 'string' &&
-      ['list_threads', 'read_thread', 'send_message_to_thread'].includes(tool)
-        ? tool
-        : method;
-    let phase: RpcObservation['phase'] = 'connecting';
+    let done = false;
     const finish = (error: unknown, result?: unknown) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
       decoder.reset();
       socket.destroy();
-      try {
-        observe?.({
-          startedAt,
-          operation,
-          phase: error ? phase : 'complete',
-          elapsedMs: Math.round(performance.now() - start),
-          timeoutMs,
-          receivedBytes,
-          outcome: error ? errorCode(error) || 'INTERNAL_ERROR' : 'ok',
-        });
-      } catch {
-        // Diagnostics must never change a send result or trigger a second dispatch.
-      }
       if (error) reject(error);
       else resolve(result);
     };
     const timer = setTimeout(
       () =>
         finish(
-          new BridgeError(
-            'DESKTOP_TIMEOUT',
-            `Desktop ${operation} timed out after ${Math.round(performance.now() - start)}ms (${phase}, receivedBytes=${receivedBytes})`,
-          ),
+          new BridgeError('DESKTOP_TIMEOUT', `No response to ${method}; reconcile, do not resend`),
         ),
       timeoutMs,
     );
     socket.once('connect', () => {
-      phase = 'awaiting_response';
       const body = Buffer.from(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
       const header = Buffer.alloc(4);
       header.writeUInt32LE(body.length);
@@ -110,14 +65,12 @@ export function pipeRpc(
     });
     socket.on('data', (chunk) => {
       if (done) return;
-      phase = 'receiving_response';
-      receivedBytes += chunk.length;
       // Decode the native reply here. Remote response limits belong to the relay.
       try {
         for (const frame of decoder.push(chunk)) {
           const reply = rpcReply.parse(JSON.parse(frame.toString('utf8')));
           if (reply.id !== id) throw new BridgeError('DESKTOP_RESPONSE_MISMATCH');
-          if (reply.error) throw new NativeRpcError(reply.error);
+          if (reply.error) throw new NativeError(reply.error);
           finish(null, reply.result);
           return;
         }
@@ -127,7 +80,13 @@ export function pipeRpc(
     });
     socket.once('error', (e) =>
       finish(
-        new BridgeError('DESKTOP_DISCONNECTED', `Desktop pipe error: ${errorCode(e) || 'unknown'}`),
+        new BridgeError(
+          'DESKTOP_DISCONNECTED',
+          `Desktop pipe error: ${errorCode(e) || 'unknown'}`,
+          {
+            cause: e,
+          },
+        ),
       ),
     );
     socket.once('close', () => finish(new BridgeError('DESKTOP_DISCONNECTED')));
@@ -138,28 +97,22 @@ export class Native {
   readonly pipe: string | undefined;
   readonly callerThreadId: string;
   readonly rpc: Rpc;
-  readonly observeRpc?: ObserveRpc;
-  schemas?: Map<string, ToolSchema>;
   private discovery?: ReturnType<Native['discoverCapabilities']>;
   constructor({
     pipe,
     callerThreadId,
     rpc = pipeRpc,
-    observeRpc,
   }: {
     pipe?: string;
     callerThreadId: string;
     rpc?: Rpc;
-    observeRpc?: ObserveRpc;
   }) {
     this.pipe = pipe;
     this.callerThreadId = callerThreadId;
     this.rpc = rpc;
-    this.observeRpc = observeRpc;
   }
   capabilities() {
-    // One discovery per desktop connection lifetime; concurrent probes share it.
-    // Failed discovery is retried. RPC failures invalidate it without replaying a call.
+    // Cache successful discovery; a failed lookup can be retried by the next caller.
     return (this.discovery ??= this.discoverCapabilities().catch((error: unknown) => {
       this.discovery = undefined;
       throw error;
@@ -168,68 +121,43 @@ export class Native {
   private async discoverCapabilities() {
     const parsed = z
       .object({ tools: z.array(toolSchema) })
-      .safeParse(
-        await this.rpc(
-          this.pipe,
-          'tools/list',
-          { threadStartKind: 'all' },
-          undefined,
-          this.observeRpc,
-        ),
-      );
-    if (!parsed.success) throw new BridgeError('UNSUPPORTED_CAPABILITY_SCHEMA');
-    const result = parsed.data;
-    // Exact shape is recorded by diagnostics; do not silently assume an unknown schema.
-    const entries = result.tools;
+      .safeParse(await this.rpc(this.pipe, 'tools/list', { threadStartKind: 'all' }));
+    if (!parsed.success)
+      throw new BridgeError('UNSUPPORTED_CAPABILITY_SCHEMA', undefined, { cause: parsed.error });
+    const entries = parsed.data.tools;
     if (!entries.length) throw new BridgeError('NATIVE_METHOD_CATALOG_EMPTY');
-    this.schemas = new Map(entries.map((t) => [`${t.namespace}.${t.name}`, t.inputSchema]));
-    return {
-      protocol: 1,
-      tools: entries.map((t) => `${t.namespace}.${t.name}`),
-      toolDefinitions: entries,
-    };
+    return { toolDefinitions: entries };
   }
   async rawCall(
     method: string,
-    args: Record<string, unknown>,
+    args: Call['params'],
     context?: { turnId: string },
   ): Promise<unknown> {
-    if (!this.schemas) await this.capabilities();
-    if (!this.schemas?.has(method)) throw new BridgeError('NATIVE_METHOD_NOT_FOUND', method);
     const split = method.indexOf('.');
+    if (split < 1 || split === method.length - 1)
+      throw new BridgeError('INVALID_APP_TOOL_METHOD', 'Expected namespace.tool');
     const namespace = method.slice(0, split),
       tool = method.slice(split + 1);
     // Private caller envelope: threadId is our archived caller, not the target thread.
     // Target host/thread stay in arguments; changing this routing can execute in the wrong context.
-    return this.rpc(
-      this.pipe,
-      'tools/call',
-      {
-        arguments: args,
-        callerSource: 'codex',
-        callId: randomUUID(),
-        hostId: 'local',
-        namespace,
-        threadId: this.callerThreadId,
-        tool,
-        // Tracked sends use the DO's pre-reserved ID. The desktop records it as
-        // parent_turn_id on the target, outside the prompt. This is not native deduplication.
-        turnId: context?.turnId ?? randomUUID(),
-      },
-      undefined,
-      this.observeRpc,
-    );
+    return this.rpc(this.pipe, 'tools/call', {
+      arguments: args,
+      callerSource: 'codex',
+      callId: randomUUID(),
+      hostId: 'local',
+      namespace,
+      threadId: this.callerThreadId,
+      tool,
+      // Tracked sends use the DO's pre-reserved ID. The desktop records it as
+      // parent_turn_id on the target, outside the prompt. This is not native deduplication.
+      turnId: context?.turnId ?? randomUUID(),
+    });
   }
-  async call(
-    tool: string,
-    args: Record<string, unknown>,
-    context?: { turnId: string },
-  ): Promise<unknown> {
+  async call(tool: string, args: Call['params'], context?: { turnId: string }): Promise<unknown> {
     let raw: unknown;
     try {
       raw = await this.rawCall(`codex_app.${tool}`, args, context);
     } catch (error) {
-      this.schemas = undefined;
       this.discovery = undefined;
       throw error;
     }
@@ -241,8 +169,8 @@ export class Native {
         contentItems: z.array(z.object({ text: z.string().optional() }).passthrough()).optional(),
       })
       .safeParse(raw);
-    if (!result.success || result.data.success !== true)
-      throw new BridgeError('DESKTOP_TOOL_FAILED');
+    if (!result.success) throw { code: 'UNSUPPORTED_TOOL_RESPONSE', response: raw };
+    if (!result.data.success) throw new NativeError(raw);
     for (const item of result.data.contentItems || []) {
       if (typeof item.text === 'string') {
         try {
@@ -250,6 +178,6 @@ export class Native {
         } catch {}
       }
     }
-    throw new BridgeError('UNSUPPORTED_TOOL_RESPONSE');
+    throw { code: 'UNSUPPORTED_TOOL_RESPONSE', response: raw };
   }
 }

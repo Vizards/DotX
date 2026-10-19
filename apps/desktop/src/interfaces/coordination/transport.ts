@@ -16,7 +16,7 @@ export class CoordinationWire {
     endpoint: string;
     timeoutMs?: number;
     onMessage: (message: WireMessage) => void;
-    onDisconnect: () => void;
+    onDisconnect: (error: Error) => void;
   };
   socket?: net.Socket;
   clientId?: string;
@@ -53,7 +53,7 @@ export class CoordinationWire {
     socket.on('data', (chunk) => {
       if (this.socket === socket) this.receive(chunk);
     });
-    socket.on('error', () => this.disconnected(socket));
+    socket.on('error', (error) => this.disconnected(socket, error));
     socket.on('close', () => this.disconnected(socket));
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -64,39 +64,57 @@ export class CoordinationWire {
         clearTimeout(timer);
         resolve();
       });
-      socket.once('error', () => {
+      socket.once('error', (cause) => {
         clearTimeout(timer);
-        reject(new BridgeError('COORDINATION_CONNECT_FAILED'));
+        reject(new BridgeError('COORDINATION_CONNECT_FAILED', undefined, { cause }));
       });
     });
     try {
       const reply = await this.request('initialize', { clientType: 'dotx' }, 0);
       if (reply.resultType !== 'success' || typeof reply.result?.clientId !== 'string')
-        throw new BridgeError('COORDINATION_INITIALIZE_FAILED');
+        throw new BridgeError('COORDINATION_INITIALIZE_FAILED', undefined, {
+          cause:
+            reply.resultType === 'error'
+              ? reply.error
+              : {
+                  resultType: reply.resultType,
+                  clientId: reply.result?.clientId,
+                },
+        });
       this.clientId = reply.result.clientId;
     } catch (error) {
       socket.destroy();
-      this.disconnected(socket);
+      this.disconnected(
+        socket,
+        error instanceof Error
+          ? error
+          : new BridgeError('COORDINATION_INITIALIZE_FAILED', undefined, { cause: error }),
+      );
       throw error;
     }
   }
-  disconnected(socket: net.Socket) {
+  disconnected(socket: net.Socket, error: Error = new BridgeError('COORDINATION_DISCONNECTED')) {
     if (this.socket !== socket) return;
     this.socket = undefined;
     this.clientId = undefined;
     this.decoder.reset();
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
-      p.reject(new BridgeError('COORDINATION_DISCONNECTED'));
+      p.reject(error);
     }
     this.pending.clear();
-    this.options.onDisconnect();
+    this.options.onDisconnect(error);
   }
   private receive(chunk: Buffer) {
     try {
       // Full native snapshots stay local; only derived summaries leave the Mac.
       for (const frame of this.decoder.push(chunk)) {
-        const message: WireMessage = JSON.parse(frame.toString());
+        let message: WireMessage;
+        try {
+          message = JSON.parse(frame.toString());
+        } catch (cause) {
+          throw new BridgeError('INVALID_COORDINATION_MESSAGE', undefined, { cause });
+        }
         if (message.type === 'response') {
           const p = this.pending.get(message.requestId);
           if (!p) continue;
@@ -113,7 +131,14 @@ export class CoordinationWire {
             (!brokerError && message.method !== p.method) ||
             (message.resultType === 'success' && p.owner && message.handledByClientId !== p.owner)
           )
-            p.reject(new BridgeError('COORDINATION_RESPONSE_SOURCE_MISMATCH'));
+            p.reject(
+              new BridgeError('COORDINATION_RESPONSE_SOURCE_MISMATCH', undefined, {
+                cause: {
+                  expected: { method: p.method, owner: p.owner },
+                  received: { method: message.method, owner: message.handledByClientId },
+                },
+              }),
+            );
           else p.resolve(message);
         } else if (message.type === 'client-discovery-request') {
           this.write({
@@ -122,12 +147,16 @@ export class CoordinationWire {
             response: { canHandle: false },
           });
         } else {
-          this.options.onMessage(message);
+          try {
+            this.options.onMessage(message);
+          } catch (cause) {
+            throw new BridgeError('COORDINATION_MESSAGE_HANDLING_FAILED', undefined, { cause });
+          }
         }
         if (this.socket?.destroyed) return;
       }
-    } catch {
-      this.close();
+    } catch (error) {
+      this.close(error as Error);
     }
   }
   write(message: WireMessage) {
@@ -186,9 +215,9 @@ export class CoordinationWire {
       params: { hostId, conversationId, following },
     });
   }
-  close() {
+  close(error?: Error) {
     this.decoder.reset();
-    this.socket?.destroy();
+    this.socket?.destroy(error);
   }
 }
 
@@ -201,19 +230,24 @@ export function applyStatePatches(state: WireMessage, patches: WireMessage[]) {
   let next = structuredClone(state);
   for (const patch of patches) {
     const parts: (string | number)[] = patch.path;
+    // Only the failing operation/path belongs in diagnostics, never the state or patch value.
+    const invalid = (reason: string) =>
+      new BridgeError('COORDINATION_INVALID_PATCH', reason, {
+        cause: { op: patch.op, path: parts },
+      });
     if (
       !Array.isArray(parts) ||
       parts.some((p) => ['__proto__', 'constructor', 'prototype'].includes(String(p)))
     )
-      throw new BridgeError('COORDINATION_INVALID_PATCH');
+      throw invalid('Invalid or unsafe patch path');
     if (!parts.length) {
-      if (patch.op !== 'replace') throw new BridgeError('COORDINATION_INVALID_PATCH');
+      if (patch.op !== 'replace') throw invalid('Only replace is supported at the root');
       next = structuredClone(patch.value);
       continue;
     }
     let target: any = next;
     for (const p of parts.slice(0, -1)) {
-      if (!target || !Object.hasOwn(target, p)) throw new BridgeError('COORDINATION_INVALID_PATCH');
+      if (!target || !Object.hasOwn(target, p)) throw invalid('Patch parent does not exist');
       target = target[p];
     }
     const key = parts.at(-1)!;
@@ -224,7 +258,7 @@ export function applyStatePatches(state: WireMessage, patches: WireMessage[]) {
       if (Array.isArray(target) && patch.op === 'add')
         target.splice(Number(key), 0, structuredClone(patch.value));
       else target[key] = structuredClone(patch.value);
-    } else throw new BridgeError('COORDINATION_INVALID_PATCH');
+    } else throw invalid('Unsupported patch operation');
   }
   return next;
 }

@@ -1,7 +1,5 @@
-import { BridgeError } from '@dotx/shared/errors';
+import { BridgeError, NativeError } from '@dotx/shared/errors';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import fs from 'node:fs';
-import path from 'node:path';
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
 import { randomUUID } from 'node:crypto';
@@ -14,7 +12,7 @@ const bootstrapReply = z.object({
   id: z.union([z.string(), z.number()]).optional(),
   method: z.string().optional(),
   result: z.unknown().optional(),
-  error: z.object({ message: z.string() }).optional(),
+  error: z.unknown().optional(),
 });
 export class AppServer {
   readonly pending = new Map<
@@ -32,19 +30,19 @@ export class AppServer {
       Object.entries(process.env).filter(([key]) => !key.startsWith('CODEX_')),
     );
     env.CODEX_HOME = home;
-    const log = fs.openSync(path.join(cwd, 'bootstrap.log'), 'a', 0o600);
     this.process = spawn(cli, ['app-server', '--listen', 'stdio://'], {
       cwd,
       env,
-      stdio: ['pipe', 'pipe', log],
+      stdio: ['pipe', 'pipe', 'inherit'],
     }) as ChildProcessByStdio<Writable, Readable, null>;
-    fs.closeSync(log); // Diagnostic logs stay machine-local; never emit config/auth logs.
     this.reader = readline.createInterface({ input: this.process.stdout });
     this.reader.on('line', (line) => {
       let msg;
       try {
         msg = bootstrapReply.parse(JSON.parse(line));
-      } catch {
+      } catch (cause) {
+        this.fail(new BridgeError('BOOTSTRAP_INVALID_MESSAGE', undefined, { cause }));
+        this.close();
         return;
       }
       if (msg.method && msg.id !== undefined) {
@@ -60,18 +58,25 @@ export class AppServer {
       if (!p) return;
       this.pending.delete(msg.id);
       clearTimeout(p.timer);
-      if (msg.error) p.reject(new BridgeError('BOOTSTRAP_RPC_ERROR', msg.error.message));
+      if (msg.error !== undefined) p.reject(new NativeError(msg.error));
       else p.resolve(msg.result);
     });
-    const fail = () => {
-      for (const p of this.pending.values()) {
-        clearTimeout(p.timer);
-        p.reject(new BridgeError('BOOTSTRAP_EXITED'));
-      }
-      this.pending.clear();
-    };
-    this.process.on('error', fail);
-    this.process.on('exit', fail);
+    this.process.on('error', (cause) =>
+      this.fail(new BridgeError('BOOTSTRAP_START_FAILED', undefined, { cause })),
+    );
+    this.process.on('exit', (exitCode, signal) =>
+      this.fail(new BridgeError('BOOTSTRAP_EXITED', undefined, { cause: { exitCode, signal } })),
+    );
+    this.process.stdin.on('error', (cause) =>
+      this.fail(new BridgeError('BOOTSTRAP_PIPE_FAILED', undefined, { cause })),
+    );
+  }
+  private fail(error: unknown) {
+    for (const p of this.pending.values()) {
+      clearTimeout(p.timer);
+      p.reject(error);
+    }
+    this.pending.clear();
   }
   write(msg: unknown) {
     this.process.stdin.write(JSON.stringify(msg) + '\n');

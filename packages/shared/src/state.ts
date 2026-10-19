@@ -5,12 +5,9 @@ import type { Diagnostic, RequestState } from './protocol.ts';
 import { id, nativeHost } from './protocol.ts';
 import { notice } from './events.ts';
 
-export const trackedParams = z.strictObject({
+export const trackedTarget = z.object({
   hostId: nativeHost.optional(),
   threadId: id,
-  prompt: z.string().min(1),
-  model: z.string().min(1).optional(),
-  thinking: z.string().min(1).optional(),
 });
 
 // Only the DO persists these records; querying one never authorizes redispatch.
@@ -59,10 +56,7 @@ export const observation = z.discriminatedUnion('kind', [
     ]),
     turnId: z.string().nullable(),
     error: z.unknown().optional(),
-    diagnostic: z
-      .object({ code: z.string(), message: z.string().optional() })
-      .nullable()
-      .optional(),
+    diagnostic: z.unknown().optional(),
   }),
   z.object({
     id: z.string(),

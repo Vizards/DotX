@@ -16,7 +16,7 @@ export async function readTurnResult(
     turnId: task.turnId,
     sortDirection: 'desc',
   });
-  if (reply.error) throw new BridgeError('NATIVE_RESULT_READ_FAILED', reply.error.message);
+  if ('error' in reply) throw reply.error;
   const page = reply.result as {
     data: { turnId: string; item: NativeItem }[];
     nextCursor: string | null;
@@ -27,7 +27,7 @@ export async function readTurnResult(
     turnId: task.turnId,
     status: task.state,
     error: task.error ?? null,
-    items: page.data.map((entry) => entry.item).filter((item) => item.type === 'agentMessage'),
+    items: page.data.map((entry) => entry.item),
     nextCursor: page.nextCursor,
   };
 }

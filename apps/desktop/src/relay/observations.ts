@@ -24,7 +24,7 @@ export class Observations {
   native(e: NativeEvent) {
     const p = object(e.native.params),
       method = String(e.native.method ?? '');
-    if (!method || /(?:\/delta$|outputDelta$|tokenUsage|\/log|\/progress)/i.test(method)) return;
+    if (!method) return;
     const data: NoticeData = {
       connection_id: e.connection_id,
       interface: e.interface,
@@ -56,8 +56,8 @@ export class Observations {
         },
       });
     };
-    if (method === 'thread-stream-state-changed') {
-      for (const [index, turn] of (Array.isArray(p.turns) ? p.turns : []).entries()) {
+    if (method === 'thread-stream-state-changed' && Array.isArray(p.turns) && p.turns.length) {
+      for (const [index, turn] of p.turns.entries()) {
         if (!string(turn.turnId)) continue;
         emit({ ...data, turn_id: turn.turnId, status: string(turn.status) }, String(index));
       }

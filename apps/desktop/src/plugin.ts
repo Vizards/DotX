@@ -5,7 +5,7 @@ import { createDeviceMcp } from './mcp/server.ts';
 import { stateDir } from './runtime/state.ts';
 import { startDevice } from './runtime/runtime.ts';
 import { tryConnectorLock } from './runtime/connector-lock.ts';
-import { safeError } from '@dotx/shared/errors';
+import { errorValue } from '@dotx/shared/errors';
 
 process.umask(0o077);
 const dir = stateDir(),
@@ -26,7 +26,12 @@ const stdio = serveStdio(
               : 'Run the DotX setup skill. This process will load the connector after local initialization.',
         },
     ),
-  { onerror: () => process.stderr.write('dotx: MCP_STDIO_ERROR\n') },
+  {
+    onerror: (error) =>
+      process.stderr.write(
+        JSON.stringify({ code: 'MCP_STDIO_ERROR', cause: errorValue(error) }) + '\n',
+      ),
+  },
 );
 function load() {
   if (runtime) return;
@@ -41,7 +46,7 @@ function load() {
     runtime = startDevice(() => stdio.close());
     clearInterval(timer);
   } catch (error) {
-    process.stderr.write(`dotx: ${diagnostic} (${safeError(error).code})\n`);
+    process.stderr.write(JSON.stringify({ code: diagnostic, cause: errorValue(error) }) + '\n');
     // Fatal startup errors must not leave a nonfunctional process holding the lock.
     process.exit(1);
   }

@@ -8,14 +8,14 @@ export interface Interaction extends FollowTarget {
   key: string;
   kind: 'native_request';
   owner: string;
-  turnId: string;
+  turnId?: string | null;
   native: Record<string, any>;
   responseSchema?: unknown;
   status: NonNullable<NativeEvent['response_status']>;
   eventId?: string;
   publishedState?: string;
   responseResult?: unknown;
-  diagnostic?: { code: string };
+  diagnostic?: NativeEvent['response_diagnostic'];
 }
 // A view of the current desktop snapshot, not an execution/answer ledger.
 export class CoordinationView {

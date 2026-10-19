@@ -2,10 +2,9 @@ import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
-import { BridgeError, errorCode } from '@dotx/shared/errors';
+import { BridgeError, errorValue } from '@dotx/shared/errors';
 import { canonical } from '@dotx/shared/gateway';
-import type { InterfaceStatus, NativeEvent, NativeResponse } from '@dotx/shared/gateway';
+import type { Call, InterfaceStatus, NativeEvent, NativeResponse } from '@dotx/shared/gateway';
 import type { Adapter, Method } from '../adapter.ts';
 import { EventBuffer } from '../../events/buffer.ts';
 import { CoordinationView, targetKey, identity } from './view.ts';
@@ -18,7 +17,9 @@ const targetSchema = z.object({
   conversationId: z.string().min(1),
 });
 // PRIVATE CODEX API: public App Server request names map to private desktop response methods.
-// CLI-generated response schemas validate payloads, not this mapping or its owner/version envelope.
+// The owner exposes per-type follower RPCs, not a generic JSON-RPC response endpoint.
+// An independent App Server cannot answer requests owned by the desktop's connection.
+// CLI-generated response schemas are discovery hints, not the desktop response contract.
 const responseMethods: Record<string, string> = {
   'item/commandExecution/requestApproval': 'thread-follower-command-approval-decision',
   'item/fileChange/requestApproval': 'thread-follower-file-approval-decision',
@@ -42,7 +43,7 @@ interface FollowState extends FollowTarget {
   state?: WireMessage;
   revision?: number;
   pendingSnapshot?: Promise<FollowState>;
-  snapshotWaiters: Set<{ resolve: (s: FollowState) => void; reject: (e: Error) => void }>;
+  snapshotWaiters: Set<{ resolve: (s: FollowState) => void; reject: (e: unknown) => void }>;
 }
 function turns(state: WireMessage): WireMessage[] {
   // Private desktop state has live turns and normalized history; App Server thread/read differs.
@@ -77,11 +78,10 @@ export class CoordinationAdapter implements Adapter {
   readonly wire: CoordinationWire;
   readonly view: CoordinationView;
   readonly follows = new Map<string, FollowState>();
-  readonly validator = new AjvJsonSchemaValidator();
   runtimeId = randomUUID();
   ready = false;
   stopped = false;
-  diagnostic?: string;
+  diagnostic?: unknown;
   constructor(options: CoordinationAdapter['options']) {
     this.options = options;
     this.view = new CoordinationView();
@@ -90,7 +90,7 @@ export class CoordinationAdapter implements Adapter {
       endpoint: options.endpoint ?? path.join(options.home, 'ipc', 'ipc.sock'),
       timeoutMs: options.timeoutMs,
       onMessage: (m) => this.receive(m),
-      onDisconnect: () => this.disconnected(),
+      onDisconnect: (error) => this.disconnected(error),
     });
     void this.connect().catch(() => {});
   }
@@ -100,19 +100,19 @@ export class CoordinationAdapter implements Adapter {
       runtime_id: this.runtimeId,
       availability: this.ready ? 'online' : 'unavailable',
       version: this.options.version,
-      diagnostic: this.diagnostic ? { code: this.diagnostic } : null,
+      diagnostic: errorValue(this.diagnostic) ?? null,
     };
   }
   async methods(): Promise<Method[]> {
     await this.connect();
-    // The desktop currently accepts these App Server settings fields through its private wrapper.
-    // Schema discovery alone cannot prove application or inheritance: read back settings/permissions.
+    // PRIVATE CODEX API: borrow known App Server fields as discovery hints, not as the
+    // desktop settings contract. The owner validates parameters; read back applied settings.
     const nativeSettings: any = this.options.nativeCatalog.find(
       (m) => m.name === 'thread/settings/update',
     )?.input_schema;
     const properties = { ...nativeSettings?.properties };
     delete properties.threadId;
-    const settings = { type: 'object', properties, additionalProperties: false };
+    const settings = { type: 'object', properties };
     return [
       {
         name: 'thread-owner-discovery',
@@ -135,15 +135,14 @@ export class CoordinationAdapter implements Adapter {
         name: 'thread-follower-update-thread-settings',
         kind: 'request',
         input_schema: {
-          ...objectSchema(
-            {
-              ...targetProperties,
-              threadSettings: settings,
-              activeTurnId: { type: 'string' },
-              condition: { type: 'object' },
-            },
-            ['conversationId', 'threadSettings'],
-          ),
+          type: 'object',
+          properties: {
+            ...targetProperties,
+            threadSettings: settings,
+            activeTurnId: { type: 'string' },
+            condition: { type: 'object' },
+          },
+          required: ['conversationId', 'threadSettings'],
           definitions: nativeSettings?.definitions ?? {},
         },
         description:
@@ -184,29 +183,35 @@ export class CoordinationAdapter implements Adapter {
     native: WireMessage,
     kind: NativeEvent['kind'] = 'notification',
     extra: Partial<NativeEvent> = {},
+    noticeNative?: NativeEvent['native'],
   ) {
-    return this.options.events.addEvent({
-      connection_id: this.options.connectionId,
-      interface: 'client_coordination',
-      runtime_id: this.runtimeId,
-      kind,
-      native,
-      ...extra,
-    });
+    return this.options.events.addEvent(
+      {
+        connection_id: this.options.connectionId,
+        interface: 'client_coordination',
+        runtime_id: this.runtimeId,
+        kind,
+        native,
+        ...extra,
+      },
+      noticeNative,
+    );
   }
-  disconnected() {
+  disconnected(error: Error) {
     if (this.stopped) return;
     this.ready = false;
-    this.diagnostic ??= 'COORDINATION_DISCONNECTED';
+    this.diagnostic = error;
     this.options.events.expireRuntime(this.runtimeId);
-    for (const f of this.follows.values())
-      for (const w of f.snapshotWaiters) w.reject(new BridgeError('COORDINATION_DISCONNECTED'));
+    for (const f of this.follows.values()) for (const w of f.snapshotWaiters) w.reject(error);
     const targets = [...this.follows.values()];
     this.follows.clear();
     for (const target of targets) this.options.onState?.(target);
     this.view.interactions.clear();
     if (!this.stopped) {
-      this.emit({ method: 'runtime/ended' }, 'lifecycle');
+      this.emit(
+        { method: 'runtime/ended', params: { diagnostic: errorValue(error) } },
+        'lifecycle',
+      );
       this.runtimeId = randomUUID();
       this.options.events.registerRuntime(this.runtimeId);
     }
@@ -219,15 +224,24 @@ export class CoordinationAdapter implements Adapter {
       this.diagnostic = undefined;
     } catch (error) {
       this.ready = false;
-      this.diagnostic = errorCode(error) ?? 'COORDINATION_CONNECT_FAILED';
+      this.diagnostic = error;
       throw error;
     }
   }
-  invalidate(f: FollowState, code: string) {
+  invalidate(f: FollowState, error: unknown) {
     f.state = undefined;
-    for (const waiter of f.snapshotWaiters) waiter.reject(new BridgeError(code));
+    for (const waiter of f.snapshotWaiters) waiter.reject(error);
     this.options.onState?.(f);
-    this.emit({ method: 'subscription/unavailable', params: { ...fTarget(f), code } }, 'lifecycle');
+    this.emit(
+      {
+        method: 'subscription/unavailable',
+        params: {
+          ...fTarget(f),
+          diagnostic: errorValue(error),
+        },
+      },
+      'lifecycle',
+    );
     // Leave the stream unavailable until an explicit read/follow, without fetching a snapshot.
     if (f.owner) {
       try {
@@ -238,11 +252,9 @@ export class CoordinationAdapter implements Adapter {
   async owner(target: FollowTarget) {
     await this.connect();
     const r = await this.wire.request('thread-owner-discovery', target, 1);
-    if (r.resultType !== 'success' || typeof r.handledByClientId !== 'string')
-      throw new BridgeError(
-        'COORDINATION_OWNER_UNAVAILABLE',
-        String(r.error ?? 'No desktop owner'),
-      );
+    if (r.resultType !== 'success') throw r.error;
+    if (typeof r.handledByClientId !== 'string')
+      throw { code: 'COORDINATION_OWNER_UNAVAILABLE', response: r };
     return r;
   }
   async snapshot(target: FollowTarget): Promise<FollowState> {
@@ -267,7 +279,7 @@ export class CoordinationAdapter implements Adapter {
             current.snapshotWaiters.delete(waiter);
             resolve(s);
           },
-          reject: (e: Error) => {
+          reject: (e: unknown) => {
             clearTimeout(timer);
             current.snapshotWaiters.delete(waiter);
             reject(e);
@@ -283,12 +295,12 @@ export class CoordinationAdapter implements Adapter {
         this.wire.follow(target.hostId, target.conversationId, owner, false);
         this.wire.follow(target.hostId, target.conversationId, owner, true);
       } catch (e) {
-        for (const w of current.snapshotWaiters) w.reject(e as Error);
+        for (const w of current.snapshotWaiters) w.reject(e);
       }
       return received;
     })()
       .catch((error) => {
-        this.invalidate(current, errorCode(error) ?? 'COORDINATION_SNAPSHOT_UNAVAILABLE');
+        this.invalidate(current, error);
         throw error;
       })
       .finally(() => {
@@ -299,16 +311,25 @@ export class CoordinationAdapter implements Adapter {
   receive(message: WireMessage) {
     if (message.type !== 'broadcast' || message.method !== 'thread-stream-state-changed') return;
     const target = targetSchema.safeParse(message.params);
-    if (!target.success) return;
+    if (!target.success) {
+      // Other owners' broadcasts are unrelated. A known owner's unreadable target
+      // is a protocol failure; the existing disconnect path exposes it to followers.
+      if ([...this.follows.values()].some((f) => f.owner === message.sourceClientId))
+        throw new BridgeError('COORDINATION_INVALID_STATE_TARGET', undefined, {
+          cause: target.error,
+        });
+      return;
+    }
     const f = this.follows.get(targetKey(target.data));
     if (!f || message.sourceClientId !== f.owner) return;
     // Native state-message revision, NOT a Codex release allowlist. v11 was observed on
     // 26.1007.71326 and rechecked on 26.1013.31256; a new revision needs its shape verified.
     if (message.version !== 11) {
-      this.diagnostic = 'COORDINATION_STATE_VERSION_MISMATCH';
-      this.ready = false;
-      for (const waiter of f.snapshotWaiters) waiter.reject(new BridgeError(this.diagnostic));
-      this.wire.close();
+      this.wire.close(
+        new BridgeError('COORDINATION_STATE_VERSION_MISMATCH', undefined, {
+          cause: { expected: 11, received: message.version },
+        }),
+      );
       return;
     }
     const change = message.params.change;
@@ -318,22 +339,43 @@ export class CoordinationAdapter implements Adapter {
         change.conversationState?.id !== f.conversationId ||
         change.conversationState?.hostId !== f.hostId
       )
-        throw new BridgeError('COORDINATION_THREAD_IDENTITY_MISMATCH');
+        throw new BridgeError('COORDINATION_THREAD_IDENTITY_MISMATCH', undefined, {
+          cause: {
+            expected: fTarget(f),
+            received: {
+              hostId: change.conversationState?.hostId,
+              conversationId: change.conversationState?.id,
+            },
+          },
+        });
       f.state = change.conversationState;
       f.revision = change.revision;
     } else if (change.type === 'patches') {
       if (!f.state || f.revision !== change.baseRevision) {
-        this.invalidate(f, 'COORDINATION_REVISION_GAP');
+        this.invalidate(
+          f,
+          new BridgeError('COORDINATION_REVISION_GAP', undefined, {
+            cause: { currentRevision: f.revision, baseRevision: change.baseRevision },
+          }),
+        );
         return;
       }
       try {
         f.state = applyStatePatches(f.state, change.patches);
         f.revision = change.revision;
-      } catch {
-        this.invalidate(f, 'COORDINATION_INVALID_PATCH');
+      } catch (error) {
+        this.invalidate(f, error);
         return;
       }
-    } else return;
+    } else {
+      this.invalidate(
+        f,
+        new BridgeError('COORDINATION_UNKNOWN_STATE_CHANGE', undefined, {
+          cause: { type: change.type },
+        }),
+      );
+      return;
+    }
     this.observe(f, change.type === 'snapshot', previous);
     if (change.type === 'snapshot') for (const w of f.snapshotWaiters) w.resolve(f);
   }
@@ -356,9 +398,11 @@ export class CoordinationAdapter implements Adapter {
       interactions: this.view.forTarget(f).map((i) => ({
         interaction_key: i.key,
         event_id: i.eventId,
+        method: i.native.method,
         turnId: i.turnId,
         status: i.status,
         response_result: i.responseResult,
+        response_diagnostic: i.diagnostic,
       })),
     };
   }
@@ -390,6 +434,7 @@ export class CoordinationAdapter implements Adapter {
             interaction_key: i.key,
             response_status: current.status,
             response_schema: i.responseSchema,
+            response_diagnostic: current.diagnostic,
           },
         );
         current.eventId = event.event_id;
@@ -400,15 +445,24 @@ export class CoordinationAdapter implements Adapter {
     // answered OR cleared/cancelled; it is not proof that the approved task completed.
     for (const request of s.requests ?? []) {
       const method = request.method;
-      if (!responseMethods[method] || !request.params?.turnId) continue;
       const schema = this.options.nativeCatalog.find(
         (m) => m.name === method && m.kind === 'server_request',
       )?.output_schema;
-      if (!schema) continue;
+      // Unsupported answers must not hide pending requests. Keep native state pending,
+      // expose why DotX cannot answer, and let the caller arrange desktop interaction.
+      const diagnostic = !responseMethods[method]
+        ? {
+            code: 'COORDINATION_RESPONSE_METHOD_UNSUPPORTED',
+            message: `DotX has no desktop response mapping for ${method}. Handle this request in the desktop client.`,
+          }
+        : undefined;
+      // Elicitation may be outside a turn. Request ID, method and original params still
+      // identify its pending native handle; never guess a turn from the latest snapshot.
+      const turnId = request.params?.turnId;
       const key = identity([
         f.hostId,
         f.conversationId,
-        request.params.turnId,
+        turnId,
         method,
         request.id,
         request.params,
@@ -419,10 +473,11 @@ export class CoordinationAdapter implements Adapter {
         hostId: f.hostId,
         conversationId: f.conversationId,
         owner: f.owner,
-        turnId: request.params.turnId,
+        turnId,
         native: request,
         responseSchema: schema,
         status: 'pending',
+        diagnostic,
       });
     }
     // PRIVATE MESSAGE SHAPE: async questions live in agentMessage.delivery/questions,
@@ -476,21 +531,39 @@ export class CoordinationAdapter implements Adapter {
       }
       if (now.status === 'resolved') this.release(now);
     }
-    const summary = {
-      ...fTarget(f),
-      ...turnSummary(s),
-    };
-    const changed = !previous || canonical(turnSummary(previous)) !== canonical(turnSummary(s));
+    const after = turnSummary(s);
+    const summary = { ...fTarget(f), ...after };
+    const before = previous && turnSummary(previous);
+    const changed = !before || canonical(before) !== canonical(after);
     if (changed) {
-      this.emit({ method: 'thread-stream-state-changed', params: summary });
+      const oldTurns = new Map(before?.turns.map((turn) => [turn.turnId, turn]));
+      const runtimeChanged =
+        canonical(before?.threadRuntimeStatus) !== canonical(s.threadRuntimeStatus);
+      const changedTurns = summary.turns.filter((turn) => {
+        const old = oldTurns.get(turn.turnId);
+        return (
+          canonical(old) !== canonical(turn) ||
+          (runtimeChanged && (turn.status === 'inProgress' || old?.status === 'inProgress'))
+        );
+      });
+      const method = 'thread-stream-state-changed';
+      this.emit(
+        { method, params: summary },
+        'notification',
+        {},
+        {
+          method,
+          params: { ...summary, turns: changedTurns },
+        },
+      );
     }
     if (changed || snapshot) this.options.onState?.(f);
   }
-  async call(method: string, params: Record<string, unknown>): Promise<NativeResponse> {
+  async call(method: string, params: Call['params']): Promise<NativeResponse> {
     const target = targetSchema.parse(params);
     if (method === 'thread-owner-discovery') return { result: await this.owner(target) };
     if (method === 'thread-stream-following-changed') {
-      const following = z.boolean().parse(params.following);
+      const following = z.boolean().parse(params!.following);
       if (!following) {
         const old = this.follows.get(targetKey(target));
         if (old) this.wire.follow(target.hostId, target.conversationId, old.owner, false);
@@ -505,11 +578,8 @@ export class CoordinationAdapter implements Adapter {
       return { result: { following: true, ...this.summary(await this.snapshot(target)) } };
     }
     if (method === 'thread-follower-update-thread-settings') {
-      const schema = (await this.methods()).find((m) => m.name === method)!.input_schema;
-      if (!this.validator.getValidator(schema as any)(params).valid)
-        throw new BridgeError('COORDINATION_INVALID_SETTINGS');
       const f = await this.snapshot(target);
-      const { hostId: _host, ...nativeParams } = params;
+      const { hostId: _host, ...nativeParams } = params!;
       // Private settings RPC uses v2 locally, v3 for host routing. applied only acknowledges
       // the setting update; a running turn or later App Tools send may keep/replace its values.
       const reply = await this.wire.request(
@@ -519,9 +589,7 @@ export class CoordinationAdapter implements Adapter {
         f.owner,
         target.hostId,
       );
-      return reply.resultType === 'success'
-        ? { result: reply.result }
-        : { error: { code: -32000, message: String(reply.error) } };
+      return reply.resultType === 'success' ? { result: reply.result } : { error: reply.error };
     }
     throw new BridgeError('NATIVE_METHOD_NOT_FOUND');
   }
@@ -529,35 +597,22 @@ export class CoordinationAdapter implements Adapter {
     return this.view.decorate(event);
   }
   interaction(event: NativeEvent) {
-    if (event.kind !== 'server_request' || !responseMethods[event.native.method as string])
-      throw new BridgeError('SERVER_REQUEST_NOT_PENDING');
+    if (event.kind !== 'server_request') throw new BridgeError('SERVER_REQUEST_NOT_PENDING');
     const row = event.interaction_key && this.view.get(event.interaction_key);
     if (!row || row.eventId !== event.event_id) throw new BridgeError('SERVER_REQUEST_NOT_PENDING');
     const params = event.native.params as WireMessage | undefined;
     if (row.hostId !== params?.hostId || row.conversationId !== params?.conversationId)
       throw new BridgeError('INTERACTION_SOURCE_MISMATCH');
+    if (row.status === 'pending' && row.diagnostic) throw row.diagnostic;
     return row;
   }
   async prepareResponse(event: NativeEvent, response: NativeResponse) {
     const row = this.interaction(event);
-    if (response.error)
+    if ('error' in response)
       throw new BridgeError(
         'COORDINATION_RESPONSE_REQUIRES_RESULT',
         'Use the native decision (including decline/cancel) or question answer; this desktop channel has no generic error response.',
       );
-    if (
-      !row.responseSchema ||
-      !this.validator.getValidator(row.responseSchema as any)(response.result).valid
-    )
-      throw new BridgeError(
-        'INVALID_INTERACTION_RESPONSE',
-        'Answer must match the response_schema returned by read_events',
-      );
-    if (row.native.method === 'item/tool/requestUserInput') {
-      const ids = new Set(row.native.params.questions.map((q: any) => q.id));
-      if (Object.keys((response.result as WireMessage).answers).some((id) => !ids.has(id)))
-        throw new BridgeError('QUESTION_ID_MISMATCH');
-    }
     const f = await this.snapshot(row);
     this.validatePending(row, f);
   }
@@ -587,7 +642,7 @@ export class CoordinationAdapter implements Adapter {
       // Private desktop wrappers differ: command/file approvals carry decision; other requests
       // carry response. Local v1 / remote v2 is a wire convention, not inferred from CLI schema.
       const body = method.endsWith('-approval-decision')
-        ? { decision: value.decision }
+        ? { decision: value?.decision }
         : { response: value };
       const params = { conversationId: row.conversationId, requestId: row.native.id, ...body };
       const reply = await this.wire.request(
@@ -597,8 +652,7 @@ export class CoordinationAdapter implements Adapter {
         f.owner,
         row.hostId,
       );
-      if (reply.resultType !== 'success')
-        throw new BridgeError('COORDINATION_NATIVE_RESPONSE_ERROR', String(reply.error));
+      if (reply.resultType !== 'success') throw reply.error;
       // A native snapshot may resolve and release this row before the RPC reply arrives.
       if (row.status === 'resolved') return { status: row.status };
       Object.assign(row, {
@@ -608,10 +662,15 @@ export class CoordinationAdapter implements Adapter {
       await this.snapshot(row);
       return { status: row.status };
     } catch (e) {
-      if (row.status === 'resolved') return { status: 'resolved' as const };
+      const diagnostic = errorValue(e);
+      // Resolution and an RPC failure can both be observed. Keep both facts.
+      if (row.status === 'resolved') {
+        event.response_diagnostic = diagnostic;
+        return { status: 'resolved' as const, diagnostic };
+      }
       Object.assign(row, {
         status: 'unknown',
-        diagnostic: { code: errorCode(e) ?? 'COORDINATION_RESPONSE_OUTCOME_UNKNOWN' },
+        diagnostic,
       });
       throw e;
     }

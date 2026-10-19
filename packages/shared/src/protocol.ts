@@ -10,18 +10,14 @@ export const id = z
 export const nativeHost = z
   .string()
   .refine((v) => v === 'local' || /^remote-control:.+/.test(v), 'Unsupported native Mac host');
-export interface Diagnostic {
-  code: string;
-  message?: string;
-}
+export type Diagnostic = unknown;
 export type Availability = 'online' | 'offline' | 'unavailable';
 export interface Heartbeat {
-  interfaces?: InterfaceStatus[];
+  interfaces?: Omit<InterfaceStatus, 'diagnostic'>[];
   availability: Availability;
   desktopVersion?: string;
   connectorVersion?: string;
   instanceId?: string;
-  diagnostic?: Diagnostic | null;
 }
 export interface RegisteredDevice {
   id: string;
@@ -29,7 +25,7 @@ export interface RegisteredDevice {
   tokenHash: string;
 }
 export interface DeviceInfo {
-  interfaces?: InterfaceStatus[];
+  interfaces?: Heartbeat['interfaces'];
   deviceId: string;
   label: string;
   availability: Availability;
@@ -86,11 +82,11 @@ export type ThreadStatus = z.infer<typeof threadStatusSchema>;
 export const heartbeatSchema = z.object({
   type: z.literal('heartbeat'),
   protocol: z.number(),
-  interfaces: z.array(interfaceSchema).optional(),
+  // Heartbeats carry routing/availability, not local health diagnostics or native errors.
+  interfaces: z.array(interfaceSchema.omit({ diagnostic: true })).optional(),
   availability: z.string(),
   desktopVersion: z.string().optional(),
   connectorVersion: z.string().optional(),
-  diagnostic: z.object({ code: z.string() }).nullable().optional(),
 });
 export const responseSchema = z.discriminatedUnion('ok', [
   z.object({
@@ -103,6 +99,6 @@ export const responseSchema = z.discriminatedUnion('ok', [
     type: z.literal('response'),
     id: z.string(),
     ok: z.literal(false),
-    error: z.object({ code: z.string(), message: z.string().optional() }),
+    error: z.unknown(),
   }),
 ]);

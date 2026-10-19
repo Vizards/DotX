@@ -1,5 +1,5 @@
 import { z } from 'zod';
-export const WIRE_VERSION = 2;
+export const WIRE_VERSION = 3;
 const id = z
   .string()
   .min(1)
@@ -11,9 +11,13 @@ export const gatewaySchemas = {
   call: z.strictObject({
     ...address,
     runtime_id: id,
-    request_id: id,
+    request_id: id
+      .optional()
+      .describe(
+        'Provide for durable deduplication and get_request; required for thread_turn tracking. Omit for ordinary read-only queries.',
+      ),
     method: z.string().min(1),
-    params: z.record(z.string(), z.unknown()),
+    params: z.record(z.string(), z.unknown()).nullable().optional(),
     tracking: z.enum(['native', 'thread_turn']).default('native'),
   }),
   get_request: z.strictObject({ request_id: id }),
@@ -41,20 +45,20 @@ export type GatewayOperation = keyof typeof gatewaySchemas;
 export type Call = z.infer<typeof gatewaySchemas.call>;
 export type NativeResponse =
   | { result: unknown; error?: never }
-  | { result?: never; error: { code: number; message: string; data?: unknown } };
+  | { result?: never; error: unknown };
 export interface InterfaceStatus {
   name: z.infer<typeof interfaceName>;
   runtime_id: string;
   availability: 'online' | 'unavailable';
   version?: string;
-  diagnostic?: { code: string } | null;
+  diagnostic?: unknown;
 }
 export const interfaceSchema = z.object({
   name: interfaceName,
   runtime_id: id,
   availability: z.enum(['online', 'unavailable']),
   version: z.string().optional(),
-  diagnostic: z.object({ code: z.string() }).nullable().optional(),
+  diagnostic: z.unknown().optional(),
 });
 export const gatewayCommand = z.object({
   type: z.literal('command'),
@@ -84,7 +88,7 @@ export interface NativeEvent {
   response_status?: 'pending' | 'responding' | 'submitted' | 'resolved' | 'unknown' | 'expired';
   interaction_key?: string;
   response_result?: unknown;
-  response_diagnostic?: { code: string };
+  response_diagnostic?: unknown;
 }
 export function canonical(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';

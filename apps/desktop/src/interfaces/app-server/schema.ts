@@ -18,8 +18,8 @@ export function readNativeCatalog(cli: string) {
       { timeout: DEFAULT_TIMEOUT_MS, stdio: 'ignore' },
     );
     return loadCatalog(directory);
-  } catch {
-    throw new BridgeError('APP_SERVER_SCHEMA_GENERATION_FAILED');
+  } catch (cause) {
+    throw new BridgeError('APP_SERVER_SCHEMA_GENERATION_FAILED', undefined, { cause });
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }

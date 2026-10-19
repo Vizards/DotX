@@ -16,7 +16,7 @@ export async function resolveTurn(
   call: (method: string, params: Record<string, unknown>) => Promise<NativeResponse>,
 ): Promise<string | null> {
   const reply = await call('thread/read', { threadId: task.threadId, includeTurns: false });
-  if (reply.error) throw new BridgeError('ATTRIBUTION_THREAD_UNAVAILABLE', reply.error.message);
+  if ('error' in reply) throw reply.error;
   const thread = (reply.result as { thread?: { id?: string; path?: string } })?.thread;
   if (thread?.id !== task.threadId) throw new BridgeError('ATTRIBUTION_THREAD_MISMATCH');
   if (!thread.path || !path.isAbsolute(thread.path))

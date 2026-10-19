@@ -17,7 +17,10 @@ export class EventBuffer {
   registerRuntime(id: string) {
     this.runtimes.add(id);
   }
-  addEvent(input: Omit<NativeEvent, 'event_id' | 'sequence' | 'created_at'>) {
+  addEvent(
+    input: Omit<NativeEvent, 'event_id' | 'sequence' | 'created_at'>,
+    noticeNative?: NativeEvent['native'],
+  ) {
     const event = {
       ...input,
       event_id: randomUUID(),
@@ -30,7 +33,8 @@ export class EventBuffer {
       if (this.runtimes.has(removed.runtime_id))
         this.dropped.set(removed.runtime_id, removed.sequence);
     }
-    this.onEvent(event);
+    // Derived notices may describe only changes; read_events retains the full native payload.
+    this.onEvent(noticeNative ? { ...event, native: noticeNative } : event);
     return event;
   }
   event(id: string) {

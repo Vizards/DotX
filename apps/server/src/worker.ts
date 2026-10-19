@@ -1,5 +1,5 @@
 import type { Env } from './env.ts';
-import { hub, registered } from './hub/namespace.ts';
+import { hub } from './hub/namespace.ts';
 import { bearer, matches } from './auth/credentials.ts';
 import { serveOAuth } from './auth/oauth.ts';
 
@@ -15,7 +15,7 @@ export default {
       return hub(env).fetch(request);
     if (url.pathname === '/device/connect') {
       const id = request.headers.get('X-Device-Id'),
-        device = (await registered(env)).find((d) => d.id === id);
+        device = (await hub(env).registry()).find((d) => d.id === id);
       if (!device || !(await matches(bearer(request), device.tokenHash)))
         return json({ error: 'UNAUTHORIZED_DEVICE' }, 401);
       if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket')

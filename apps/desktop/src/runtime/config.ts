@@ -1,6 +1,5 @@
 import { WIRE_VERSION } from '@dotx/shared/gateway';
 import type { Heartbeat, Diagnostic } from '@dotx/shared/protocol';
-import type { RpcObservation } from '../interfaces/app-tools/transport.ts';
 // Installation file format; independent of the live connector wire protocol.
 export interface DeviceConfig {
   protocol: 1;
@@ -17,6 +16,7 @@ export interface ConnectionCredentials {
   deviceToken: string;
 }
 export interface InstanceStatus extends Heartbeat {
+  diagnostic?: Diagnostic | null;
   protocol: typeof WIRE_VERSION;
   version: string;
   deviceId: string;
@@ -27,8 +27,6 @@ export interface InstanceStatus extends Heartbeat {
   desktopVersion: string;
   observedAt?: number;
   relayDiagnostic?: Diagnostic | null;
-  capabilities?: string[];
-  desktopRpc?: { last: RpcObservation; lastFailure?: RpcObservation };
   stdioClosed?: boolean;
 }
 

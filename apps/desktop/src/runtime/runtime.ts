@@ -1,4 +1,4 @@
-import { BridgeError, safeError } from '@dotx/shared/errors';
+import { BridgeError, errorValue, errorCode } from '@dotx/shared/errors';
 import fs from 'node:fs';
 import type { DeviceConfig, ConnectionCredentials, InstanceStatus } from './config.ts';
 import { readSchema } from '@dotx/shared/protocol';
@@ -14,9 +14,8 @@ import { EventBuffer } from '../events/buffer.ts';
 import { Observations } from '../relay/observations.ts';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { stateDir, privateDir, readJson, writeJson } from './state.ts';
+import { stateDir, privateDir, readJson } from './state.ts';
 import { Native } from '../interfaces/app-tools/transport.ts';
-import type { RpcObservation } from '../interfaces/app-tools/transport.ts';
 import { resolveTurn } from '../tracking/attribution.ts';
 import { TurnTracker } from '../tracking/tracker.ts';
 import { discoverDesktop } from './desktop.ts';
@@ -35,7 +34,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
     native = new Native({
       pipe: process.env.CODEX_APP_TOOLS_PIPE_PATH,
       callerThreadId: config.callerThreadId,
-      observeRpc,
     });
   const observations = new Observations();
   const events = new EventBuffer((e) => observations.native(e));
@@ -47,7 +45,6 @@ export function startDevice(closeStdio: () => Promise<void>) {
       cli: desktop.cli,
       home: config.codexHome,
       cwd: privateDir(path.join(dir, 'runtime-workspace')),
-      log: path.join(dir, 'app-server.log'),
       version: desktop.version,
       onEvent: (event, responseSchema) => {
         if (event.method === 'serverRequest/resolved')
@@ -129,26 +126,17 @@ export function startDevice(closeStdio: () => Promise<void>) {
   };
   let stopped = false,
     probing = false;
-  const save = () =>
-    writeJson(statusFile, { ...status, interfaces: gateway.statuses(), observedAt: Date.now() });
-  const rpcHistory: RpcObservation[] = [];
-  const rpcFailures: RpcObservation[] = [];
-  function observeRpc(observation: RpcObservation) {
-    rpcHistory.push(observation);
-    if (rpcHistory.length > 50) rpcHistory.shift();
-    if (observation.outcome !== 'ok') {
-      rpcFailures.push(observation);
-      if (rpcFailures.length > 20) rpcFailures.shift();
+  const save = () => {
+    try {
+      fs.writeFileSync(
+        statusFile,
+        JSON.stringify({ ...status, interfaces: gateway.statuses(), observedAt: Date.now() }),
+        { mode: 0o600 },
+      );
+    } catch {
+      // A best-effort status snapshot must not interrupt requests or cleanup.
     }
-    status.desktopRpc = { last: observation, lastFailure: rpcFailures.at(-1) };
-    // Metadata only: no prompts, results, thread IDs, pipe paths or credentials.
-    writeJson(path.join(dir, 'diagnostics', `${instanceId}.json`), {
-      version: packageInfo.version,
-      recent: rpcHistory,
-      failures: rpcFailures,
-    });
-    save();
-  }
+  };
   const connection = new DeviceConnection({
     credentials: () => {
       const file = path.join(dir, 'connection.json');
@@ -159,18 +147,16 @@ export function startDevice(closeStdio: () => Promise<void>) {
     execute,
     heartbeat: () => ({
       availability: status.availability,
-      diagnostic: status.diagnostic,
       desktopVersion: status.desktopVersion,
       connectorVersion: packageInfo.version,
       instanceId,
-      interfaces: gateway.statuses(),
+      interfaces: gateway.statuses().map(({ diagnostic: _diagnostic, ...presence }) => presence),
     }),
     diagnostic: (relayDiagnostic) => {
       status = { ...status, relayDiagnostic };
       save();
     },
   });
-  let savedCapabilities: Awaited<ReturnType<Native['capabilities']>> | undefined;
   async function probe() {
     if (probing) return;
     probing = true;
@@ -178,10 +164,9 @@ export function startDevice(closeStdio: () => Promise<void>) {
       appServer = createAppServer();
       gateway.adapters.set('app_server', appServer);
     }
-    const previousHealth = `${status.availability}:${status.diagnostic?.code ?? ''}`;
+    const previousHealth = `${status.availability}:${errorCode(status.diagnostic) ?? ''}`;
     try {
-      await appTools.methods();
-      const capabilities = await native.capabilities();
+      // Probe the real caller, independently of method discovery.
       const response = readSchema.parse(
         await native.call('read_thread', {
           threadId: config.callerThreadId,
@@ -196,15 +181,11 @@ export function startDevice(closeStdio: () => Promise<void>) {
         response.thread.hostId !== 'local'
       )
         throw new BridgeError('CALLER_IDENTITY_MISMATCH');
-      if (capabilities !== savedCapabilities) {
-        writeJson(path.join(instances, `${instanceId}-capabilities.json`), capabilities);
-        savedCapabilities = capabilities;
-      }
+      appTools.ready = true;
       status = {
         ...status,
         availability: 'online',
         diagnostic: null,
-        capabilities: capabilities.tools,
       };
     } catch (e) {
       appTools.ready = false;
@@ -213,28 +194,22 @@ export function startDevice(closeStdio: () => Promise<void>) {
         availability: [appServer, coordination].some((a) => a.status().availability === 'online')
           ? 'online'
           : 'unavailable',
-        diagnostic: safeError(e),
+        diagnostic: errorValue(e),
       };
     } finally {
       probing = false;
       save();
       // The connection owns the periodic heartbeat. Publish only health transitions here.
-      if (`${status.availability}:${status.diagnostic?.code ?? ''}` !== previousHealth)
+      if (`${status.availability}:${errorCode(status.diagnostic) ?? ''}` !== previousHealth)
         connection.sendHeartbeat();
     }
   }
   async function stop(reason = 'signal') {
     if (stopped) return;
     stopped = true;
-    writeJson(path.join(dir, 'diagnostics', `${instanceId}-lifecycle.json`), {
-      version: packageInfo.version,
-      reason,
-      at: Date.now(),
-      pid: process.pid,
-      parent: process.ppid,
-      originalParent: desktopPid,
-      stdioClosed: status.stdioClosed,
-    });
+    try {
+      process.stderr.write(JSON.stringify({ code: 'CONNECTOR_STOPPED', reason }) + '\n');
+    } catch {}
     clearInterval(interval);
     clearInterval(ownerInterval);
     connection.stop();
@@ -242,10 +217,9 @@ export function startDevice(closeStdio: () => Promise<void>) {
     events.expireRuntime(appTools.status().runtime_id);
     coordination.close();
     await appServer.close();
-    for (const f of [statusFile, path.join(instances, `${instanceId}-capabilities.json`)])
-      try {
-        fs.unlinkSync(f);
-      } catch {}
+    try {
+      fs.unlinkSync(statusFile);
+    } catch {}
     process.exit(0);
   }
   function stdioClosed() {

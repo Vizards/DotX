@@ -1,34 +1,18 @@
+import type { Grant } from '@cloudflare/workers-oauth-provider';
 import type { EventAuthority } from './subscriptions.ts';
 import type { Env } from '../env.ts';
-// Use the OAuth provider's public helpers; no dependency on its private KV key layout.
 export async function eventAccess(env: Env, auth: EventAuthority, connection: string) {
   if (!auth.devices.includes(connection)) return false;
   if (!auth.user_id || !auth.client_id || !auth.grant_id) return false;
-  const { getOAuthApi } = await import('@cloudflare/workers-oauth-provider');
-  const helpers = getOAuthApi(
-    {
-      apiRoute: '/mcp',
-      apiHandler: { fetch: () => new Response(null, { status: 404 }) },
-      defaultHandler: { fetch: () => new Response(null, { status: 404 }) },
-      authorizeEndpoint: '/authorize',
-      tokenEndpoint: '/oauth/token',
-      resourceMetadata: {
-        resource: `${env.PUBLIC_ORIGIN}/mcp`,
-        authorization_servers: [env.PUBLIC_ORIGIN],
-      },
-    },
-    env,
+  // Read the known grant without enumerating grants. This uses the provider's
+  // documented KV layout; recheck it when upgrading the OAuth SDK:
+  // https://github.com/cloudflare/workers-oauth-provider/blob/v1.2.3/storage-schema.md#authorization-grants
+  const grant = await env.OAUTH_KV.get<Grant>(`grant:${auth.user_id}:${auth.grant_id}`, 'json');
+  return (
+    grant !== null &&
+    grant.id === auth.grant_id &&
+    grant.clientId === auth.client_id &&
+    grant.scope.includes('mcp:read') &&
+    (!grant.expiresAt || grant.expiresAt * 1000 > Date.now())
   );
-  let cursor: string | undefined;
-  do {
-    const page = await helpers.listUserGrants(auth.user_id, { limit: 100, cursor });
-    const grant = page.items.find((g) => g.id === auth.grant_id && g.clientId === auth.client_id);
-    if (grant)
-      return (
-        grant.scope.includes('mcp:read') &&
-        (!grant.expiresAt || grant.expiresAt * 1000 > Date.now())
-      );
-    cursor = page.cursor;
-  } while (cursor);
-  return false;
 }

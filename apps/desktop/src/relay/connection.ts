@@ -21,7 +21,11 @@ interface ConnectionOptions {
   observations?: Pick<Observations, 'pending' | 'ack'>;
   Socket?: new (url: string, options: WebSocket.ClientOptions) => RelaySocket;
 }
-import { BridgeError, safeError } from '@dotx/shared/errors';
+import { BridgeError, errorValue } from '@dotx/shared/errors';
+
+// Cloudflare's inbound WebSocket message limit includes the complete UTF-8 wire envelope.
+// https://developers.cloudflare.com/workers/runtime-apis/websockets/#events
+const CF_WEBSOCKET_MAX_MESSAGE_BYTES = 32 * 1024 * 1024;
 
 // Transport recovery never retries commands or reconstructs native subscriptions.
 export class DeviceConnection {
@@ -105,7 +109,7 @@ export class DeviceConnection {
         handshakeTimeout: DEFAULT_TIMEOUT_MS,
       });
     } catch (error) {
-      this.diagnostic(safeError(error));
+      this.diagnostic(errorValue(error));
       this.retry();
       return;
     }
@@ -120,7 +124,8 @@ export class DeviceConnection {
       let raw: unknown;
       try {
         raw = JSON.parse(String(bytes));
-      } catch {
+      } catch (cause) {
+        this.diagnostic({ code: 'INVALID_RELAY_MESSAGE', cause: errorValue(cause) });
         return;
       }
       if (
@@ -135,26 +140,40 @@ export class DeviceConnection {
         return;
       }
       const control = raw as any;
+      if (control?.type === 'heartbeat_ack') {
+        this.diagnostic({
+          code: 'RELAY_PROTOCOL_MISMATCH',
+          cause: { expected: WIRE_VERSION, received: control.protocol },
+        });
+        return;
+      }
       if (control?.type === 'observations_ack' && Array.isArray(control.ids)) {
         this.observations?.ack(control.ids);
         this.sendEvents();
         return;
       }
       const parsed = commandSchema.safeParse(raw);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        if (control?.type === 'command')
+          this.diagnostic({ code: 'INVALID_RELAY_COMMAND', cause: errorValue(parsed.error) });
+        else if (control?.type === 'observations_ack')
+          this.diagnostic({ code: 'INVALID_OBSERVATIONS_ACK', message: 'ids must be an array' });
+        return;
+      }
       const msg = parsed.data;
       let response;
       try {
         response = { ok: true, result: await this.execute(msg.operation, msg.args) };
       } catch (error) {
-        response = { ok: false, error: safeError(error) };
+        response = { ok: false, error: errorValue(error) };
       }
       // Only the original connection may return this command's response.
       if (socket.readyState === WebSocket.OPEN) {
         try {
           const body = JSON.stringify({ type: 'response', id: msg.id, ...response });
+          const responseBytes = Buffer.byteLength(body);
           socket.send(
-            Buffer.byteLength(body) <= 4 * 1024 * 1024
+            responseBytes <= CF_WEBSOCKET_MAX_MESSAGE_BYTES
               ? body
               : JSON.stringify({
                   type: 'response',
@@ -163,16 +182,21 @@ export class DeviceConnection {
                   error: {
                     code: 'RESULT_TOO_LARGE',
                     message:
-                      'RPC completed but its response exceeds the transport limit. Ordinary RPC payloads are not retained. Reduce future query limits; do not repeat a write to recover its result.',
+                      "RPC completed but its response exceeds Cloudflare's 32 MiB WebSocket message limit. Ordinary RPC payloads are not retained. Reduce future query limits; do not repeat a write to recover its result.",
+                    size_bytes: responseBytes,
+                    limit_bytes: CF_WEBSOCKET_MAX_MESSAGE_BYTES,
                   },
                 }),
           );
-        } catch {
+        } catch (cause) {
+          this.diagnostic({ code: 'RELAY_RESPONSE_FAILED', cause: errorValue(cause) });
           socket.terminate();
         }
       }
     });
-    socket.on('error', () => this.diagnostic({ code: 'RELAY_CONNECTION_FAILED' }));
+    socket.on('error', (cause) =>
+      this.diagnostic({ code: 'RELAY_CONNECTION_FAILED', cause: errorValue(cause) }),
+    );
     socket.on('close', () => {
       if (this.socket === socket) this.socket = null;
       this.retry();
@@ -185,7 +209,8 @@ export class DeviceConnection {
         socket.send(
           JSON.stringify({ ...this.heartbeat(), type: 'heartbeat', protocol: WIRE_VERSION }),
         );
-      } catch {
+      } catch (cause) {
+        this.diagnostic({ code: 'RELAY_HEARTBEAT_FAILED', cause: errorValue(cause) });
         socket.terminate();
       }
     }
@@ -199,7 +224,8 @@ export class DeviceConnection {
       socket.send(
         JSON.stringify({ type: 'observations', protocol: WIRE_VERSION, observations: events }),
       );
-    } catch {
+    } catch (cause) {
+      this.diagnostic({ code: 'RELAY_OBSERVATIONS_FAILED', cause: errorValue(cause) });
       socket.terminate();
     }
   }

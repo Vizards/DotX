@@ -36,7 +36,7 @@ When the Remote catalog changed, tell the coordinator to Refresh it in ChatGPT's
 
 ## 5. Verify and report, or resume
 
-Verify the active Desktop version, Server version when assigned, protocol, interfaces and preserved configuration/identity. Cloudflare propagation can take seconds to minutes, including a new Worker briefly calling an older DO; allow convergence and repeat read-only checks before redeploying. After reconnection, runtime IDs and native interaction handles must be rediscovered.
+Verify the active Desktop version, Server version when assigned, protocol, interfaces and preserved configuration/identity. A Durable Object may load new code after Worker deployment finishes. If versions or connectivity disagree during the switch, allow time for the DO update and recheck current status before deciding whether further action is needed. After reconnection, runtime IDs and native interaction handles must be rediscovered.
 
 Report what was installed, what is actually running, any outstanding catalog Refresh and remaining work. After interruption, inspect deployment, disk and running state and continue only unfinished operations; do not resend an uncertain business request. Verification does not run project tests or dispatch synthetic tasks.
 

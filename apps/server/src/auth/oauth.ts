@@ -7,7 +7,7 @@ import {
 } from '@cloudflare/workers-oauth-provider';
 import type { Env } from '../env.ts';
 import packageInfo from '../../package.json' with { type: 'json' };
-import { hub, registered } from '../hub/namespace.ts';
+import { hub } from '../hub/namespace.ts';
 import { handleMcp } from '../mcp/handler.ts';
 
 const json = (data: unknown, status = 200) =>
@@ -118,14 +118,15 @@ export async function serveOAuth(request: Request, env: Env, ctx: ExecutionConte
             }),
           })
           .parse(c);
-        const token = await e.OAUTH_PROVIDER.unwrapToken(context.auth.token);
-        if (!token) return json({ error: 'INVALID_TOKEN' }, 401);
+        // OAuthProvider has already authenticated and decrypted this token. Its 1.2.3
+        // issued-token format is userId:grantId:secret; ctx.auth omits grantId.
+        // Recheck this dependency on SDK upgrades or before enabling external tokens.
+        const grantId = context.auth.token.split(':')[1]!;
         return handleMcp(r, e, context.props, context.auth.scope, {
-          principal: JSON.stringify([context.auth.userId, context.auth.clientId, token.grantId]),
-          devices: (await registered(e)).map((x) => x.id),
+          principal: JSON.stringify([context.auth.userId, context.auth.clientId, grantId]),
           user_id: context.auth.userId,
           client_id: context.auth.clientId,
-          grant_id: token.grantId,
+          grant_id: grantId,
         });
       },
     },

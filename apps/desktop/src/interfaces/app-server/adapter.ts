@@ -1,17 +1,17 @@
 import { spawn } from 'node:child_process';
-import type { ChildProcessWithoutNullStreams } from 'node:child_process';
+import type { ChildProcessByStdio } from 'node:child_process';
 import readline from 'node:readline';
-import fs from 'node:fs';
+import type { Writable, Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
-import { BridgeError, errorCode } from '@dotx/shared/errors';
+import { BridgeError, errorCode, errorValue } from '@dotx/shared/errors';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import type { InterfaceStatus, NativeResponse, NativeEvent } from '@dotx/shared/gateway';
+import type { Call, InterfaceStatus, NativeResponse, NativeEvent } from '@dotx/shared/gateway';
 import type { Adapter, Method } from '../adapter.ts';
 import { readNativeCatalog } from './schema.ts';
 import packageInfo from '../../../package.json' with { type: 'json' };
 export class AppServerAdapter implements Adapter {
   readonly runtimeId = randomUUID();
-  readonly process: ChildProcessWithoutNullStreams;
+  readonly process: ChildProcessByStdio<Writable, Readable, null>;
   readonly pending = new Map<
     string,
     {
@@ -21,31 +21,27 @@ export class AppServerAdapter implements Adapter {
     }
   >();
   readonly catalog: Method[];
-  readonly catalogReady: boolean;
   ready = false;
   ended = false;
-  diagnostic: string | undefined;
+  diagnostic: unknown;
+  readonly catalogError?: unknown;
   readonly initialized: Promise<void>;
   readonly exited: Promise<void>;
   constructor(options: {
     cli: string;
     home: string;
     cwd: string;
-    log: string;
     version: string;
     onEvent: (native: Record<string, unknown>, responseSchema?: unknown) => void;
     onExit: (runtime: string) => void;
   }) {
     this.version = options.version;
     this.catalog = [];
-    this.catalogReady = false;
     try {
       this.catalog = readNativeCatalog(options.cli);
-      this.catalogReady = true;
-    } catch {
-      this.diagnostic = 'APP_SERVER_SCHEMA_GENERATION_FAILED';
+    } catch (error) {
+      this.catalogError = error;
     }
-    const catalogReady = this.catalogReady;
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([k]) => !k.startsWith('CODEX_')),
     );
@@ -53,13 +49,18 @@ export class AppServerAdapter implements Adapter {
     this.process = spawn(options.cli, ['app-server', '--listen', 'stdio://'], {
       cwd: options.cwd,
       env,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'inherit'],
     });
-    const log = fs.createWriteStream(options.log, { flags: 'a', mode: 0o600 });
-    this.process.stderr.pipe(log);
     readline.createInterface({ input: this.process.stdout }).on('line', (line) => {
+      let m: Record<string, any>;
       try {
-        const m = JSON.parse(line) as Record<string, any>;
+        m = JSON.parse(line);
+      } catch (cause) {
+        this.diagnostic = new BridgeError('INVALID_APP_SERVER_MESSAGE', undefined, { cause });
+        void this.close();
+        return;
+      }
+      try {
         if (m.method) {
           const schema =
             m.id !== undefined
@@ -75,8 +76,10 @@ export class AppServerAdapter implements Adapter {
             p.resolve(m.error ? { error: m.error } : { result: m.result });
           }
         }
-      } catch {
-        this.diagnostic = 'INVALID_APP_SERVER_MESSAGE';
+      } catch (cause) {
+        this.diagnostic = new BridgeError('APP_SERVER_MESSAGE_HANDLING_FAILED', undefined, {
+          cause,
+        });
         void this.close();
       }
     });
@@ -84,43 +87,46 @@ export class AppServerAdapter implements Adapter {
     this.exited = new Promise<void>((resolve) => {
       finishExit = resolve;
     });
-    const exit = () => {
+    const exit = (error: Error) => {
       if (this.ended) return;
       this.ended = true;
       this.ready = false;
-      this.diagnostic ??= 'APP_SERVER_EXITED';
+      this.diagnostic ??= error;
       for (const p of this.pending.values()) {
         clearTimeout(p.timer);
-        p.reject(new BridgeError('APP_SERVER_EXITED'));
+        p.reject(new BridgeError('APP_SERVER_EXITED', undefined, { cause: this.diagnostic }));
       }
       this.pending.clear();
       options.onExit(this.runtimeId);
-      log.end();
       finishExit();
     };
-    this.process.stdin.on('error', () => {
-      this.diagnostic = 'APP_SERVER_PIPE_FAILED';
+    this.process.stdin.on('error', (cause) => {
+      this.diagnostic = new BridgeError('APP_SERVER_PIPE_FAILED', undefined, { cause });
       this.process.kill('SIGTERM');
     });
-    log.on('error', () => {
-      this.diagnostic = 'APP_SERVER_LOG_FAILED';
-    });
-    this.process.on('error', exit);
-    this.process.on('exit', exit);
+    this.process.on('error', (cause) =>
+      exit(new BridgeError('APP_SERVER_START_FAILED', undefined, { cause })),
+    );
+    this.process.on('exit', (exitCode, signal) =>
+      exit(new BridgeError('APP_SERVER_EXITED', undefined, { cause: { exitCode, signal } })),
+    );
     this.initialized = (async () => {
       const reply = await this.call('initialize', {
         clientInfo: { name: 'dotx-desktop', version: packageInfo.version },
         capabilities: { experimentalApi: true },
       });
-      if (reply.error) throw new BridgeError('APP_SERVER_INITIALIZE_FAILED', reply.error.message);
+      if ('error' in reply) throw reply.error;
       this.write({ method: 'initialized', params: {} });
-      this.ready = catalogReady;
+      this.ready = true;
     })();
     void this.initialized.catch((error) => {
-      this.diagnostic =
+      this.diagnostic = new BridgeError(
         errorCode(error) === 'APP_SERVER_TIMEOUT'
           ? 'APP_SERVER_INITIALIZE_TIMEOUT'
-          : 'APP_SERVER_INITIALIZE_FAILED';
+          : 'APP_SERVER_INITIALIZE_FAILED',
+        undefined,
+        { cause: error },
+      );
       void this.close();
     });
   }
@@ -131,19 +137,20 @@ export class AppServerAdapter implements Adapter {
       runtime_id: this.runtimeId,
       availability: this.ready ? 'online' : 'unavailable',
       version: this.version,
-      diagnostic: this.diagnostic ? { code: this.diagnostic } : null,
+      diagnostic: errorValue(this.diagnostic ?? this.catalogError) ?? null,
     };
   }
   async methods() {
     await this.initialized;
-    if (!this.catalogReady) throw new BridgeError('APP_SERVER_SCHEMA_GENERATION_FAILED');
+    if (this.catalogError !== undefined) throw this.catalogError;
     return this.catalog;
   }
   write(m: unknown) {
-    if (this.ended) throw new BridgeError('APP_SERVER_EXITED');
+    if (this.ended)
+      throw new BridgeError('APP_SERVER_EXITED', undefined, { cause: this.diagnostic });
     this.process.stdin.write(JSON.stringify(m) + '\n');
   }
-  call(method: string, params: Record<string, unknown>): Promise<NativeResponse> {
+  call(method: string, params: Call['params']): Promise<NativeResponse> {
     const id = randomUUID();
     return new Promise((resolve, reject) => {
       // JSON-RPC over stdio has no response deadline. Expiry releases this waiter;

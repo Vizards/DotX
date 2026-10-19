@@ -1,8 +1,8 @@
-import { BridgeError } from '@dotx/shared/errors';
+import { BridgeError, errorCode } from '@dotx/shared/errors';
 import { gatewaySchemas, canonical } from '@dotx/shared/gateway';
 import type { Call, GatewayOperation, NativeEvent, NativeResponse } from '@dotx/shared/gateway';
 import type { Outcome } from '@dotx/shared/protocol';
-import { terminal, interactionKey, trackedParams } from '@dotx/shared/state';
+import { terminal, interactionKey, trackedTarget } from '@dotx/shared/state';
 import type {
   DeviceOperation,
   TrackedTask,
@@ -10,8 +10,9 @@ import type {
   Observation,
   ResponseRoute,
 } from '@dotx/shared/state';
-import type { Store } from '../hub/storage.ts';
-import type { EventStore, Events } from '../events/subscriptions.ts';
+import type { AtomicStore, Store } from '../hub/storage.ts';
+import type { Events } from '../events/subscriptions.ts';
+import type { Notice } from '@dotx/shared/events';
 
 export interface Authority {
   principal: string;
@@ -22,14 +23,15 @@ export type Dispatch = (
   args: Record<string, unknown>,
   id?: string,
 ) => Promise<Outcome>;
-interface CallRecord extends Omit<Call, 'params'> {
+interface CallRecord extends Omit<Call, 'params' | 'request_id'> {
+  request_id: string;
   id: string;
   principal: string;
   digest: string;
   created_at: number;
   updated_at: number;
   rpc_status: 'pending' | 'returned' | 'error' | 'unknown' | 'rejected';
-  diagnostic?: { code: string; message?: string };
+  diagnostic?: unknown;
   task?: TrackedTask;
   attribution_connections?: string[];
   result_connection_id?: string;
@@ -39,7 +41,7 @@ interface Answer {
   digest: string;
   dispatchId: string;
   status: 'responding' | 'submitted' | 'resolved' | 'unknown' | 'rejected';
-  diagnostic?: { code: string; message?: string };
+  diagnostic?: unknown;
 }
 const requestKey = (principal: string, id: string) => 'state:request:' + canonical([principal, id]);
 const callKey = (id: string) => 'state:call:' + id;
@@ -62,7 +64,7 @@ const unsent = new Set([
   'EVENT_RUNTIME_EXPIRED',
 ]);
 const unwrap = (o: Outcome): any => {
-  if (!o.ok) throw new BridgeError(o.error.code, o.error.message);
+  if (!o.ok) throw o.error;
   return o.result;
 };
 
@@ -71,10 +73,10 @@ const unwrap = (o: Outcome): any => {
 export class Coordinator {
   readonly inFlight = new Set<string>();
   readonly resolving = new Map<string, Promise<CallRecord>>();
-  readonly store: EventStore;
+  readonly store: AtomicStore;
   readonly dispatch: Dispatch;
   readonly events: Events;
-  constructor(store: EventStore, dispatch: Dispatch, events: Events) {
+  constructor(store: AtomicStore, dispatch: Dispatch, events: Events) {
     this.store = store;
     this.dispatch = dispatch;
     this.events = events;
@@ -93,7 +95,7 @@ export class Coordinator {
         await this.recordReply(r.id, { ok: false, error: { code: 'DISPATCH_OUTCOME_UNKNOWN' } });
       }
       let result: unknown;
-      let resultDiagnostic: string | undefined;
+      let resultError: unknown;
       if (r.task && r.task.state !== 'rejected') {
         r = await this.readTask(r, auth.devices);
         if (r.task!.turnId && terminal(r.task!.state)) {
@@ -106,18 +108,18 @@ export class Coordinator {
             task: r.task,
           });
           if (reply.ok) result = reply.result;
-          else resultDiagnostic = reply.error.code;
+          else resultError = reply.error;
         }
       }
       return {
         ...this.public((await this.store.get<CallRecord>(callKey(r.id)))!, undefined, result),
-        ...(resultDiagnostic ? { result_unavailable_reason: resultDiagnostic } : {}),
+        ...(resultError === undefined ? {} : { result_error: resultError }),
       };
     }
     if (operation === 'respond') return this.respond(auth, gatewaySchemas.respond.parse(input));
     const args = gatewaySchemas[operation].parse(input);
     this.authorize(auth, args.connection_id);
-    if (operation === 'call') return this.call(auth, gatewaySchemas.call.parse(input));
+    if (operation === 'call') return this.call(auth, args as Call);
     const result = unwrap(await this.dispatch(operation, args));
     if (operation === 'read_events') {
       for (const e of result.events as NativeEvent[]) {
@@ -135,7 +137,11 @@ export class Coordinator {
           event_id: e.event_id,
           key: interactionKey(e),
         };
-        await this.store.put(eventKey(auth.principal, e.event_id), route);
+        await this.store.transaction(async (tx) => {
+          const key = eventKey(auth.principal, e.event_id);
+          if (canonical(await tx.get<ResponseRoute>(key)) !== canonical(route))
+            await tx.put(key, route);
+        });
         const answer = await this.store.get<Answer>(answerKey(route.key));
         if (answer) {
           if (e.response_status === 'resolved') {
@@ -143,25 +149,26 @@ export class Coordinator {
             answer.status = 'resolved';
           }
           if (answer.status !== 'rejected') e.response_status = answer.status;
-          e.response_diagnostic = answer.diagnostic;
+          e.response_diagnostic = answer.diagnostic ?? e.response_diagnostic;
         }
       }
     }
     return result;
   }
   async call(auth: Authority, args: Call) {
+    const requestId = args.request_id;
+    if (args.tracking === 'thread_turn' && !requestId)
+      throw new BridgeError('REQUEST_ID_REQUIRED', 'thread_turn tracking requires request_id');
+    // Unidentified RPCs have only an in-flight transport ID, never a durable receipt.
+    if (!requestId) return unwrap(await this.dispatch('call', args));
     const hash = await digest(args),
-      key = requestKey(auth.principal, args.request_id);
+      key = requestKey(auth.principal, requestId);
+    let target: { hostId?: string; threadId: string } | undefined;
     if (args.tracking === 'thread_turn') {
       if (args.interface !== 'app_tools' || args.method !== 'codex_app.send_message_to_thread')
         throw new BridgeError('TRACKING_NOT_SUPPORTED');
-      if (
-        Object.keys(args.params).some(
-          (k) => !['hostId', 'threadId', 'prompt', 'model', 'thinking'].includes(k),
-        )
-      )
-        throw new BridgeError('TRACKING_PARAMETERS_UNSUPPORTED');
-      trackedParams.parse(args.params);
+      // Extract only the correlation target; dispatch retains the original params.
+      target = trackedTarget.parse(args.params);
     }
     const reserved = await this.store.transaction(async (tx) => {
       const existingId = await tx.get<string>(key);
@@ -175,6 +182,7 @@ export class Coordinator {
         { params: _params, ...identity } = args;
       const record: CallRecord = {
         ...identity,
+        request_id: requestId,
         id,
         principal: auth.principal,
         digest: hash,
@@ -182,13 +190,13 @@ export class Coordinator {
         created_at: now,
         updated_at: now,
       };
-      if (args.tracking === 'thread_turn')
+      if (target)
         record.task = {
           id,
-          request_id: args.request_id,
+          request_id: requestId,
           connection_id: args.connection_id,
-          hostId: String(args.params.hostId ?? 'local'),
-          threadId: String(args.params.threadId),
+          hostId: target.hostId ?? 'local',
+          threadId: target.threadId,
           turnId: null,
           state: 'reserved',
         };
@@ -216,12 +224,20 @@ export class Coordinator {
       latest = await this.readTask(latest, auth.devices);
     return this.public(latest, reply.ok ? (reply.result as any).native : undefined);
   }
+  async withNotices<T>(callback: (tx: Store, notices: Notice[]) => Promise<T>) {
+    const { result, notices } = await this.store.transaction(async (tx) => {
+      const notices: Notice[] = [];
+      return { result: await callback(tx, notices), notices };
+    });
+    this.events.publish(notices);
+    return result;
+  }
   async recordReply(
     id: string,
     reply: Outcome,
     source?: { connection: string; runtimes: string[] },
   ) {
-    await this.store.transaction(async (tx) => {
+    await this.withNotices(async (tx, notices) => {
       const r = await tx.get<CallRecord>(callKey(id));
       if (r) {
         if (
@@ -229,10 +245,14 @@ export class Coordinator {
           (r.connection_id !== source.connection || !source.runtimes.includes(r.runtime_id))
         )
           throw new BridgeError('REPLY_SOURCE_MISMATCH');
+        // The WebSocket handler may already have recorded this reply before
+        // dispatch returns. Ordinary terminal receipts have nothing left to merge.
+        if (!r.task && ['returned', 'error', 'rejected'].includes(r.rpc_status)) return;
+        const before = canonical(r);
         const result = reply.ok ? (reply.result as any) : undefined;
         const next = reply.ok
           ? result.rpc_status
-          : unsent.has(reply.error.code)
+          : unsent.has(errorCode(reply.error) ?? '')
             ? 'rejected'
             : 'unknown';
         // A timeout or stale report cannot erase a native reply already observed by the DO.
@@ -241,48 +261,58 @@ export class Coordinator {
             ? next
             : 'unknown';
           r.diagnostic = reply.ok ? result.diagnostic : reply.error;
-          r.updated_at = Date.now();
         }
         if (r.task) {
-          if (result?.observation) await this.mergeTurn(tx, r, result.observation);
+          if (result?.observation) this.mergeTurn(r, result.observation, notices);
           else if (!reply.ok && (r.rpc_status === 'rejected' || !r.task.turnId))
-            await this.mergeTurn(tx, r, {
-              task_id: r.id,
-              state: r.rpc_status === 'rejected' ? 'rejected' : 'unknown',
-              turnId: null,
-              diagnostic: reply.error,
-            });
+            this.mergeTurn(
+              r,
+              {
+                task_id: r.id,
+                state: r.rpc_status === 'rejected' ? 'rejected' : 'unknown',
+                turnId: null,
+                diagnostic: reply.error,
+              },
+              notices,
+            );
         }
-        await tx.put(callKey(id), r);
+        await this.saveCall(tx, r, before);
         return;
       }
       const key = await tx.get<string>('state:answer-dispatch:' + id);
       const answer = key && (await tx.get<Answer>(answerKey(key)));
-      if (!answer || answer.dispatchId !== id || answer.status === 'resolved') return;
+      if (!answer || answer.dispatchId !== id) return;
       if (
         source &&
         (answer.route.connection_id !== source.connection ||
           !source.runtimes.includes(answer.route.runtime_id))
       )
         throw new BridgeError('REPLY_SOURCE_MISMATCH');
-      if (!['responding', 'unknown'].includes(answer.status)) return;
+      if (!['responding', 'unknown', 'resolved'].includes(answer.status)) return;
+      const before = canonical(answer);
       const result = reply.ok ? (reply.result as any) : undefined;
-      answer.status = reply.ok
-        ? ['submitted', 'resolved', 'rejected', 'unknown'].includes(result.response_status)
-          ? result.response_status
-          : 'unknown'
-        : unsent.has(reply.error.code)
-          ? 'rejected'
-          : 'unknown';
+      if (answer.status !== 'resolved')
+        answer.status = reply.ok
+          ? ['submitted', 'resolved', 'rejected', 'unknown'].includes(result.response_status)
+            ? result.response_status
+            : 'unknown'
+          : unsent.has(errorCode(reply.error) ?? '')
+            ? 'rejected'
+            : 'unknown';
       answer.diagnostic = reply.ok ? result.diagnostic : reply.error;
-      await tx.put(answerKey(key as string), answer);
+      if (canonical(answer) !== before) await tx.put(answerKey(key as string), answer);
     });
-    await this.events.wake();
   }
-  async mergeTurn(tx: Store, r: CallRecord, o: TurnObservation) {
+  async saveCall(tx: Store, r: CallRecord, before: string) {
+    if (canonical(r) === before) return;
+    r.updated_at = Date.now();
+    await tx.put(callKey(r.id), r);
+  }
+  // Collect notifications during the transaction; publish only after its state commits.
+  mergeTurn(r: CallRecord, o: TurnObservation, notices: Notice[]) {
     if (!r.task || o.task_id !== r.id) throw new BridgeError('TRACKING_ID_MISMATCH');
     const old = r.task;
-    if (r.diagnostic?.code === 'TURN_ID_CONFLICT') return;
+    if (errorCode(r.diagnostic) === 'TURN_ID_CONFLICT') return;
     if (old.turnId && o.turnId && old.turnId !== o.turnId)
       throw new BridgeError('TURN_ID_CONFLICT');
     if (terminal(old.state)) return;
@@ -291,37 +321,35 @@ export class Coordinator {
     const changed = old.state !== o.state || (!old.turnId && !!o.turnId);
     r.task = { ...old, state: o.state, turnId: old.turnId ?? o.turnId, error: o.error ?? null };
     r.diagnostic = o.diagnostic ?? undefined;
-    r.updated_at = Date.now();
-    await tx.put(callKey(r.id), r);
     if (changed)
-      await this.events.record(tx, r.connection_id, [
-        {
-          eventId: crypto.randomUUID(),
-          name: 'gateway.request.updated',
-          timestamp: new Date().toISOString(),
-          data: {
-            connection_id: r.connection_id,
-            interface: r.interface,
-            runtime_id: r.runtime_id,
-            request_id: r.request_id,
-            tracking: 'thread_turn',
-            rpc_status: r.rpc_status,
-            status: o.state,
-            host_id: r.task.hostId,
-            thread_id: r.task.threadId,
-            ...(r.task.turnId ? { turn_id: r.task.turnId } : {}),
-          },
+      notices.push({
+        eventId: crypto.randomUUID(),
+        name: 'gateway.request.updated',
+        timestamp: new Date().toISOString(),
+        data: {
+          connection_id: r.connection_id,
+          interface: r.interface,
+          runtime_id: r.runtime_id,
+          request_id: r.request_id,
+          tracking: 'thread_turn',
+          rpc_status: r.rpc_status,
+          status: o.state,
+          host_id: r.task.hostId,
+          thread_id: r.task.threadId,
+          ...(r.task.turnId ? { turn_id: r.task.turnId } : {}),
         },
-      ]);
+      });
   }
   async observe(connection: string, observations: Observation[]) {
-    const ids = await this.store.transaction(async (tx) => {
+    const ids = await this.withNotices(async (tx, notices) => {
       const ids: string[] = [];
       for (const o of observations) {
         if (o.kind === 'turn') {
           const r = await tx.get<CallRecord>(callKey(o.task_id));
           if (!r || r.connection_id !== connection) throw new BridgeError('TRACKING_ID_MISMATCH');
-          await this.mergeTurn(tx, r, o);
+          const before = canonical(r);
+          this.mergeTurn(r, o, notices);
+          await this.saveCall(tx, r, before);
         } else {
           if (o.notice.data.connection_id !== connection)
             throw new BridgeError('EVENT_SOURCE_MISMATCH');
@@ -329,22 +357,24 @@ export class Coordinator {
           if (d.interaction_key && d.status === 'resolved') {
             const k = answerKey(canonical([connection, d.interface, d.interaction_key]));
             const a = await tx.get<Answer>(k);
-            if (a) {
+            if (a && a.status !== 'resolved') {
               a.status = 'resolved';
               await tx.put(k, a);
             }
           }
-          await this.events.record(tx, connection, [o.notice]);
+          notices.push(o.notice);
         }
         ids.push(o.id);
       }
       return ids;
     });
-    await this.events.wake();
     return ids;
   }
   async readTask(record: CallRecord, allowed: string[]) {
     const r = await this.resolveAttribution(record, allowed);
+    // Cross-host attribution already reported either no match or per-source failures.
+    // Reading a turn without its identity would overwrite that evidence with another pending state.
+    if (r.attribution_connections && !r.task!.turnId) return r;
     if (!terminal(r.task!.state)) {
       const reply = await this.dispatch('read_turn', {
         connection_id: r.connection_id,
@@ -366,7 +396,7 @@ export class Coordinator {
       record.task.turnId ||
       terminal(record.task.state) ||
       !record.attribution_connections ||
-      record.diagnostic?.code === 'TURN_ID_CONFLICT'
+      errorCode(record.diagnostic) === 'TURN_ID_CONFLICT'
     )
       return record;
     const pending = this.resolving.get(record.id);
@@ -390,15 +420,15 @@ export class Coordinator {
           return typeof id === 'string' && id ? [id] : [];
         }),
       );
-      return this.store.transaction(async (tx) => {
+      return this.withNotices(async (tx, notices) => {
         const current = (await tx.get<CallRecord>(callKey(record.id)))!;
         if (!current.task || current.task.turnId || terminal(current.task.state)) return current;
+        const before = canonical(current);
         const conflict =
-          ids.size > 1 || replies.some((r) => !r.ok && r.error.code === 'TURN_ID_CONFLICT');
+          ids.size > 1 || replies.some((r) => !r.ok && errorCode(r.error) === 'TURN_ID_CONFLICT');
         if (conflict) {
           current.task.state = 'unknown';
           current.diagnostic = { code: 'TURN_ID_CONFLICT' };
-          await tx.put(callKey(current.id), current);
         } else if (ids.size === 1) {
           // Preserve the source for exact-turn content reads; desktop status still
           // comes from the original entry point's coordination stream.
@@ -411,15 +441,22 @@ export class Coordinator {
               )
             ];
           current.diagnostic = undefined;
-          await tx.put(callKey(current.id), current);
         } else {
-          await this.mergeTurn(tx, current, {
-            task_id: current.id,
-            state: 'unknown',
-            turnId: null,
-            diagnostic: { code: 'TURN_ATTRIBUTION_PENDING' },
-          });
+          const failures = replies.flatMap((reply, index) =>
+            reply.ok ? [] : [{ connection_id: sources[index], error: reply.error }],
+          );
+          this.mergeTurn(
+            current,
+            {
+              task_id: current.id,
+              state: 'unknown',
+              turnId: null,
+              diagnostic: failures.length ? { failures } : { code: 'TURN_ATTRIBUTION_PENDING' },
+            },
+            notices,
+          );
         }
+        await this.saveCall(tx, current, before);
         return current;
       });
     })();
@@ -433,7 +470,7 @@ export class Coordinator {
   async resolveInteraction(key: string) {
     await this.store.transaction(async (tx) => {
       const a = await tx.get<Answer>(answerKey(key));
-      if (a) {
+      if (a && a.status !== 'resolved') {
         a.status = 'resolved';
         await tx.put(answerKey(key), a);
       }
@@ -479,7 +516,7 @@ export class Coordinator {
     return {
       event_id: args.event_id,
       response_status: current.status,
-      ...(current.diagnostic ? { diagnostic: current.diagnostic } : {}),
+      ...(current.diagnostic === undefined ? {} : { diagnostic: current.diagnostic }),
     };
   }
   public(r: CallRecord, native?: NativeResponse, result?: unknown) {
