@@ -49,6 +49,8 @@ export class DeviceHub extends DurableObject<Env> {
       waitUntil: (work) => ctx.waitUntil(work),
       authorized: async (auth, id) =>
         (await this.#enrollment.devices()).some((d) => d.id === id) && eventAccess(env, auth, id),
+      resolveTurn: (auth, args, inspect) =>
+        this.#coordinator.eventTurn({ principal: 'owner', devices: auth.devices }, args, inspect),
     });
     this.#coordinator = new Coordinator(
       ctx.storage,
@@ -229,10 +231,12 @@ export class DeviceHub extends DurableObject<Env> {
         ) ?? undefined)
       : operation === 'describe_methods'
         ? this.#discoverySockets(args.connection_id, args.interface)[0]
-        : ['read_turn', 'read_turn_result', 'resolve_turn'].includes(operation)
+        : ['read_turn', 'inspect_turn', 'read_turn_result', 'resolve_turn'].includes(operation)
           ? this.#discoverySockets(
               args.connection_id,
-              operation === 'read_turn' ? 'client_coordination' : 'app_server',
+              operation === 'read_turn' || operation === 'inspect_turn'
+                ? 'client_coordination'
+                : 'app_server',
             )[0]
           : compatible[0];
     if (!entry)

@@ -5,21 +5,30 @@ export const eventName = z.enum(['gateway.request.updated', 'gateway.native.even
 const base = { connection_id: id };
 export const requestFilter = z.strictObject({
   ...base,
-  request_id: id.optional(),
+  request_id: id,
   statuses: z.array(z.string().min(1)).min(1).optional(),
 });
-export const nativeFilter = z.strictObject({
-  ...base,
-  interface: interfaceName.optional(),
-  host_id: id.optional(),
-  thread_id: id.optional(),
-  turn_id: id.optional(),
-  methods: z.array(z.string().min(1)).min(1).optional(),
-  kinds: z
-    .array(z.enum(['notification', 'server_request', 'lifecycle']))
-    .min(1)
-    .optional(),
-});
+export const nativeFilter = z
+  .strictObject({
+    ...base,
+    request_id: id.optional(),
+    interface: interfaceName.optional(),
+    host_id: id.optional(),
+    thread_id: id.optional(),
+    turn_id: id.optional(),
+    methods: z.array(z.string().min(1)).min(1).optional(),
+    kinds: z
+      .array(z.enum(['notification', 'server_request', 'lifecycle']))
+      .min(1)
+      .optional(),
+  })
+  .refine(
+    (args) =>
+      args.request_id
+        ? !args.thread_id && !args.turn_id && !args.host_id
+        : !!args.thread_id && !!args.turn_id,
+    'Choose request_id before a tracked send, or thread_id and turn_id for an existing turn.',
+  );
 export const noticeData = z.strictObject({
   ...base,
   interface: interfaceName,
@@ -63,7 +72,7 @@ export const eventCatalog = [
   {
     name: 'gateway.request.updated',
     description:
-      'Tracked-turn state changed. statuses matches the tracked operation state. Subscribe before work; delivery is best effort with no history or cursor replay. Read get_request for current state and the result, including after missed notifications. Ordinary RPC replies are returned directly by call and do not emit this event.',
+      'One tracked turn changed. Require request_id; subscribe before its tracked send. The subscription ends automatically after terminal delivery/retries, even when statuses excludes that state. Ended turns cannot be subscribed again. Read get_request for current state/results after missed notifications. No history or replay; ordinary RPCs do not emit this event.',
     delivery: ['webhook'],
     inputSchema: z.toJSONSchema(requestFilter),
     payloadSchema: z.toJSONSchema(noticeData),
@@ -71,7 +80,7 @@ export const eventCatalog = [
   {
     name: 'gateway.native.event',
     description:
-      'Native events; desktop tasks must first be followed through client_coordination. Defaults to questions, lifecycle and turn/interaction state changes; explicit methods/kinds can select any emitted event, including delta, log and progress events. Subscribe before work; delivery is best effort with no history or cursor replay. Subscriptions survive runtime changes; native follows must be re-established explicitly after a gap. Read the event at read_cursor for its payload; only server_request events accept respond.',
+      'Native events for one turn. Use request_id before a tracked send, or thread_id and turn_id to join an existing desktop turn; host_id defaults to local. Follow the target through client_coordination. Ends automatically on that turn ending, regardless of method/kind filters; later turns need a new subscription. Defaults to questions, lifecycle and turn/interaction changes; explicit methods/kinds select other emitted events. Read read_events(read_cursor); only server_request accepts respond. Best effort, no replay. Re-establish native follows explicitly after a gap.',
     delivery: ['webhook'],
     inputSchema: z.toJSONSchema(nativeFilter),
     payloadSchema: z.toJSONSchema(noticeData),
@@ -98,6 +107,7 @@ export function matchesEvent(name: Notice['name'], args: Record<string, unknown>
     d.kind === 'server_request' ||
     d.kind === 'lifecycle' ||
     [
+      'item/plan/requestImplementation',
       'request_user_input_async',
       'thread-stream-state-changed',
       'interaction/updated',

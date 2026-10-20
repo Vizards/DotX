@@ -54,7 +54,7 @@ test('event subscriptions reject unregistered devices and private callback addre
   const token = await api.authorize();
   const input = {
     name: 'gateway.native.event',
-    arguments: { connection_id: randomUUID() },
+    arguments: { connection_id: randomUUID(), request_id: 'future-send' },
     delivery: { mode: 'webhook', url: 'https://127.0.0.1/callback', secret: 'unused' },
   };
   const unauthorized = await api.rpc(token, 'events/subscribe', input);
@@ -62,7 +62,7 @@ test('event subscriptions reject unregistered devices and private callback addre
   const device = await api.enroll();
   const rejected = await api.rpc(token, 'events/subscribe', {
     ...input,
-    arguments: { connection_id: device.input.device_id },
+    arguments: { connection_id: device.input.device_id, request_id: 'future-send' },
   });
   assert.equal(rejected.error.code, -32015);
   assert.equal(rejected.error.data.reason, 'non_public_destination');

@@ -13,7 +13,12 @@ test('event errors retain validation details and callback failures over MCP', as
   const token = await api.authorize();
   const input = {
     name: 'gateway.native.event',
-    arguments: { connection_id: device.input.device_id, kinds: ['not-a-kind'] },
+    arguments: {
+      connection_id: device.input.device_id,
+      thread_id: 'target',
+      turn_id: 'scope-turn',
+      kinds: ['not-a-kind'],
+    },
     delivery: { mode: 'webhook', url: 'https://events.example.com/errors' },
   };
   const invalid = await api.rpc(token, 'events/unsubscribe', input);
@@ -24,7 +29,7 @@ test('event errors retain validation details and callback failures over MCP', as
 
   const forbidden = await api.rpc(token, 'events/unsubscribe', {
     ...input,
-    arguments: { connection_id: 'not-enrolled' },
+    arguments: { connection_id: 'not-enrolled', thread_id: 'target', turn_id: 'scope-turn' },
   });
   assert.equal(forbidden.error.message, 'CONNECTION_NOT_AUTHORIZED');
   assert.equal(forbidden.error.data.code, 'CONNECTION_NOT_AUTHORIZED');
@@ -37,7 +42,7 @@ test('event errors retain validation details and callback failures over MCP', as
   });
   const callback = await api.rpc(token, 'events/subscribe', {
     ...input,
-    arguments: { connection_id: device.input.device_id },
+    arguments: { connection_id: device.input.device_id, request_id: 'not-yet-sent' },
     delivery: { ...input.delivery, secret: `whsec_${randomBytes(32).toString('base64')}` },
   });
   assert.equal(callback.error.code, -32015);
@@ -74,7 +79,7 @@ test('events deliver without replay, preserve filters and retry only while autho
       });
     if (url.pathname === '/cancel-pending') return new Response('unavailable', { status: 503 });
     if (
-      url.pathname === '/edge-retry' &&
+      ['/edge-retry', '/final-retry'].includes(url.pathname) &&
       delivered.filter((row) => row.path === url.pathname).length === 1
     )
       return new Response('Cloudflare Access Denied', {
@@ -108,9 +113,55 @@ test('events deliver without replay, preserve filters and retry only while autho
   t.after(() => socket.close());
   const heartbeat = once(socket, 'message');
   socket.send(
-    JSON.stringify({ type: 'heartbeat', protocol: WIRE_VERSION, availability: 'online' }),
+    JSON.stringify({
+      type: 'heartbeat',
+      protocol: WIRE_VERSION,
+      availability: 'online',
+      interfaces: ['client_coordination', 'app_tools'].map((name) => ({
+        name,
+        runtime_id: 'synthetic-runtime',
+        availability: 'online',
+      })),
+    }),
   );
   assert.equal(JSON.parse((await heartbeat)[0].data).type, 'heartbeat_ack');
+  const inspection = new Map<string, string>();
+  let wireTaskId = '';
+  // Supply DotX's own inspection envelope; no native response/schema is simulated.
+  socket.addEventListener('message', (event) => {
+    const command = JSON.parse(String(event.data));
+    if (command.type !== 'command') return;
+    if (command.operation === 'call' || command.operation === 'read_turn') {
+      wireTaskId = command.args.task.id;
+      socket.send(
+        JSON.stringify({
+          type: 'response',
+          id: command.id,
+          ok: true,
+          result: {
+            rpc_status: 'returned',
+            observation: { task_id: wireTaskId, turnId: 'wire-turn', state: 'running' },
+          },
+        }),
+      );
+      return;
+    }
+    assert.equal(command.operation, 'inspect_turn');
+    socket.send(
+      JSON.stringify({
+        type: 'response',
+        id: command.id,
+        ok: true,
+        result: {
+          observation: {
+            task_id: command.args.task.id,
+            turnId: command.args.task.turnId,
+            state: inspection.get(command.args.task.turnId) ?? 'running',
+          },
+        },
+      }),
+    );
+  });
 
   // Inputs are DotX notice envelopes. Method/kind strings exercise routing only;
   // no native protocol payload, task execution or approval behavior is mocked.
@@ -123,6 +174,7 @@ test('events deliver without replay, preserve filters and retry only while autho
       interface: 'app_server',
       runtime_id: 'synthetic-runtime',
       thread_id: 'target',
+      turn_id: 'scope-turn',
       kind: 'notification',
       method,
       ...data,
@@ -144,7 +196,12 @@ test('events deliver without replay, preserve filters and retry only while autho
   }
   const input = (path: string, args: Record<string, unknown> = {}) => ({
     name: 'gateway.native.event',
-    arguments: { connection_id: device.input.device_id, ...args },
+    arguments: {
+      connection_id: device.input.device_id,
+      thread_id: 'target',
+      turn_id: 'scope-turn',
+      ...args,
+    },
     delivery: { mode: 'webhook', url: `https://events.example.com/${path}` },
   });
   async function subscribe(
@@ -189,6 +246,7 @@ test('events deliver without replay, preserve filters and retry only while autho
   const quiet = methods.map((method) => notice(method));
   const baseline = [
     notice('turn/completed'),
+    notice('item/plan/requestImplementation', { interface: 'client_coordination' }),
     notice('example/question', { kind: 'server_request' }),
     notice('example/lifecycle', { kind: 'lifecycle' }),
   ];
@@ -215,8 +273,8 @@ test('events deliver without replay, preserve filters and retry only while autho
     completion,
   ]);
   await expectDelivery('explicit', selected);
-  // The default subscription still selects server_request regardless of method.
-  await expectDelivery('default', [...baseline, otherQuestion, completion]);
+  // Default selectors never widen the subscribed turn to another conversation.
+  await expectDelivery('default', [...baseline, completion]);
   assert.equal(delivered.filter((row) => row.path === '/explicit').length, selected.length);
 
   // A kinds-only subscription opts into arbitrary notification names as well.
@@ -245,6 +303,69 @@ test('events deliver without replay, preserve filters and retry only while autho
   await expectDelivery('explicit', [...selected, resumed]);
   assert.equal((await api.rpc(token, 'events/unsubscribe', explicit)).error, undefined);
   assert.deepEqual(await subscriptions(), []);
+
+  // Single-turn lifetime is independent of notification selectors.
+  const oneTurn = input('one-turn', { turn_id: 'lifetime' });
+  const narrow = input('narrow-turn', { turn_id: 'lifetime', kinds: ['server_request'] });
+  await subscribe(oneTurn);
+  await subscribe(narrow);
+  const question = notice('example/question', { turn_id: 'lifetime', kind: 'server_request' });
+  const waiting = notice('thread-stream-state-changed', {
+    turn_id: 'lifetime',
+    status: 'waiting_approval',
+  });
+  const itemDone = notice('example/item', {
+    turn_id: 'lifetime',
+    kind: 'server_request',
+    status: 'completed',
+  });
+  await send([
+    question,
+    waiting,
+    itemDone,
+    notice('thread-stream-state-changed', { turn_id: 'another-turn', status: 'completed' }),
+  ]);
+  await expectDelivery('one-turn', [question, waiting, itemDone]);
+  await expectDelivery('narrow-turn', [question, itemDone]);
+  assert.equal(
+    (await subscriptions()).length,
+    2,
+    'input/progress/item status is not turn completion',
+  );
+  const ended = notice('thread-stream-state-changed', { turn_id: 'lifetime', status: 'completed' });
+  inspection.set('lifetime', 'completed');
+  await send([ended]);
+  await expectDelivery('one-turn', [question, waiting, itemDone, ended]);
+  for (let i = 0; i < 100 && (await subscriptions()).length; i++) await delay(20);
+  assert.deepEqual(
+    await subscriptions(),
+    [],
+    'both subscriptions close, even without selected completion',
+  );
+  const expiredRenewal = await api.rpc(token, 'events/subscribe', {
+    ...oneTurn,
+    delivery: { ...oneTurn.delivery, secret: `whsec_${randomBytes(32).toString('base64')}` },
+  });
+  assert.equal(expiredRenewal.error.message, 'SUBSCRIPTION_TURN_ENDED');
+  assert.deepEqual(await subscriptions(), [], 'renewal cannot resurrect the completed turn');
+
+  const finalRetry = input('final-retry', { turn_id: 'retry-final' });
+  await subscribe(finalRetry);
+  const final = notice('thread-stream-state-changed', { turn_id: 'retry-final', status: 'failed' });
+  inspection.set('retry-final', 'failed');
+  await send([final]);
+  await expectDelivery('final-retry', [final]);
+  for (let i = 0; i < 100 && !(await subscriptions())[0]?.pending.length; i++) await delay(20);
+  assert.equal((await subscriptions())[0].state, 'ending');
+  const duringRetry = await api.rpc(token, 'events/subscribe', {
+    ...finalRetry,
+    delivery: { ...finalRetry.delivery, secret: `whsec_${randomBytes(32).toString('base64')}` },
+  });
+  assert.equal(duringRetry.error.message, 'SUBSCRIPTION_TURN_ENDED');
+  await send([notice('example/question', { turn_id: 'retry-final', kind: 'server_request' })]);
+  await expectDelivery('final-retry', [final, final]);
+  for (let i = 0; i < 100 && (await subscriptions()).length; i++) await delay(20);
+  assert.deepEqual(await subscriptions(), [], 'accepted terminal retry removes its subscription');
 
   const allowedRetry = input('retry-allowed', { methods: ['example/retry'] });
   await subscribe(allowedRetry);
@@ -319,6 +440,91 @@ test('events deliver without replay, preserve filters and retry only while autho
   assert(delivered.every((row) => row.event.cursor === null));
   assert.equal((await api.rpc(token, 'events/unsubscribe', cancelling)).error, undefined);
   assert.deepEqual(await subscriptions(), []);
+
+  // request_id may be subscribed before dispatch. Only DotX wire observations
+  // drive this contract; the simulated peer implements no native Codex operation.
+  const scopedRequest = (name: string, path: string, extra = {}) => ({
+    name,
+    arguments: { connection_id: device.input.device_id, request_id: 'wire-request', ...extra },
+    delivery: {
+      mode: 'webhook',
+      url: `https://events.example.com/${path}`,
+      secret: `whsec_${randomBytes(32).toString('base64')}`,
+    },
+  });
+  const tracked = scopedRequest('gateway.request.updated', 'tracked', { statuses: ['completed'] });
+  const interactions = scopedRequest('gateway.native.event', 'tracked-interactions');
+  for (const subscription of [tracked, interactions])
+    assert.equal((await api.rpc(token, 'events/subscribe', subscription)).error, undefined);
+  assert.equal(
+    toolData(
+      (
+        await api.tool(token, 'call', {
+          connection_id: device.input.device_id,
+          interface: 'app_tools',
+          runtime_id: 'synthetic-runtime',
+          request_id: 'wire-request',
+          tracking: 'thread_turn',
+          method: 'codex_app.send_message_to_thread',
+          params: { threadId: 'target', prompt: 'opaque fixture' },
+        })
+      ).result,
+    ).rpc_status,
+    'returned',
+  );
+  const wireQuestion = notice('example/question', { turn_id: 'wire-turn', kind: 'server_request' });
+  await send([wireQuestion]);
+  await expectDelivery('tracked-interactions', [wireQuestion]);
+  // Native completion must not prematurely remove the separate receipt subscription.
+  const wireEnd = notice('thread-stream-state-changed', {
+    turn_id: 'wire-turn',
+    status: 'completed',
+  });
+  await send([wireEnd]);
+  await expectDelivery('tracked-interactions', [wireQuestion, wireEnd]);
+  assert.equal((await subscriptions()).length, 1);
+  const turnAck = once(socket, 'message');
+  socket.send(
+    JSON.stringify({
+      type: 'observations',
+      protocol: WIRE_VERSION,
+      observations: [
+        {
+          id: randomUUID(),
+          kind: 'turn',
+          task_id: wireTaskId,
+          turnId: 'wire-turn',
+          state: 'completed',
+        },
+      ],
+    }),
+  );
+  assert.equal(JSON.parse((await turnAck)[0].data).type, 'observations_ack');
+  for (let i = 0; i < 100 && (await subscriptions()).length; i++) await delay(20);
+  assert.deepEqual(await subscriptions(), []);
+  const terminalReceipt = delivered.filter((row) => row.path === '/tracked');
+  assert.equal(terminalReceipt.length, 1);
+  assert.equal(terminalReceipt[0].event.data.status, 'completed');
+  for (const subscription of [tracked, interactions]) {
+    assert.equal(
+      (await api.rpc(token, 'events/subscribe', subscription)).error.message,
+      'SUBSCRIPTION_TURN_ENDED',
+    );
+    const next = {
+      ...subscription,
+      arguments: { ...subscription.arguments, request_id: 'next-wire-request' },
+    };
+    assert.equal((await api.rpc(token, 'events/subscribe', next)).error, undefined);
+    assert.equal(
+      (
+        await api.rpc(token, 'events/unsubscribe', {
+          ...next,
+          delivery: { mode: next.delivery.mode, url: next.delivery.url },
+        })
+      ).error,
+      undefined,
+    );
+  }
 
   // Exercise actual OAuth revocation while one subscription is idle and another
   // has a failed delivery awaiting retry. The independent subscriber still works.

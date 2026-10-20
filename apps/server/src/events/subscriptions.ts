@@ -14,6 +14,7 @@ import {
 } from './webhook.ts';
 import type { WebhookFetch } from './webhook.ts';
 import { BridgeError } from '@dotx/shared/errors';
+import { terminal } from '@dotx/shared/state';
 export interface EventAuthority {
   principal: string;
   devices: string[];
@@ -32,6 +33,7 @@ interface Subscription {
   oldUntil?: number;
   expires: number;
   revision: string;
+  ending?: boolean;
 }
 interface Retry {
   subscriptionId: string;
@@ -39,6 +41,14 @@ interface Retry {
   event: Notice;
   attempt: number;
   nextAt: number;
+  final?: boolean;
+}
+export interface EventTurn {
+  connection_id: string;
+  host_id?: string;
+  thread_id?: string;
+  turn_id?: string;
+  state?: string;
 }
 const RETRY_DELAYS_MS = [2000, 4000, 8000, 15000, 15000, 15000, 15000, 15000, 15000];
 const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
@@ -55,6 +65,11 @@ export class Events {
   readonly transport: WebhookFetch;
   readonly authorized: (auth: EventAuthority, connectionId: string) => Promise<boolean>;
   readonly waitUntil: (work: Promise<unknown>) => void;
+  readonly resolveTurn: (
+    auth: EventAuthority,
+    args: Record<string, unknown>,
+    inspect: boolean,
+  ) => Promise<EventTurn>;
   readonly inFlight = new Set<string>();
   constructor(
     store: AtomicStore,
@@ -62,12 +77,14 @@ export class Events {
       transport?: WebhookFetch;
       authorized: Events['authorized'];
       waitUntil: Events['waitUntil'];
+      resolveTurn: Events['resolveTurn'];
     },
   ) {
     this.store = store;
     this.transport = options.transport ?? webhookFetch;
     this.authorized = options.authorized;
     this.waitUntil = options.waitUntil;
+    this.resolveTurn = options.resolveTurn;
   }
   async wake(at: number) {
     const next = await this.store.getAlarm();
@@ -103,6 +120,8 @@ export class Events {
     if (method !== 'events/subscribe') throw new BridgeError('EVENT_METHOD_NOT_FOUND');
     const input = subscribeSchema.parse(raw);
     const { id, args, url } = await this.identity(auth, input);
+    const current = await this.store.get<Subscription>(subKey(id));
+    if (current?.ending) throw new BridgeError('SUBSCRIPTION_TURN_ENDED');
     secretBytes(input.delivery.secret);
     // Cache by principal+callback+key for five minutes; a rotated key is verified again.
     const verifiedKey =
@@ -121,8 +140,18 @@ export class Events {
       }
       await this.store.put(verifiedKey, Date.now() + 300000);
     }
+    // Verification can take time; inspect admission afterwards, not before it.
+    // No completed-subscription tombstones: use the existing receipt/native state.
+    const turn = await this.resolveTurn(auth, args, true);
+    if (turn.state && terminal(turn.state))
+      throw new BridgeError(
+        'SUBSCRIPTION_TURN_ENDED',
+        'This turn has ended. Read its result; a later turn needs a new subscription.',
+        { cause: turn },
+      );
     const expires = await this.store.transaction(async (tx) => {
       const previous = await tx.get<Subscription>(subKey(id));
+      if (previous?.ending) throw new BridgeError('SUBSCRIPTION_TURN_ENDED');
       const active = previous && previous.expires > Date.now();
       const lifetime = Math.max(60000, Math.min(input.ttlMs ?? 86400000, 86400000));
       const s: Subscription = {
@@ -164,22 +193,64 @@ export class Events {
     const subscriptions = await this.store.list<Subscription>({ prefix: 'events:sub:' });
     const unique = new Map(events.map((e) => [e.eventId, e]));
     for (const s of subscriptions.values()) {
-      if (s.expires <= Date.now()) continue;
+      if (s.expires <= Date.now() || s.ending) continue;
+      let turn: EventTurn;
+      try {
+        turn = await this.resolveTurn(s.auth, s.arguments, false);
+      } catch (error) {
+        // A request later used for an ordinary RPC cannot own a turn subscription.
+        // Its invalid scope must not prevent delivery to other subscribers.
+        console.warn({ event: 'mcp_subscription_scope_failed', error: transportError(error) });
+        await this.stop(s);
+        continue;
+      }
       for (const event of unique.values()) {
-        if (
-          !s.auth.devices.includes(event.data.connection_id) ||
-          !matchesEvent(s.name, s.arguments, event)
-        )
+        if (!s.auth.devices.includes(event.data.connection_id)) continue;
+        const requestMatch =
+          typeof s.arguments.request_id === 'string' &&
+          event.name === 'gateway.request.updated' &&
+          event.data.connection_id === s.arguments.connection_id &&
+          event.data.request_id === s.arguments.request_id;
+        const nativeMatch =
+          event.name === 'gateway.native.event' &&
+          event.data.connection_id === turn.connection_id &&
+          !!turn.turn_id &&
+          event.data.thread_id === turn.thread_id &&
+          (event.data.host_id ?? 'local') === (turn.host_id ?? 'local') &&
+          (!event.data.turn_id || event.data.turn_id === turn.turn_id);
+        const final =
+          terminal(event.data.status ?? '') &&
+          (requestMatch ||
+            (s.name === 'gateway.native.event' &&
+              nativeMatch &&
+              event.data.turn_id === turn.turn_id &&
+              ['thread-stream-state-changed', 'turn/completed', 'turn/failed'].includes(
+                event.data.method ?? '',
+              )));
+        // Scope is mandatory, but thread-level interactions can omit turn_id.
+        // Keep the existing method/kind defaults and explicit selectors inside it.
+        const { thread_id: _thread, turn_id: _turn, host_id: _host, ...filters } = s.arguments;
+        const selected =
+          (s.name === 'gateway.request.updated' ? requestMatch : nativeMatch) &&
+          matchesEvent(s.name, filters, event);
+        if (!selected) {
+          if (final) {
+            await this.stop(s);
+            break;
+          }
           continue;
+        }
         const r: Retry = {
           subscriptionId: s.id,
           revision: s.revision,
           event,
           attempt: 0,
           nextAt: 0,
+          ...(final ? { final: true } : {}),
         };
         // A retry already owns this event; do not reset its attempt budget.
         if (!(await this.store.get(retryKey(r)))) await this.send(r);
+        if (final) break;
       }
     }
   }
@@ -196,7 +267,7 @@ export class Events {
           id: s.id,
           name: s.name,
           arguments: s.arguments,
-          state: 'active',
+          state: s.ending ? 'ending' : 'active',
           refresh_before: new Date(s.expires).toISOString(),
           cursor: null,
           pending: retries
@@ -209,7 +280,7 @@ export class Events {
         })),
     };
   }
-  async stop(s: Subscription, reason: 'expired' | 'revoked' | 'failed') {
+  async stop(s: Subscription, reason?: 'expired' | 'revoked' | 'failed') {
     await this.store.transaction(async (tx) => {
       const current = await tx.get<Subscription>(subKey(s.id));
       if (!current || current.revision !== s.revision) return;
@@ -227,6 +298,7 @@ export class Events {
     try {
       const s = await this.store.get<Subscription>(subKey(r.subscriptionId));
       if (!s || s.revision !== r.revision) return;
+      if (s.ending && !r.final) return;
       if (s.expires <= Date.now()) {
         await this.stop(s, 'expired');
         return;
@@ -254,7 +326,8 @@ export class Events {
       const attempt = r.attempt + 1;
       let outcome = 'accepted';
       if (status >= 200 && status < 300) {
-        if (r.attempt)
+        if (r.final) await this.stop(s);
+        else if (r.attempt)
           await this.store.transaction(async (tx) => {
             const current = await tx.get<Retry>(key);
             if (current?.revision === r.revision) await tx.delete(key);
@@ -279,6 +352,11 @@ export class Events {
             const current = await tx.get<Subscription>(subKey(s.id));
             if (!current || current.revision !== r.revision || current.expires <= Date.now())
               return false;
+            if (current.ending && !r.final) return false;
+            if (r.final && !current.ending) {
+              await this.clearRetries(tx, s.id);
+              await tx.put(subKey(s.id), { ...current, ending: true });
+            }
             await tx.put(key, { ...r, attempt, nextAt } satisfies Retry);
             return true;
           });

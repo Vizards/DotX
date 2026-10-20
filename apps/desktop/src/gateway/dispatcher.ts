@@ -36,6 +36,9 @@ export class Gateway {
         this.adapters.get('app_server')!.call(method, params),
       );
     if (operation === 'read_turn') return this.options.tracker.query(a.task as TrackedTask);
+    // Subscription admission reads the native turn without creating a durable
+    // request or a tracker task whose observations would have no request owner.
+    if (operation === 'inspect_turn') return this.options.tracker.inspect(a.task as TrackedTask);
     if (operation === 'respond') {
       const event = this.options.events.event(a.event_id);
       if (!event) throw new BridgeError('EVENT_EXPIRED');

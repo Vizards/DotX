@@ -28,6 +28,7 @@ const responseMethods: Record<string, string> = {
   'mcpServer/elicitation/request': 'thread-follower-submit-mcp-server-elicitation-response',
 };
 const asyncMethod = 'request_user_input_async';
+const planMethod = 'item/plan/requestImplementation';
 const targetProperties = {
   hostId: { type: 'string', default: 'local' },
   conversationId: { type: 'string' },
@@ -156,6 +157,13 @@ export class CoordinationAdapter implements Adapter {
             (m.description ?? '') +
             ' Desktop-owned request: answer through respond(event_id), never through an independent App Server. Verify scope and user authorization.',
         })),
+      {
+        name: planMethod,
+        kind: 'notification',
+        input_schema: { type: 'object' },
+        description:
+          'Desktop continuation prompt after a completed Plan turn, not a blocking request. After confirmation, switch collaborationMode to default and send an implementation message as a new turn. Do not use respond.',
+      },
       {
         name: asyncMethod,
         kind: 'notification',
@@ -441,10 +449,34 @@ export class CoordinationAdapter implements Adapter {
       }
       return current;
     };
-    // Private snapshot requests[] is the pending desktop request set. Disappearance means
-    // answered OR cleared/cancelled; it is not proof that the approved task completed.
+    // PRIVATE CODEX API: requests[] mixes blocking requests with a desktop-generated Plan
+    // continuation prompt. The latter appears after turn completion and has no response RPC.
+    // For blocking requests, disappearance means answered OR cleared/cancelled, not completion.
     for (const request of s.requests ?? []) {
       const method = request.method;
+      const turnId = request.params?.turnId;
+      const key = identity([
+        f.hostId,
+        f.conversationId,
+        turnId,
+        method,
+        request.id,
+        request.params,
+      ]);
+      if (method === planMethod) {
+        if (
+          !previous?.requests?.some(
+            (old: WireMessage) => old.method === method && old.id === request.id,
+          ) &&
+          !this.options.events.rows.some(
+            (event) => event.runtime_id === this.runtimeId && event.interaction_key === key,
+          )
+        )
+          this.emit({ ...request, params: { ...request.params, ...fTarget(f) } }, 'notification', {
+            interaction_key: key,
+          });
+        continue;
+      }
       const schema = this.options.nativeCatalog.find(
         (m) => m.name === method && m.kind === 'server_request',
       )?.output_schema;
@@ -458,15 +490,6 @@ export class CoordinationAdapter implements Adapter {
         : undefined;
       // Elicitation may be outside a turn. Request ID, method and original params still
       // identify its pending native handle; never guess a turn from the latest snapshot.
-      const turnId = request.params?.turnId;
-      const key = identity([
-        f.hostId,
-        f.conversationId,
-        turnId,
-        method,
-        request.id,
-        request.params,
-      ]);
       record({
         key,
         kind: 'native_request',

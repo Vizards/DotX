@@ -1,5 +1,5 @@
 import { z } from 'zod';
-export const WIRE_VERSION = 3;
+export const WIRE_VERSION = 4;
 const id = z
   .string()
   .min(1)
@@ -70,6 +70,7 @@ export const gatewayCommand = z.object({
     'read_events',
     'respond',
     'read_turn',
+    'inspect_turn',
     'read_turn_result',
     'resolve_turn',
   ]),

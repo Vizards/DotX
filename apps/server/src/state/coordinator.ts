@@ -11,7 +11,7 @@ import type {
   ResponseRoute,
 } from '@dotx/shared/state';
 import type { AtomicStore, Store } from '../hub/storage.ts';
-import type { Events } from '../events/subscriptions.ts';
+import type { Events, EventTurn } from '../events/subscriptions.ts';
 import type { Notice } from '@dotx/shared/events';
 
 export interface Authority {
@@ -83,6 +83,61 @@ export class Coordinator {
   }
   authorize(auth: Authority, connection: string) {
     if (!auth.devices.includes(connection)) throw new BridgeError('CONNECTION_NOT_AUTHORIZED');
+  }
+  async eventTurn(
+    auth: Authority,
+    args: Record<string, unknown>,
+    inspect: boolean,
+  ): Promise<EventTurn> {
+    const connection = String(args.connection_id);
+    this.authorize(auth, connection);
+    if (typeof args.request_id === 'string') {
+      const id = await this.store.get<string>(requestKey(auth.principal, args.request_id));
+      let r = id && (await this.store.get<CallRecord>(callKey(id)));
+      // Subscribe before dispatch using the caller's chosen request ID.
+      if (!r) return { connection_id: connection };
+      if (r.connection_id !== connection) throw new BridgeError('EVENT_SOURCE_MISMATCH');
+      if (!r.task) throw new BridgeError('SUBSCRIPTION_REQUIRES_TRACKED_TURN');
+      if (inspect && !terminal(r.task.state)) r = await this.readTask(r, auth.devices);
+      return {
+        connection_id: connection,
+        host_id: r.task!.hostId,
+        thread_id: r.task!.threadId,
+        turn_id: r.task!.turnId ?? undefined,
+        state: r.task!.state,
+      };
+    }
+    const turn: EventTurn = {
+      connection_id: connection,
+      host_id: String(args.host_id ?? 'local'),
+      thread_id: String(args.thread_id),
+      turn_id: String(args.turn_id),
+    };
+    if (inspect) {
+      const result = unwrap(
+        await this.dispatch('inspect_turn', {
+          connection_id: connection,
+          interface: 'client_coordination',
+          task: {
+            id: crypto.randomUUID(),
+            request_id: '',
+            connection_id: connection,
+            hostId: turn.host_id,
+            threadId: turn.thread_id,
+            turnId: turn.turn_id,
+            state: 'unknown',
+          },
+        }),
+      ) as { observation: TurnObservation };
+      turn.state = result.observation.state;
+      if (turn.state === 'unknown')
+        throw new BridgeError(
+          'SUBSCRIPTION_TURN_UNAVAILABLE',
+          'Read the current native turn before subscribing.',
+          { cause: result.observation.diagnostic },
+        );
+    }
+    return turn;
   }
   async invoke(auth: Authority, operation: GatewayOperation, input: unknown): Promise<any> {
     if (operation === 'get_request') {
