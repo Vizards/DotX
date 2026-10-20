@@ -3,9 +3,46 @@ import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
+import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/server/validators/cf-worker';
 import { WIRE_VERSION } from '@dotx/shared/gateway';
 import type { NoticeData, Notice } from '@dotx/shared/events';
 import { startServer, toolData } from './support/server.ts';
+
+test('event discovery and subscription methods agree on exclusive turn scopes', async (t) => {
+  const api = await startServer(t);
+  const device = await api.enroll();
+  const token = await api.authorize();
+  const catalog = await api.rpc(token, 'events/list');
+  const definition = catalog.result.events.find(
+    (event: { name: string }) => event.name === 'gateway.native.event',
+  );
+  const validate = new CfWorkerJsonSchemaValidator().getValidator(definition.inputSchema);
+  const scopes: [Record<string, string>, boolean][] = [
+    [{ request_id: 'future-send' }, true],
+    [{ thread_id: 'target', turn_id: 'turn', host_id: 'local' }, true],
+    [{ request_id: 'future-send', thread_id: 'target', turn_id: 'turn' }, false],
+    [{ thread_id: 'target' }, false],
+  ];
+  for (const [scope, accepted] of scopes) {
+    const input = {
+      name: 'gateway.native.event',
+      arguments: { connection_id: device.input.device_id, ...scope },
+      delivery: { mode: 'webhook', url: 'https://events.example.com/scope' },
+    };
+    assert.equal(validate(input.arguments).valid, accepted, JSON.stringify(scope));
+    // Cancellation validates the same scope without inspecting or simulating a native turn.
+    const cancelled = await api.rpc(token, 'events/unsubscribe', input);
+    assert.equal(!cancelled.error, accepted, JSON.stringify(cancelled));
+    if (!accepted) {
+      const rejected = await api.rpc(token, 'events/subscribe', {
+        ...input,
+        delivery: { ...input.delivery, secret: `whsec_${randomBytes(32).toString('base64')}` },
+      });
+      assert.equal(rejected.error.code, -32602);
+      assert.equal(rejected.error.data.name, 'ZodError');
+    }
+  }
+});
 
 test('event errors retain validation details and callback failures over MCP', async (t) => {
   const api = await startServer(t);
@@ -24,8 +61,11 @@ test('event errors retain validation details and callback failures over MCP', as
   const invalid = await api.rpc(token, 'events/unsubscribe', input);
   assert.equal(invalid.error.code, -32602);
   assert.equal(invalid.error.data.name, 'ZodError');
-  assert.deepEqual(JSON.parse(invalid.error.data.message)[0].path, ['kinds', 0]);
-  assert(JSON.parse(invalid.error.data.message)[0].values.includes('notification'));
+  const issues = JSON.parse(invalid.error.data.message).flatMap(
+    (issue: { errors?: unknown[][] }) => issue.errors?.flat() ?? [issue],
+  );
+  const kindError = issues.find((issue: { path: unknown[] }) => issue.path.join('.') === 'kinds.0');
+  assert(kindError.values.includes('notification'));
 
   const forbidden = await api.rpc(token, 'events/unsubscribe', {
     ...input,

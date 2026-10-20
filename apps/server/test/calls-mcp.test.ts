@@ -28,18 +28,17 @@ test('MCP routes opaque device RPCs once, returns receipts and rejects stale run
     if (socket.readyState === WebSocket.OPEN) socket.close();
   });
   const ack = once(socket, 'message');
-  socket.send(
-    JSON.stringify({
-      type: 'heartbeat',
-      protocol: WIRE_VERSION,
+  const heartbeat = {
+    type: 'heartbeat',
+    protocol: WIRE_VERSION,
+    availability: 'online',
+    interfaces: ['app_server', 'app_tools'].map((name) => ({
+      name,
+      runtime_id: 'test-runtime',
       availability: 'online',
-      interfaces: ['app_server', 'app_tools'].map((name) => ({
-        name,
-        runtime_id: 'test-runtime',
-        availability: 'online',
-      })),
-    }),
-  );
+    })),
+  };
+  socket.send(JSON.stringify(heartbeat));
   assert.deepEqual(JSON.parse((await ack)[0].data), {
     type: 'heartbeat_ack',
     protocol: WIRE_VERSION,
@@ -71,15 +70,13 @@ test('MCP routes opaque device RPCs once, returns receipts and rejects stale run
   // Only DotX's own wire envelope is simulated. This endpoint does not implement
   // Codex methods, thread states, permission settings or native event semantics.
   const commands: any[] = [];
-  let disconnectOnCommand = false;
+  let holdReply = false;
   const native = { result: { arbitrary: ['opaque', 42] } };
   socket.addEventListener('message', (event) => {
     const command = JSON.parse(String(event.data));
+    if (command.type !== 'command') return;
     commands.push(command);
-    if (disconnectOnCommand) {
-      socket.close(1000, 'Synthetic transport interruption');
-      return;
-    }
+    if (holdReply) return;
     socket.send(
       JSON.stringify({
         type: 'response',
@@ -230,15 +227,65 @@ test('MCP routes opaque device RPCs once, returns receipts and rejects stale run
   assert.equal(errorCode(await api.tool(token, 'call', unidentifiedTurn)), 'REQUEST_ID_REQUIRED');
   assert.equal(commands.length, 7, 'missing ID must fail before a tracked send');
 
-  disconnectOnCommand = true;
+  holdReply = true;
   const interrupted = { ...args, request_id: randomUUID() };
-  const lost = toolData((await api.tool(token, 'call', interrupted)).result);
+  const dispatched = once(socket, 'message');
+  const pending = api.tool(token, 'call', interrupted);
+  await dispatched;
+  const replacementResponse = await api.request('/device/connect', {
+    headers: {
+      Upgrade: 'websocket',
+      'X-Device-Id': device.input.device_id,
+      Authorization: `Bearer ${device.token}`,
+    },
+  });
+  const replacement = replacementResponse.webSocket!;
+  replacement.accept();
+  t.after(() => replacement.close());
+  let replacementCalls = 0;
+  replacement.addEventListener('message', (event) => {
+    const command = JSON.parse(String(event.data));
+    if (command.type !== 'command') return;
+    replacementCalls++;
+    replacement.send(
+      JSON.stringify({
+        type: 'response',
+        id: command.id,
+        ok: true,
+        result: { rpc_status: 'returned', native },
+      }),
+    );
+  });
+  const selectedRuntime = async () =>
+    toolData((await api.tool(token, 'list_connections')).result).connections[0].interfaces[0]
+      .runtime_id;
+  assert.equal(await selectedRuntime(), 'test-runtime', 'wait for the new connector to be ready');
+  const ready = once(replacement, 'message');
+  replacement.send(
+    JSON.stringify({
+      ...heartbeat,
+      interfaces: heartbeat.interfaces.map((entry) => ({ ...entry, runtime_id: 'replacement' })),
+    }),
+  );
+  socket.send(JSON.stringify(heartbeat)); // A queued old heartbeat must not reclaim the route.
+  await ready;
+  assert.equal(await selectedRuntime(), 'replacement');
+  const lost = toolData((await pending).result);
   assert.equal(lost.rpc_status, 'unknown');
   assert.equal(lost.diagnostic.code, 'CONNECTION_LOST_OUTCOME_UNKNOWN');
+  assert.equal(lost.diagnostic.cause.code, 'CONNECTION_REPLACED');
   const pendingReceipt = toolData(
     (await api.tool(token, 'get_request', { request_id: interrupted.request_id })).result,
   );
   assert.equal(pendingReceipt.rpc_status, 'unknown');
   assert.equal(toolData((await api.tool(token, 'call', interrupted)).result).rpc_status, 'unknown');
   assert.equal(commands.length, 8);
+  assert.equal(errorCode(await api.tool(token, 'call', direct)), 'RUNTIME_CHANGED');
+  assert.equal(replacementCalls, 0, 'handoff must not resend an in-flight RPC');
+  assert.deepEqual(
+    toolData((await api.tool(token, 'call', { ...direct, runtime_id: 'replacement' })).result)
+      .native,
+    native,
+  );
+  assert.equal(replacementCalls, 1);
 });

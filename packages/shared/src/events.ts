@@ -8,27 +8,25 @@ export const requestFilter = z.strictObject({
   request_id: id,
   statuses: z.array(z.string().min(1)).min(1).optional(),
 });
-export const nativeFilter = z
-  .strictObject({
-    ...base,
-    request_id: id.optional(),
-    interface: interfaceName.optional(),
-    host_id: id.optional(),
-    thread_id: id.optional(),
-    turn_id: id.optional(),
-    methods: z.array(z.string().min(1)).min(1).optional(),
-    kinds: z
-      .array(z.enum(['notification', 'server_request', 'lifecycle']))
-      .min(1)
-      .optional(),
-  })
-  .refine(
-    (args) =>
-      args.request_id
-        ? !args.thread_id && !args.turn_id && !args.host_id
-        : !!args.thread_id && !!args.turn_id,
-    'Choose request_id before a tracked send, or thread_id and turn_id for an existing turn.',
-  );
+const nativeFilterFields = {
+  ...base,
+  interface: interfaceName.optional(),
+  methods: z.array(z.string().min(1)).min(1).optional(),
+  kinds: z
+    .array(z.enum(['notification', 'server_request', 'lifecycle']))
+    .min(1)
+    .optional(),
+};
+export const nativeFilter = z.xor([
+  z
+    .strictObject({ ...nativeFilterFields, request_id: id })
+    .describe('Tracked send: provide request_id; omit host_id, thread_id and turn_id.'),
+  z
+    .strictObject({ ...nativeFilterFields, thread_id: id, turn_id: id, host_id: id.optional() })
+    .describe(
+      'Existing desktop turn: provide thread_id and turn_id, optionally host_id (local by default); omit request_id.',
+    ),
+]);
 export const noticeData = z.strictObject({
   ...base,
   interface: interfaceName,
@@ -80,7 +78,7 @@ export const eventCatalog = [
   {
     name: 'gateway.native.event',
     description:
-      'Native events for one turn. Use request_id before a tracked send, or thread_id and turn_id to join an existing desktop turn; host_id defaults to local. Follow the target through client_coordination. Ends automatically on that turn ending, regardless of method/kind filters; later turns need a new subscription. Defaults to questions, lifecycle and turn/interaction changes; explicit methods/kinds select other emitted events. Read read_events(read_cursor); only server_request accepts respond. Best effort, no replay. Re-establish native follows explicitly after a gap.',
+      'Native events for one turn. Choose exactly one scope: request_id before a tracked send (omit host_id, thread_id and turn_id), or thread_id and turn_id for an existing desktop turn (omit request_id; optional host_id defaults to local). Follow the target through client_coordination. Ends automatically on that turn ending, regardless of method/kind filters; later turns need a new subscription. Defaults to questions, lifecycle and turn/interaction changes; explicit methods/kinds select other emitted events. Read read_events(read_cursor); only server_request accepts respond. Best effort, no replay. Re-establish native follows explicitly after a gap.',
     delivery: ['webhook'],
     inputSchema: z.toJSONSchema(nativeFilter),
     payloadSchema: z.toJSONSchema(noticeData),

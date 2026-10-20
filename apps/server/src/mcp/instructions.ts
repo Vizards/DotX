@@ -28,7 +28,9 @@ Use describe_methods to discover native methods and read their input/output sche
     description: 'Choose model and reasoning effort, write a prompt and dispatch work to Codex.',
     instructions: `Write prompts to Codex as direct requests, preserving the user's intent and wording. Add only context the destination needs. Do not prepend third-person delegation boilerplate such as "The user asks you to...", "The user has authorized...", or "I am relaying the user's request...".
 
-Before creating a conversation, resolve model and reasoning effort from the user's request or applicable context; ask together for missing choices. app_tools/codex_app.create_thread accepts model/thinking. Consult app_server/model/list when available choices are needed. Fast is not a creation prerequisite.
+Before creating a conversation, resolve model and reasoning effort from the user's explicit choices in the current request or applicable context. Reuse those choices; ask together for any missing choices and wait for the answer before creating. A configuration used by another task alone is not a choice for this task.
+
+app_tools/codex_app.create_thread accepts model/thinking. Its native schema permits omission to use configured defaults; this is how to implement the user's choice to use defaults, not a reason to skip the confirmation above. Omit the corresponding parameters when the user chooses defaults; otherwise pass the resolved choices. Consult app_server/model/list when available choices are needed. Fast is not a creation prerequisite.
 
 App Tools create_thread starts work immediately and has no permission argument. When explicit permissions are required, use an initialization-only prompt and wait for it to finish. Read the settings guide to apply and verify permissions before sending real work. Resolve an unclear permission scope with the user; a task request alone does not select Full Access.
 
@@ -68,7 +70,12 @@ For completion notifications, read the interactions guide and subscribe before w
     title: 'Receive progress and handle approvals or questions',
     description:
       'Subscribe to events, read notifications and answer blocking requests or asynchronous questions.',
-    instructions: `Subscriptions cover one native turn, not future turns in a conversation. Before a tracked send, choose request_id and use it for both gateway.request.updated and gateway.native.event subscriptions. For an already running desktop turn, use gateway.native.event with thread_id, turn_id and host_id (local by default). First read its exact identity and current state. For desktop approvals and ask_user, follow the target with client_coordination/thread-stream-following-changed (following=true) before dispatch.
+    instructions: `Subscriptions cover one native turn, not future turns in a conversation. For gateway.native.event, choose exactly one scope:
+
+- Before a tracked send, choose request_id and reuse it for the subscription and the subsequent tracked call. Omit host_id, thread_id and turn_id. Use the same request_id for gateway.request.updated when also subscribing to receipts.
+- To join an already running desktop turn, first read its exact identity and current state, then provide thread_id and turn_id, optionally host_id (local by default). Omit request_id.
+
+Do not combine these two scopes. Both require connection_id and allow optional interface, methods and kinds filters. For desktop approvals and ask_user, follow the target with client_coordination/thread-stream-following-changed (following=true) before dispatch.
 
 Use MCP Events on this endpoint via the host's events/subscribe support, not call: gateway.request.updated for tracked receipts and gateway.native.event for desktop interactions. Subscribe before work; with an active subscription, wait for notifications instead of continuous polling. Delivery is best effort with bounded retries for transient failures. There is no event history or replay (cursor=null); subscription renewal does not recover missed notifications. Event definitions describe filters and defaults. Notifications point to get_request or read_events(read_cursor); deduplicate eventId and read current state. Read the results guide when interpreting execution receipts.
 

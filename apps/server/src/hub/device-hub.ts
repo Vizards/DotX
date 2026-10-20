@@ -330,6 +330,8 @@ export class DeviceHub extends DurableObject<Env> {
     if (heartbeat.success) {
       const msg = heartbeat.data;
       const previous = attachment(socket);
+      // Close can lag behind handoff. A queued heartbeat must not revive a retired socket.
+      if (previous.lastSeen === 0) return;
       socket.serializeAttachment({
         deviceId: previous.deviceId,
         connectedAt: previous.connectedAt ?? Date.now(),
@@ -341,6 +343,18 @@ export class DeviceHub extends DurableObject<Env> {
         desktopVersion: String(msg.desktopVersion || '').slice(0, 100),
         connectorVersion: String(msg.connectorVersion || '').slice(0, 100),
       });
+      if (msg.protocol === WIRE_VERSION && msg.availability === 'online') {
+        for (const other of this.ctx.getWebSockets(previous.deviceId)) {
+          const info = attachment(other);
+          if (
+            other !== socket &&
+            info.lastSeen !== 0 &&
+            (info.connectedAt ?? 0) <= (previous.connectedAt ?? 0)
+          )
+            // Reuse disconnect semantics for pending RPCs; never dispatch them again.
+            this.#disconnect(other, { code: 'CONNECTION_REPLACED' }, 1000);
+        }
+      }
       socket.send(JSON.stringify({ type: 'heartbeat_ack', protocol: WIRE_VERSION }));
     } else if (response.success) {
       const msg = response.data;
