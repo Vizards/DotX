@@ -8,4 +8,8 @@ The installed plugin includes `release.json` with its source repository and prod
 
 Inspect `node <plugin>/setup.mjs status` before configuring the Mac and after an interruption. Local state defaults to `~/.local/state/dotx`, overridden by `DOTX_STATE_DIR`. Local association or configuration does not prove the connector is online. `init-local` reuses the device identity and archived caller without a model turn; no caller opening or wake message is needed. `enroll` reuses the device and pairing request.
 
-After enrollment, read local `device_status` and, when available, Remote `list_connections` to verify the loaded connector and interfaces. If a reload is needed, use normal desktop controls at a suitable time around running tasks. Installation does not run project tests or send synthetic tasks.
+After enrollment, read local `device_status` and, when available, Remote `list_connections` to confirm that the loaded connector matches the selected release, this Mac is associated with the intended service, and the device and its `app_tools`, `app_server` and `client_coordination` interfaces are online. Their online status reflects the connector's built-in readiness checks. When these checks pass, report installation and basic connectivity as verified; do not claim untested task dispatch, approvals or receipts have passed functional testing.
+
+Investigate reported connection or interface failures as needed. Distinguish a target conversation without a current desktop owner from an unavailable interface; a failed query for that conversation alone does not establish installation failure. An additional native call for every interface is not required. Installation does not run project tests or send synthetic tasks.
+
+If a reload is needed, use normal desktop controls at a suitable time around running tasks.
