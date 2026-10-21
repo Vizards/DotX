@@ -33,7 +33,7 @@ When `remote_catalog` changed, Refresh DotX Remote in ChatGPT's normal plugin se
 
 ## 5. Verify or resume
 
-After reconnection, rediscover runtime IDs and current native interactions, then reconcile the original request and turn before sending more work. Read back actual Server/Desktop versions, protocol and interfaces; combine these with local reports of preserved configuration and identity. Report installed-but-not-active components as unfinished.
+After reconnection, rediscover runtime IDs and current native interactions, then reconcile the original request and turn before sending more work. Read back actual Server/Desktop versions, protocol and each native interface; combine these with local reports of preserved configuration and identity. Report installed-but-not-active components as unfinished. A correct version and overall online status are insufficient while a native interface remains unavailable or reports errors.
 
 A Durable Object may load new code after Worker deployment finishes. If versions or connectivity disagree during the switch, allow time for the DO update and recheck current status before deciding whether further action is needed. Release discovery caching and ChatGPT's catalog cache are separate. After interruption, continue only unfinished operations. Verification does not run project tests or dispatch synthetic tasks.
 
