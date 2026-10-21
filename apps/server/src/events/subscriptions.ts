@@ -1,6 +1,7 @@
 import { canonical } from '@dotx/shared/gateway';
-import { matchesEvent, parseFilter, subscribeSchema, unsubscribeSchema } from '@dotx/shared/events';
-import type { Notice, SubscriptionInput } from '@dotx/shared/events';
+import { matchesEvent, parseFilter, subscribeSchema, unsubscribeSchema } from './schema.ts';
+import type { Notice } from '@dotx/shared/events';
+import type { SubscriptionInput } from './schema.ts';
 import type { AtomicStore, Store } from '../hub/storage.ts';
 import {
   callbackURL,

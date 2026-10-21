@@ -22,7 +22,7 @@ Reuse the agreed user choice without asking again. Check the permissions of the 
 ## 3. Install the assigned components
 
 - **Desktop:** Download its attachment to a persistent directory and update through the same local marketplace identity, `dotx` / `dotx-desktop`, using the installed Codex's plugin management. Preserve installation state, caller, credentials and service association outside the package.
-- **Server:** Download its separate attachment and follow its deployment README with official Wrangler. Reuse the actual deployment configuration, account, Worker, origin, secrets and KV/DO resources; change the code path and target-required settings. Preserve the release discovery channel (`stable` by default, `dev` only by user choice).
+- **Server:** Download its separate attachment and follow its deployment README with official Wrangler. Reuse the actual deployment configuration, account, Worker, origin, secrets and KV/DO resources; point both `main` and `assets.directory` at the Worker and `public` directory from the same target attachment. Preserve the release discovery channel (`stable` by default, `dev` only by user choice).
 
 Do not erase persistent state as an implicit upgrade step. Fresh installation is a separate user decision.
 

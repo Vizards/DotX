@@ -22,6 +22,7 @@
 - `apps/desktop/` owns the local MCP, native Codex adapters and setup primitives.
 - `apps/server/` owns Cloudflare hosting, authorization, enrollment, persistent state and notifications. DotX Remote's seven tools live in `src/mcp/` within this package.
 - `packages/shared/` owns cross-component contracts. Desktop and Server depend on Shared; Shared must not depend on either application.
+- Keep MCP subscription schemas, event catalogs and filtering in Server. Shared retains only event data carried between Desktop and Server.
 - Keep native adapters under `interfaces/`, single-call execution under `gateway/`, and exact-turn observation under `tracking/`.
 - Desktop and Remote have separate installation identities. Desktop and Server ship as separate Release attachments; Desktop contains no Worker or Wrangler deployment materials.
 
@@ -42,6 +43,8 @@
 ## Installation and releases
 
 - Remote's update skill lives in `apps/server/skills/update/` and is served by `get_instructions(goal="update")`; local installation and execution skills live in `apps/desktop/skills/`. Setup commands return results and necessary links without opening browsers or choosing UI sessions.
+- Setup covers the first Mac and Server; join adds another Mac from local Codex on that device. Keep shared local steps in one reference. `INSTALL.md` routes repository installation and update requests to the appropriate skill.
+- Server owns public branding under `apps/server/public/branding/`. MCP metadata and setup reuse it; Server releases include `public/`, and deployment moves `main` and `assets.directory` together.
 - Use official Wrangler and declarative deployment configuration. Do not introduce a deployment orchestrator or installation state machine.
 - User installation and update flows do not run project tests or dispatch synthetic tasks. Avoid assumptions about a particular machine, browser, account or installation path.
 - GitHub Actions owns release assembly. Maintain one product release version and a separate wire protocol version; product version differences alone do not imply protocol incompatibility.

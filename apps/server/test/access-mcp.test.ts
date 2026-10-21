@@ -7,8 +7,26 @@ test('OAuth scopes are enforced through the actual MCP endpoint', async (t) => {
   const api = await startServer(t);
   const session = await api.authorizeSession(['mcp:read']);
   const token = session.token;
+  const discovery = await api.rpc(token, 'server/discover');
+  const info = discovery.result._meta['io.modelcontextprotocol/serverInfo'];
+  assert.equal(info.name, 'dotx-remote');
+  assert.equal(info.title, 'DotX Remote');
+  assert.equal(typeof info.version, 'string');
+  assert.equal(typeof info.description, 'string');
+  assert.equal(info.websiteUrl, 'https://github.com/Vizards/DotX');
+  assert.deepEqual(info.icons, [
+    { src: 'http://localhost/branding/icon.png', mimeType: 'image/png', sizes: ['256x256'] },
+  ]);
   const listing = await api.rpc(token, 'tools/list');
-  assert(listing.result.tools.some((tool: { name: string }) => tool.name === 'list_connections'));
+  assert.deepEqual(listing.result.tools.map((tool: { name: string }) => tool.name).sort(), [
+    'call',
+    'describe_methods',
+    'get_instructions',
+    'get_request',
+    'list_connections',
+    'read_events',
+    'respond',
+  ]);
   assert.deepEqual(toolData((await api.tool(token, 'list_connections')).result).connections, []);
   const denied = await api.tool(token, 'call', {
     connection_id: 'not-registered',

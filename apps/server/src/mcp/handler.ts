@@ -1,6 +1,6 @@
 import packageInfo from '../../package.json' with { type: 'json' };
 import { WIRE_VERSION } from '@dotx/shared/gateway';
-import { eventCatalog } from '@dotx/shared/events';
+import { eventCatalog } from '../events/schema.ts';
 import { updateAvailable } from '../updates/discovery.ts';
 import type { EventAuthority } from '../events/subscriptions.ts';
 import { serveMcp } from './server.ts';
@@ -24,6 +24,7 @@ export async function handleMcp(
     devices: (await deviceHub.registry()).map((d) => d.id),
   });
   return serveMcp(request, {
+    publicOrigin: env.PUBLIC_ORIGIN,
     scopes,
     events: async (method, args) => {
       if (method === 'events/list') return { events: eventCatalog };

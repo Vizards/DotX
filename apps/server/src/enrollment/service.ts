@@ -3,6 +3,7 @@ import { sha256 } from '../auth/credentials.ts';
 import type { AtomicStore, Store } from '../hub/storage.ts';
 import type { RegisteredDevice } from '@dotx/shared/protocol';
 import type { ServiceInfo } from '@dotx/shared/service';
+import { administratorHelp, esc, errorPage, page } from '../ui/page.ts';
 
 export const secret = () => crypto.randomUUID() + crypto.randomUUID();
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -20,29 +21,11 @@ const registryKey = 'setup:devices';
 const pendingKey = 'setup:pending';
 const cookieName = '__Host-dotx-admin';
 const deny = (code: string) => Object.assign(new Error(code), { code });
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const json = (data: unknown, status = 200) =>
   Response.json(data, {
     status,
     headers: { 'Cache-Control': 'no-store' },
   });
-function html(body: string, headers: HeadersInit = {}) {
-  return new Response(
-    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>DotX Setup</title><style>body{font:17px system-ui;max-width:640px;margin:8vh auto;padding:24px;line-height:1.7}button{font:inherit;padding:10px 24px}code{overflow-wrap:anywhere}</style><h1>DotX</h1>${body}</html>`,
-    {
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-store',
-        // A no-referrer document makes native form POST Origin=null in browsers.
-        // Preserve same-origin form provenance without sending referrers off-site.
-        'Referrer-Policy': 'same-origin',
-        'Content-Security-Policy':
-          "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
-        ...headers,
-      },
-    },
-  );
-}
 
 // One singleton DO owns the registry and approval transitions. Device credentials
 // never authorize administration; the newly joining Mac retains its private token.
@@ -215,11 +198,10 @@ export class Enrollment {
       }
       if (url.pathname === '/setup' && request.method === 'GET') {
         if (!(await this.browser(request)))
-          return html(
-            '<p>An administrator session is required. The setup assistant can run <code>setup.mjs admin-link</code> on the Mac holding the owner credentials and open the returned link in this browser session. Device credentials cannot enroll other devices.</p>',
-          );
-        return html(
-          `<p>The administrator session is ready. Continue ChatGPT OAuth authorization or approve another Mac’s pairing request.</p><p>Service: <code>${esc(this.origin)}</code></p><p>Registered devices: ${(await this.devices()).map((d) => esc(d.label)).join(', ') || 'None'}</p>`,
+          return page('Administrator access required', administratorHelp);
+        return page(
+          'Administrator access confirmed',
+          `<p>You can now authorize your Personal Agent or approve a Mac joining DotX.</p><dl><dt>Service</dt><dd><code>${esc(this.origin)}</code></dd><dt>Approved Macs</dt><dd>${(await this.devices()).map((d) => esc(d.label)).join(', ') || 'None yet'}</dd></dl>`,
         );
       }
       if (url.pathname === '/setup/enroll' && request.method === 'POST') {
@@ -232,7 +214,10 @@ export class Enrollment {
         return json(await this.status(body.operation_id, bearer));
       }
       if (url.pathname === '/setup/approve' && request.method === 'POST') {
-        if (!(await this.admin(request))) return json({ error: 'OWNER_REQUIRED' }, 401);
+        if (!(await this.admin(request)))
+          return request.headers.get('Accept')?.includes('text/html')
+            ? page('Administrator access required', administratorHelp, { status: 401 })
+            : json({ error: 'OWNER_REQUIRED' }, 401);
         const form = request.headers
           .get('Content-Type')
           ?.includes('application/x-www-form-urlencoded');
@@ -240,21 +225,20 @@ export class Enrollment {
         const { operation_id } = z.strictObject({ operation_id: uuid }).parse(input);
         const result = await this.approve(operation_id);
         return form
-          ? html('<p>Device enrollment approved. Continue setup on the new Mac.</p>')
+          ? page('Mac approved', '<p>Return to Codex on the Mac you’re adding to finish setup.</p>')
           : json(result);
       }
       if (url.pathname.startsWith('/setup/pair/') && request.method === 'GET') {
         if (!(await this.browser(request)))
-          return html(
-            '<p>An administrator session is required. The setup assistant can run <code>setup.mjs admin-link</code> on the Mac holding the owner credentials, open the returned link in this browser session, then return to this pairing page.</p>',
-          );
+          return page('Administrator access required', administratorHelp);
         const id = uuid.parse(url.pathname.slice('/setup/pair/'.length));
         const row = ((await this.store.get<Pending[]>(pendingKey)) ?? []).find(
           (p) => p.operation_id === id,
         );
         if (!row || row.expires <= Date.now()) throw deny('ENROLLMENT_EXPIRED');
-        return html(
-          `<h2>Enroll ${esc(row.label)}</h2><p>Verify the fingerprint shown on the new Mac: <code>${esc(row.token_hash.slice(0, 16))}</code></p><p>Approval adds this device to the service and lets authorized ChatGPT/dot connections access its exposed Codex capabilities.</p><form method="post" action="/setup/approve"><input type="hidden" name="operation_id" value="${id}"><button>Approve this device</button></form>`,
+        return page(
+          `Add ${row.label} to DotX`,
+          `<dl><dt>Device fingerprint</dt><dd><code>${esc(row.token_hash.slice(0, 16))}</code></dd></dl><p>Verify the fingerprint shown on the new Mac.</p><p>This adds <strong>${esc(row.label)}</strong> to your DotX service. Personal Agents you authorize through DotX can access its Codex tools.</p><form method="post" action="/setup/approve"><input type="hidden" name="operation_id" value="${id}"><div class="actions"><button>Approve ${esc(row.label)}</button></div></form>`,
         );
       }
       return json({ error: 'NOT_FOUND' }, 404);
@@ -265,6 +249,24 @@ export class Enrollment {
           : error instanceof Error && 'code' in error
             ? String(error.code)
             : 'SETUP_FAILED';
+      if (request.headers.get('Accept')?.includes('text/html')) {
+        const [title, message] =
+          code === 'LOGIN_LINK_EXPIRED'
+            ? [
+                'Administrator link expired',
+                'Ask Codex managing your DotX setup for a new administrator link.',
+              ]
+            : code === 'ENROLLMENT_EXPIRED'
+              ? [
+                  'Device request expired',
+                  'Return to Codex on the Mac you’re adding and request to join again.',
+                ]
+              : [
+                  'Setup could not continue',
+                  'Return to Codex managing your DotX setup and share the details below.',
+                ];
+        return errorPage(title!, message!, { error: code }, 400);
+      }
       return json({ error: code }, 400);
     }
   }

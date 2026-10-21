@@ -1,4 +1,4 @@
-import { subscribeSchema, unsubscribeSchema } from '@dotx/shared/events';
+import { subscribeSchema, unsubscribeSchema } from '../events/schema.ts';
 import { McpServer, createMcpHandler, ProtocolError } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { gatewaySchemas } from '@dotx/shared/gateway';
@@ -6,19 +6,31 @@ import type { GatewayOperation } from '@dotx/shared/gateway';
 import { errorCode, errorValue } from '@dotx/shared/errors';
 import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../../package.json' with { type: 'json' };
+import branding from '../../public/branding/metadata.json' with { type: 'json' };
 import { getInstructions, INSTRUCTION_GUIDES, INSTRUCTIONS_GUIDANCE } from './instructions.ts';
 import type { InstructionGoal } from './instructions.ts';
 
 interface McpOptions {
+  publicOrigin: string;
   scopes: string[];
   events?: (method: string, args: Record<string, unknown>) => Promise<object>;
   connections: () => Promise<object>;
   invoke: (operation: GatewayOperation, args: Record<string, unknown>) => Promise<object>;
 }
-function createServer({ invoke, connections, scopes, events }: McpOptions) {
+function createServer({ invoke, connections, scopes, events, publicOrigin }: McpOptions) {
   const capabilities = { tools: {}, ...(events ? { events: {} } : {}) };
   const server = new McpServer(
-    { name: 'dotx-remote', title: 'DotX Remote', version: packageInfo.version },
+    {
+      ...branding,
+      version: packageInfo.version,
+      icons: [
+        {
+          src: new URL('/branding/icon.png', publicOrigin).href,
+          mimeType: 'image/png',
+          sizes: ['256x256'],
+        },
+      ],
+    },
     {
       instructions: INSTRUCTIONS_GUIDANCE,
       capabilities,

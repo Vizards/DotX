@@ -148,6 +148,7 @@ jobs:
             fs.mkdirSync(dir, { recursive: true });
           fs.cpSync('apps/desktop/plugin', plugin, { recursive: true });
           fs.cpSync('apps/desktop/skills', `${plugin}/skills`, { recursive: true });
+          fs.cpSync('apps/server/public', `${server}/public`, { recursive: true });
           for (const [from, to] of [
             ['LICENSE', `${desktop}/LICENSE`],
             ['LICENSE', `${plugin}/LICENSE`],

@@ -1,7 +1,7 @@
 {
   "name": "dotx-desktop",
   "version": "0.0.1",
-  "description": "Connect this Mac\u2019s native Codex to your self-hosted DotX Server.",
+  "description": "Connect this Mac’s Codex to your Personal Agent through DotX.",
   "author": {
     "name": "Vizards"
   },
@@ -14,9 +14,11 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "DotX Desktop",
-    "shortDescription": "Connect this Mac\u2019s Codex to DotX, with guided setup and a local connector.",
+    "shortDescription": "Connect this Mac’s Codex to your Personal Agent.",
     "developerName": "Vizards",
     "category": "Productivity",
-    "capabilities": []
+    "capabilities": [],
+    "logo": "./assets/logo.png",
+    "composerIcon": "./assets/composer-icon.png"
   }
 }

@@ -1,43 +1,42 @@
 ---
 name: setup
-description: Install or resume DotX Desktop, self-host DotX Server, connect ChatGPT/dot through DotX Remote, or join an existing service from another Mac. Not for ordinary task dispatch.
+description: Set up or resume the first Mac and a self-hosted DotX service, then connect a Personal Agent. To add a Mac to an existing service, use join; for upgrades, use update.
 ---
 
-# Set up DotX
+# Set up DotX on your first Mac
 
-Use local execution and computer-use where available. Ask the user to handle a specific step when login, consent or missing capabilities require it. Adapt to the actual installation rather than restarting setup after an interruption.
+Lead setup from local Codex on the Mac being connected. Computer use is recommended for Cloudflare and ChatGPT setup; ask the user to handle a specific step when login, consent or missing capabilities require it. Do not assume another Mac is reachable through SSH or remote control. This workflow is complete when the service and this Mac are usable.
 
-When troubleshooting, read the [online troubleshooting guide](https://github.com/Vizards/DotX/blob/main/docs/troubleshooting/index.md) and follow relevant links.
+## 1. Prepare this Mac
 
-## Installation materials
+Read [local Desktop installation and verification](references/local-desktop.md) to obtain the published Desktop attachment, install its local marketplace and inspect `setup.mjs status`. For an existing service, continue with [join](../join/SKILL.md) instead of deploying another one. Discovery failure alone is not a reason to create a new service.
 
-Use a published GitHub Release's **Desktop attachment**, not the automatically generated source archive. Download and extract it to a persistent directory, then register its local marketplace and install `dotx-desktop` using the installed desktop's native plugin management capabilities. The marketplace identity is `dotx`. Do not upload Desktop over a Remote plugin record.
+## 2. Deploy the service
 
-This file is two levels below the installed plugin directory `<plugin>`, which contains `setup.mjs`. Commands require Node 24.12+; the desktop's signed runtime is at `Contents/Resources/cua_node/bin/node` inside its application. `DOTX_APP_PATH` selects a nonstandard application location. The launcher uses normal desktop loading; its `.mcp.json` working directory is resolved by the desktop loader, whereas argument placeholders are not.
+Obtain the matching, separate **Server attachment** from the repository and version in Desktop's `release.json`. Follow the Server deployment README and its tool requirements using official Wrangler. No Server files or Wrangler version are embedded in Desktop; the prebundled Worker needs no application dependency installation.
 
-The installed plugin includes `release.json` with its source repository and product version. Use that repository's published Releases to obtain the matching, separate **Server attachment** when a deployment is needed. No Server files or Wrangler version are embedded in Desktop. Do not invent a repository address when using an unpublished development package.
+Keep the real deployment configuration outside downloaded plugin/cache directories. Set `main` and `assets.directory` to the Worker and `public` directory in the same Server attachment. Preserve the Worker identity, public HTTPS origin, OAuth KV and single DeviceHub bindings when resuming setup.
 
-## Select or deploy a service
+`node <plugin>/setup.mjs owner-key-hash` creates or reuses the local administrator credential and prints only its SHA-256 digest. Pipe it to Wrangler's `secret put OWNER_KEY_HASH`; never put the original key in chat. Select the resulting service with `select-service --url HTTPS_ORIGIN`.
 
-First inspect `node <plugin>/setup.mjs status`. Local association or configuration does not prove the connector is online. Local state defaults to `~/.local/state/dotx`, overridden by `DOTX_STATE_DIR`.
+## 3. Enroll this Mac
 
-If an authorized DotX Remote is already available on the same account, call `list_connections` and save its non-secret `service` object to a file. Use `select-service --service-file FILE`. Resolve multiple services from context or ask the user. Without account discovery, `select-service --url HTTPS_ORIGIN` accepts the service origin or MCP URL. Discovery failure alone is not a reason to create another service. A second Mac does not need Cloudflare login.
+Run `init-local`, then `enroll`. On this first Mac holding the administrator credential, `enroll --approve` can approve the Mac within the user's deployment authorization. Association uses the HTTPS service origin, not a platform plugin ID.
 
-For a new service, obtain the independent Server attachment and follow its deployment README and tool requirements. Use official Wrangler directly. Keep the real deployment configuration outside downloaded plugin/cache directories, preserving the Worker identity, public HTTPS origin, OAuth KV and single DeviceHub bindings. The prebundled Worker requires no application dependency installation.
+`admin-link` on the Mac holding that credential returns a single-use `login_url`, valid for two minutes. Choose the browser session with computer use; the CLI never opens one. Keep this temporary credential out of shared documents.
 
-`owner-key-hash` creates or reuses the local administrator credential and prints only its SHA-256 digest. Pipe it to Wrangler's `secret put OWNER_KEY_HASH`; never put the original key in chat. Select the resulting service with `select-service --url HTTPS_ORIGIN`.
+## 4. Connect the Personal Agent
 
-## Enroll and authorize
+For the recommended ChatGPT/dot connection, read `HTTPS_ORIGIN/branding/metadata.json` and download `HTTPS_ORIGIN/branding/icon.png` from the deployed service. These public resources need no OAuth. Use `title` for the display name and `description` for the introduction, and upload the PNG through computer use in ChatGPT's normal custom MCP creation page. Do not rely on ChatGPT automatically copying MCP metadata into its plugin listing.
 
-- `init-local` creates or reuses the device identity and archived caller without running a model turn. No caller opening or wake message is needed.
-- `enroll` submits or checks the same pairing request. On the first Mac holding the administrator credential, `enroll --approve` can approve that Mac within the user's deployment authorization. For another Mac, open the returned `approval_url` in the administrator session, verify its label/fingerprint, obtain the required approval, then run `enroll` again to save the connection.
-- `admin-link` on the Mac holding the owner credential returns a single-use `login_url`, valid for two minutes. Choose the browser session with computer-use; the CLI never opens one. Keep this temporary credential out of shared documents.
-- In ChatGPT's normal custom MCP interface, create **DotX Remote**, described as “Connect ChatGPT and dot to your Macs’ Codex tasks and receive progress.” Use `HTTPS_ORIGIN/mcp`, OAuth with Dynamic Client Registration and scopes `mcp:read` and `mcp:write`. Complete consent in the administrator browser session. Reuse an existing connection to the same service; another Mac needs neither a duplicate Remote nor renewed account authorization.
+Use `HTTPS_ORIGIN/mcp`, OAuth with Dynamic Client Registration and scopes `mcp:read` and `mcp:write`. Complete consent in the administrator browser session and verify the displayed name, description and icon. Reuse an existing connection to the same service. Other MCP clients connect to that same HTTPS endpoint with their own authorization; they do not need a ChatGPT plugin record.
 
-## Resume and verify
+## 5. Verify and finish
 
-After an interruption, inspect `status`, the actual deployment configuration, `/setup/info` and running plugin state. `init-local` reuses the caller; `enroll` reuses the device and pairing request. Association uses the HTTPS service origin, not a platform plugin ID.
+Use the verification steps in [local Desktop installation and verification](references/local-desktop.md). After an interruption, inspect local status, the actual deployment configuration, `/setup/info` and running state, then continue only unfinished steps.
 
-Read local `device_status` and Remote `list_connections` to verify the loaded connector and interfaces. If a reload is needed, use normal desktop controls at a suitable time around running tasks. Installation does not run test scripts or send synthetic tasks.
+Tell the user that the service and this Mac are ready, and that **other Macs can optionally join later**: on each Mac to add, ask local Codex to follow the [join skill](../join/SKILL.md). A second Mac is not required to finish this installation.
 
-For an existing installation's upgrade, use the installed Desktop update skill and the target Release's notes and `release.json`. ChatGPT/dot coordinates through DotX Remote's `get_instructions(goal="update")`. Server deployment and ChatGPT catalog Refresh are separate operations; use normal plugin management, never private refresh APIs or identity overrides.
+For upgrades, use the installed Desktop update skill and the target Release's notes and `release.json`. ChatGPT/dot coordinates through `get_instructions(goal="update")`. Server deployment and ChatGPT catalog Refresh are separate operations; use normal plugin management, never private refresh APIs or identity overrides.
+
+For problems, read the [online troubleshooting guide](https://github.com/Vizards/DotX/blob/main/docs/troubleshooting/index.md) and follow relevant links.
