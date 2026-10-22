@@ -12,4 +12,4 @@ After enrollment, read local `device_status` and, when available, Remote `list_c
 
 Investigate reported connection or interface failures as needed. Distinguish a target conversation without a current desktop owner from an unavailable interface; a failed query for that conversation alone does not establish installation failure. An additional native call for every interface is not required. Installation does not run project tests or send synthetic tasks.
 
-If a reload is needed, use normal desktop controls at a suitable time around running tasks.
+If activation requires Codex's reload or restart controls, ask the user to operate them at a suitable time around running tasks. Computer use cannot control Codex itself; do not attempt to use it for these steps. If reloading leaves an obsolete connector active, ask the user to fully quit (Quit / Cmd+Q) and reopen the Codex/ChatGPT Desktop app hosting the plugin, then recheck the loaded version and connectivity.

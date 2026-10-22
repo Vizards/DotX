@@ -11,6 +11,15 @@ Two plugins are expected:
 
 They have separate roles and installation identities. Keep both for the complete connection; do not merge their identities or remove either as a duplicate. Additional entries from obsolete installations are a separate cleanup issue.
 
+## Codex cannot open ChatGPT's plugin settings
+
+Browser use may refuse access to `chatgpt.com` with `A saved user permission setting blocks this action` or `A saved permission or managed policy denies access`. This is a host browser permission, separate from DotX authorization and the Codex task's command permissions. Full Access does not override it.
+
+Choose either path:
+
+1. **Allow browser access and continue in Codex.** On the Mac running the affected task, open the desktop app's **Settings → Computer Use**, then **Manage** for the browser being used. Under **Website permissions**, allow browsing `chatgpt.com` and remove any blocking rule for that site. After access is allowed, an existing conversation may still retain its earlier denial; start a new local Codex conversation to continue the unfinished step through the normal browser permission flow. Restarting the desktop app alone did not clear the old conversation's denial in our test. If access is still denied, stop and use the manual path rather than editing permission files or bypassing the restriction.
+2. **Complete the browser step yourself.** For an update, open ChatGPT in your signed-in browser, go to its plugin settings, select the existing **DotX Remote** entry and click **Refresh tools**. Wait for the refresh to finish, then tell the executing Codex conversation that you completed it. Codex can continue checking the available tools and actual connection state. Record Refresh as manually completed; do not create a replacement plugin, redo OAuth or reinstall DotX just to refresh its catalog.
+
 ## dot still sees old tool definitions after an update
 
 An existing dot can retain old tool descriptions or parameter schemas even after DotX Remote's catalog is refreshed. Calls may reach the updated Server and return new results while dot still lacks the parameters needed to use them.
