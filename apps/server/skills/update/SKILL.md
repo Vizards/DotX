@@ -27,7 +27,9 @@ Give each local executor the target Release, assigned components, agreed permiss
 
 ## 4. Allow activation and refresh the catalog
 
-Replacing DotX connector processes or deploying Server may briefly disconnect DotX and then reconnect; allow this as part of the update unless the user requires uninterrupted availability. Preserve configuration, identity and service association. A connector disconnect does not itself stop the native Codex task. Let the local executor choose activation around running tasks and assess any broader desktop restart separately.
+Replacing DotX connector processes or deploying Server may briefly disconnect DotX and then reconnect; allow this as part of the update unless the user requires uninterrupted availability. Preserve configuration, identity and service association. A connector disconnect does not itself stop the native Codex task.
+
+Have the local executor follow its Desktop update skill: try normal activation first, then stop confirmed obsolete DotX connectors, force-stopping only those that fail to exit. Ask the user to restart the host only as a last resort when these steps fail or cannot be performed safely, with the executor's attempted actions and specific blocker. Do not request manual reload or restart merely because an old connector is still active. Keep process handling with the local executor and account for running tasks before any host restart.
 
 When `remote_catalog` changed, Refresh DotX Remote in ChatGPT's normal plugin settings and verify the definitions in the client that will use it. Deployment alone does not refresh that cache. If an existing dot still sees old definitions, consider restarting it when ongoing work can be interrupted; see [stale tool definitions](https://github.com/Vizards/DotX/blob/main/docs/troubleshooting/index.md#dot-still-sees-old-tool-definitions-after-an-update).
 
