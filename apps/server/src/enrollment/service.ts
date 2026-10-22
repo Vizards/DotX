@@ -201,7 +201,7 @@ export class Enrollment {
           return page('Administrator access required', administratorHelp);
         return page(
           'Administrator access confirmed',
-          `<p>You can now authorize your Personal Agent or approve a Mac joining DotX.</p><dl><dt>Service</dt><dd><code>${esc(this.origin)}</code></dd><dt>Approved Macs</dt><dd>${(await this.devices()).map((d) => esc(d.label)).join(', ') || 'None yet'}</dd></dl>`,
+          `<p>Return to the authorization or device approval page to continue.</p><p>Service: <code>${esc(this.origin)}</code><br>Approved Macs: ${(await this.devices()).map((d) => esc(d.label)).join(', ') || 'None yet'}</p>`,
         );
       }
       if (url.pathname === '/setup/enroll' && request.method === 'POST') {
@@ -238,7 +238,7 @@ export class Enrollment {
         if (!row || row.expires <= Date.now()) throw deny('ENROLLMENT_EXPIRED');
         return page(
           `Add ${row.label} to DotX`,
-          `<dl><dt>Device fingerprint</dt><dd><code>${esc(row.token_hash.slice(0, 16))}</code></dd></dl><p>Verify the fingerprint shown on the new Mac.</p><p>This adds <strong>${esc(row.label)}</strong> to your DotX service. Personal Agents you authorize through DotX can access its Codex tools.</p><form method="post" action="/setup/approve"><input type="hidden" name="operation_id" value="${id}"><div class="actions"><button>Approve ${esc(row.label)}</button></div></form>`,
+          `<p>Your authorized Personal Agents will be able to use Codex on this Mac.</p><p>Device fingerprint: <code>${esc(row.token_hash.slice(0, 16))}</code><br>Check that it matches the fingerprint shown on the Mac.</p><form method="post" action="/setup/approve"><input type="hidden" name="operation_id" value="${id}"><p><button>Approve Mac</button></p></form>`,
         );
       }
       return json({ error: 'NOT_FOUND' }, 404);

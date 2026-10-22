@@ -11,6 +11,8 @@ import { hub } from '../hub/namespace.ts';
 import { handleMcp } from '../mcp/handler.ts';
 import { administratorHelp, esc, errorPage, page } from '../ui/page.ts';
 
+const authorizationScopes = ['mcp:read', 'mcp:write', 'offline_access'];
+
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 async function browserAdmin(request: Request, env: Env) {
@@ -39,18 +41,13 @@ const defaultHandler: ExportedHandler<Env> = {
           consent = await oauth.beginConsent(auth);
         return page(
           'Connect your Personal Agent',
-          `<p>Allow <strong>${esc(details.clientName)}</strong> to access Codex on your approved Macs.</p>
-          <p>This includes Macs you have already approved and Macs you approve later.</p>
-          <dl><dt>Publisher domain</dt><dd>${esc(details.clientDomain || 'Self-registered; name not verified')}</dd></dl>
-          <details><summary>Connection details</summary><p>Callback: <code>${esc(details.redirectHost)}</code></p></details>
+          `<p><strong>${esc(details.clientName)}</strong> will have full DotX access to Codex on your approved Macs, including Macs you add later.</p>
+          <p>It can start tasks, read conversations, change settings, and respond to questions and approvals. Each Codex task keeps its own execution permissions.</p>
+          <p>Publisher: ${esc(details.clientDomain || 'Self-registered; name not verified')}<br>Callback: <code>${esc(details.redirectHost)}</code></p>
           ${details.redirectIsLoopback ? '<p>This authorizes a local application. Confirm that you initiated this connection.</p>' : ''}
-          ${browser.admin ? '<p class="notice">Administrator access confirmed.</p>' : `<section class="notice"><h2>Administrator access required</h2>${administratorHelp}</section>`}
+          ${browser.admin ? '' : `<p><strong>Administrator access required.</strong></p>${administratorHelp}`}
           <form method="post"><input type="hidden" name="handle" value="${esc(consent.handle)}">
-          <fieldset><legend>Allow this Personal Agent to:</legend>
-          <label><input type="checkbox" name="scope" value="mcp:read" checked><span>View connections, request status, and events</span></label>
-          <label><input type="checkbox" name="scope" value="mcp:write" checked><span>Use Codex tools and respond to requests<small>Includes starting and continuing tasks, reading conversations, working with files, changing task settings, and responding to approvals.</small></span></label></fieldset>
-          <p>Each Codex task keeps its own execution permissions.</p>
-          <div class="actions"><button name="decision" value="approve">Authorize agent</button><button class="secondary" name="decision" value="deny" formnovalidate>Cancel</button></div></form>`,
+          <p><button name="decision" value="approve">Authorize agent</button> <button name="decision" value="deny">Cancel</button></p></form>`,
           // A same-origin form-action policy can block the OAuth redirect back to the client.
           { headers: consent.headers, allowClientRedirect: true },
         );
@@ -70,7 +67,7 @@ const defaultHandler: ExportedHandler<Env> = {
           ? page('Administrator access required', administratorHelp, { status: 401 })
           : json({ error: 'ADMIN_SESSION_REQUIRED' }, 401);
       const approved = await oauth.approveConsent(request, handle, {
-        scope: form.getAll('scope').map(String),
+        scope: authorizationScopes,
       });
       const result = await oauth.completeAuthorization({
         request: approved.request,
@@ -151,7 +148,7 @@ export async function serveOAuth(request: Request, env: Env, ctx: ExecutionConte
     authorizeEndpoint: '/authorize',
     tokenEndpoint: '/oauth/token',
     clientRegistrationEndpoint: '/oauth/register',
-    scopesSupported: ['mcp:read', 'mcp:write', 'offline_access'],
+    scopesSupported: authorizationScopes,
     requiredScopes: ['mcp:read'],
     resourceMetadata: {
       resource: `${env.PUBLIC_ORIGIN}/mcp`,

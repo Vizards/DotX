@@ -29,7 +29,7 @@ We recommend enabling computer use in Codex. It can follow the [setup instructio
 
 ## What you can do
 
-The screenshots below are scripted demos.
+In principle, any Personal Agent that supports MCP can connect to DotX. The setup skill will try to configure the ChatGPT plugin for you, making DotX available in dot, Chat, and Work. If you run into compatibility issues, feel free to [open an issue](https://github.com/Vizards/DotX/issues).
 
 ### Start tasks and continue conversations
 

@@ -64,7 +64,7 @@ export async function startServer(t: TestContext) {
     return { cookie: cookies(response), link: link.url as string };
   }
 
-  async function authorizeSession(scopes = ['mcp:read', 'mcp:write']) {
+  async function authorizeSession(scopes?: string[]) {
     const registration = await post('/oauth/register', {
       client_name: 'DotX API test',
       redirect_uris: ['https://client.example/callback'],
@@ -79,7 +79,7 @@ export async function startServer(t: TestContext) {
       client_id,
       redirect_uri: 'https://client.example/callback',
       response_type: 'code',
-      scope: scopes.join(' '),
+      scope: (scopes ?? ['mcp:read', 'mcp:write']).join(' '),
       code_challenge: createHash('sha256').update(verifier).digest('base64url'),
       code_challenge_method: 'S256',
       resource: `${origin}/mcp`,
@@ -91,7 +91,6 @@ export async function startServer(t: TestContext) {
     const handle = /name="handle" value="([^"]+)"/.exec(await consent.text())?.[1];
     assert(handle, 'authorization page must provide a consent handle');
     const form = new URLSearchParams({ handle, decision: 'approve' });
-    for (const scope of scopes) form.append('scope', scope);
     const approval = await request('/authorize', {
       method: 'POST',
       body: form.toString(),
@@ -114,6 +113,8 @@ export async function startServer(t: TestContext) {
         code_verifier: verifier,
         redirect_uri: 'https://client.example/callback',
         resource: `${origin}/mcp`,
+        // Consent grants all access; clients can still request a narrower token.
+        ...(scopes ? { scope: scopes.join(' ') } : {}),
       }).toString(),
     });
     const tokens = await json(token);
