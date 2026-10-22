@@ -19,13 +19,21 @@ DotX connects your Personal Agent to native Codex on your Macs. Start new tasks,
 
 ## Get Started
 
-Open Codex on your Mac and send:
+**To set up your first Mac**, open Codex and send:
 
 ```text
 Install DotX on this Mac: https://github.com/Vizards/DotX. Follow INSTALL.md.
 ```
 
 We recommend enabling computer use in Codex. It can follow the [setup instructions](INSTALL.md) to set up Cloudflare Workers, install DotX, and connect ChatGPT or dot, asking you to sign in or grant access when needed.
+
+**To add another Mac**, open Codex on that Mac and send:
+
+```text
+Connect this Mac to my existing DotX: https://github.com/Vizards/DotX. Follow INSTALL.md.
+```
+
+All your Macs can share the same DotX service. Codex handles local setup and guides you through approving the new Mac.
 
 ## What you can do
 
@@ -48,16 +56,6 @@ Your Personal Agent can coordinate Codex tasks on several Macs at once and bring
 When Codex needs a decision, your Personal Agent can bring the question or approval request back to you and pass your answer along. Ask to be notified when the task finishes, or check its progress whenever you need to.
 
 ![Scripted demo: answer a Codex question, approve dependency installation, and receive the result in the same chat.](docs/assets/questions-and-results.webp)
-
-### Add another Mac
-
-All your Macs can share the same DotX service. On a new Mac, tell Codex:
-
-```text
-Connect this Mac to my existing DotX: https://github.com/Vizards/DotX. Follow INSTALL.md.
-```
-
-Codex handles local setup and guides you through approving the new Mac.
 
 ### Let your Personal Agent handle updates
 
