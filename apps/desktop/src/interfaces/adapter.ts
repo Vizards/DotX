@@ -1,4 +1,5 @@
-import type { Call, InterfaceStatus, NativeResponse, NativeEvent } from '@dotx/shared/gateway';
+import type { Call, NativeResponse, NativeEvent } from '@dotx/shared/wire/commands';
+import type { InterfaceStatus } from '@dotx/shared/devices';
 export interface Method {
   name: string;
   description?: string;

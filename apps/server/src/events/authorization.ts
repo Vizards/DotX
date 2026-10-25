@@ -12,7 +12,6 @@ export async function eventAccess(env: Env, auth: EventAuthority, connection: st
     grant !== null &&
     grant.id === auth.grant_id &&
     grant.clientId === auth.client_id &&
-    grant.scope.includes('mcp:read') &&
     (!grant.expiresAt || grant.expiresAt * 1000 > Date.now())
   );
 }

@@ -1,151 +1,257 @@
 import { DurableObject } from 'cloudflare:workers';
-import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import { ReleaseUpdates } from '../updates/discovery.ts';
-import { z } from 'zod';
-import { Coordinator, type Authority } from '../state/coordinator.ts';
-import { observationBatch, type DeviceOperation } from '@dotx/shared/state';
-import { WIRE_VERSION, type GatewayOperation } from '@dotx/shared/gateway';
-import { Events, type EventAuthority } from '../events/subscriptions.ts';
-import { eventAccess } from '../events/authorization.ts';
-import { errorCode, errorValue } from '@dotx/shared/errors';
-import type { DeviceList, Outcome } from '@dotx/shared/protocol';
-import { Enrollment } from '../enrollment/service.ts';
-import { heartbeatSchema, responseSchema } from '@dotx/shared/protocol';
 import type { Env } from '../env.ts';
-import type { Heartbeat } from '@dotx/shared/protocol';
-export interface SocketInfo extends Partial<Heartbeat> {
-  deviceId: string;
-  lastSeen: number;
-  connectedAt?: number;
-  protocol?: number;
-}
-const attachment = (socket: WebSocket): SocketInfo => socket.deserializeAttachment() as SocketInfo;
-const json = (data: unknown, status = 200) =>
-  Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
-
+import { serviceInfo } from '../env.ts';
+import { Devices } from './devices.ts';
+import { Agents, type GrantIdentity } from './agents.ts';
+import { Sockets } from './sockets.ts';
+import { Transactions } from '../oauth/transactions.ts';
+import { Coordinator } from '../requests/service.ts';
+import { Events } from '../events/subscriptions.ts';
+import { eventAccess } from '../events/authorization.ts';
+import { ReleaseUpdates } from '../updates/releases.ts';
+import { requireAccess, grantIdentity, type Caller } from './access.ts';
+import { enrollmentInput } from '@dotx/shared/http/enrollment';
+import { agentInput } from '@dotx/shared/http/admin';
+import type { AdminDevice } from '@dotx/shared/http/admin';
+import type { Outcome } from '@dotx/shared/requests';
+import { WIRE_VERSION } from '@dotx/shared/wire/version';
+import type { GatewayOperation } from '../mcp/schemas.ts';
+import { errorValue } from '@dotx/shared/errors';
+import { HttpError, json, failure } from '../http/responses.ts';
+import { readJson } from '../http/body.ts';
+import { AdminSessions, type SessionRecord } from '../admin/sessions.ts';
+import type { AuthRequest, ConsentDescription } from '@cloudflare/workers-oauth-provider';
 export class DeviceHub extends DurableObject<Env> {
-  readonly #events: Events;
-  readonly #coordinator: Coordinator;
-  readonly #enrollment: Enrollment;
-  readonly #updates: ReleaseUpdates;
-  readonly #pending = new Map<
-    string,
-    {
-      socket: WebSocket;
-      recordsReply: boolean;
-      resolve: (value: Outcome) => void;
-      timer: ReturnType<typeof setTimeout>;
-    }
-  >();
+  readonly devices: Devices;
+  readonly agents: Agents;
+  readonly sockets: Sockets;
+  readonly transactions: Transactions;
+  readonly events: Events;
+  readonly requests: Coordinator;
+  readonly updates: ReleaseUpdates;
+  readonly adminSessions: AdminSessions;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.#updates = new ReleaseUpdates(ctx.storage, env.RELEASE_REPOSITORY, env.RELEASE_CHANNEL);
-    this.#enrollment = new Enrollment(
+    this.adminSessions = new AdminSessions(ctx.storage, env);
+    this.devices = new Devices(
       ctx.storage,
-      env.OWNER_KEY_HASH ?? '',
-      env.PUBLIC_ORIGIN ?? '',
+      env.PUBLIC_ORIGIN,
+      serviceInfo(env).guides_url.replace('index.md', 'codex/connect.md'),
     );
-    this.#events = new Events(ctx.storage, {
-      waitUntil: (work) => ctx.waitUntil(work),
-      authorized: async (auth, id) =>
-        (await this.#enrollment.devices()).some((d) => d.id === id) && eventAccess(env, auth, id),
-      resolveTurn: (auth, args, inspect) =>
-        this.#coordinator.eventTurn({ principal: 'owner', devices: auth.devices }, args, inspect),
+    this.agents = new Agents(ctx.storage);
+    this.transactions = new Transactions(ctx.storage, this.agents);
+    this.sockets = new Sockets(ctx, env, this.devices, {
+      observe: (id, data) => this.requests.turns.observe(id, data),
+      recordReply: (id, value, source) => this.requests.records.recordReply(id, value, source),
     });
-    this.#coordinator = new Coordinator(
-      ctx.storage,
-      (operation, args, id) => this.#dispatch(operation, args, id),
-      this.#events,
-    );
-  }
-  #sockets(deviceId: string) {
-    return this.ctx
-      .getWebSockets(deviceId)
-      .map((socket) => {
-        const saved = attachment(socket);
-        const info: SocketInfo =
-          saved.protocol === WIRE_VERSION
-            ? saved
-            : {
-                ...saved,
-                availability: 'unavailable',
-              };
-        return { socket, info };
-      })
-      .filter((x) => Date.now() - x.info?.lastSeen < 45000)
-      .sort((a, b) => b.info.lastSeen - a.info.lastSeen);
-  }
-  #discoverySockets(deviceId: string, nativeInterface?: string) {
-    return this.#sockets(deviceId)
-      .filter((x) => x.info.protocol === WIRE_VERSION)
-      .sort((a, b) => {
-        const online = (info: SocketInfo) =>
-          nativeInterface
-            ? Boolean(
-                info.interfaces?.some(
-                  (i) => i.name === nativeInterface && i.availability === 'online',
-                ),
-              )
-            : info.availability === 'online';
+    this.events = new Events(ctx.storage, {
+      waitUntil: (p) => ctx.waitUntil(p),
+      authorized: async (auth, id) => {
+        const identity = grantIdentity(auth);
         return (
-          Number(online(b.info)) - Number(online(a.info)) ||
-          (a.info.connectedAt ?? a.info.lastSeen) - (b.info.connectedAt ?? b.info.lastSeen)
+          !!identity &&
+          (await this.agents.active(identity)) &&
+          (await this.devices.get(id))?.status === 'approved' &&
+          eventAccess(env, auth, id)
         );
-      });
-  }
-  #failure(code: string, cause: unknown) {
-    const error = { code, cause: errorValue(cause) };
-    // Failure details stay in logs/responses, never heartbeat attachments.
-    // Do not log the command, native reply or authorization headers.
-    console.error('dotx', error);
-    return error;
+      },
+      resolveTurn: (auth, args, inspect) =>
+        this.requests.turns.eventTurn(
+          { principal: auth.principal, devices: auth.devices },
+          args,
+          inspect,
+        ),
+    });
+    this.requests = new Coordinator(
+      ctx.storage,
+      (principal, operation, args, id) =>
+        this.sockets.dispatch(operation, args, id, () =>
+          this.requests.records.assertActive(principal),
+        ),
+      this.events,
+      (principal, tx) => this.agents.activePrincipal(principal, tx),
+      env.RECORD_RETENTION_DAYS,
+    );
+    ctx.blockConcurrencyWhile(() => this.requests.records.retention.initialize());
+    this.updates = new ReleaseUpdates(ctx.storage, env.RELEASE_REPOSITORY, env.RELEASE_CHANNEL);
   }
   async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === '/setup' || url.pathname.startsWith('/setup/')) {
-      const response = await this.#enrollment.fetch(request);
-      if (url.pathname === '/setup/revoke' && response.ok) {
-        const { device_id } = await response.clone().json<{ device_id: string }>();
-        for (const socket of this.ctx.getWebSockets(device_id)) socket.close(1008);
+    try {
+      const url = new URL(request.url),
+        path = url.pathname;
+      if (path === '/device/connect') return await this.sockets.connect(request);
+      if (path === '/setup/enroll' && request.method === 'POST') {
+        const input = enrollmentInput.safeParse(await readJson(request));
+        if (!input.success) throw new HttpError(400, 'INVALID_APPLICATION');
+        return json(await this.devices.enroll(input.data));
       }
-      return response;
+      if (path.startsWith('/internal/'))
+        return json(await this.internal(path.slice(10), await request.json()));
+      if (!path.startsWith('/admin/api/')) throw new HttpError(404, 'NOT_FOUND');
+      if (path === '/admin/api/agents') {
+        if (request.method === 'GET') return json({ agents: await this.agents.list() });
+        if (request.method === 'POST') {
+          const input = agentInput.safeParse(await readJson(request));
+          if (!input.success) throw new HttpError(400, 'INVALID_AGENT_NAME');
+          return json(
+            {
+              ...(await this.agents.issue(undefined, input.data.name)),
+              mcp_url: this.env.PUBLIC_ORIGIN + '/mcp',
+            },
+            201,
+          );
+        }
+      }
+      const agent = /^\/admin\/api\/agents\/([^/]+)(?:\/(enrollment-code|revoke))?$/.exec(path);
+      if (agent) {
+        const [, id, action] = agent;
+        if (!action && request.method === 'PATCH') {
+          const input = agentInput.safeParse(await readJson(request));
+          if (!input.success) throw new HttpError(400, 'INVALID_AGENT_NAME');
+          return json(await this.agents.rename(id!, input.data.name));
+        }
+        if (action === 'enrollment-code' && request.method === 'POST')
+          return json({
+            ...(await this.agents.issue(id)),
+            mcp_url: this.env.PUBLIC_ORIGIN + '/mcp',
+          });
+        if (action === 'enrollment-code' && request.method === 'DELETE')
+          return json(await this.agents.cancel(id!));
+        if (action === 'revoke' && request.method === 'POST')
+          return json(await this.agents.revoke(id!));
+      }
+      if (path === '/admin/api/device-requests' && request.method === 'GET')
+        return json({ requests: await this.devices.requests() });
+      const decision = /^\/admin\/api\/device-requests\/([^/]+)\/(approve|reject)$/.exec(path);
+      if (decision && request.method === 'POST') {
+        const record = await this.devices.decide(decision[1]!, decision[2] as 'approve' | 'reject');
+        await this.sockets.changed(record.device_id);
+        return json(record);
+      }
+      if (path === '/admin/api/devices' && request.method === 'GET')
+        return json({ devices: await this.adminDevices() });
+      const revoke = /^\/admin\/api\/devices\/([^/]+)\/revoke$/.exec(path);
+      if (revoke && request.method === 'POST') {
+        await this.devices.revoke(revoke[1]!);
+        await this.sockets.changed(revoke[1]!);
+        return json((await this.adminDevices()).find((d) => d.device_id === revoke[1]));
+      }
+      throw new HttpError(404, 'NOT_FOUND');
+    } catch (error) {
+      return failure(error);
     }
-    if (url.pathname === '/connect') {
-      const deviceId = request.headers.get('X-Device-Id');
-      if (!deviceId) return json({ error: 'MISSING_DEVICE_ID' }, 400);
-      const pair = new WebSocketPair();
-      pair[1].serializeAttachment({
-        deviceId,
-        connectedAt: Date.now(),
-        lastSeen: Date.now(),
-        availability: 'unavailable',
+  }
+  async internal(path: string, input: unknown): Promise<unknown> {
+    const value = input as Record<string, any>;
+    if (path === 'admin-session/create') {
+      await this.adminSessions.create(value.id, value.record as SessionRecord);
+      return null;
+    }
+    if (path === 'admin-session/read') return this.adminSessions.read(value.id);
+    if (path === 'admin-session/current')
+      return this.adminSessions.current(value.id, value.rejectedToken);
+    if (path === 'admin-session/delete') {
+      await this.adminSessions.delete(value.id);
+      return null;
+    }
+    if (path === 'grants/bind')
+      return this.agents.bind(value.identity as GrantIdentity, value.expires_at);
+    if (path === 'grants/valid')
+      return this.agents.valid(value.identity as GrantIdentity, value.activate === true);
+    if (path === 'grants/ended')
+      return [
+        ...(
+          await this.ctx.storage.list<{ userId: string; grantId: string }>({
+            prefix: 'ended-grant:',
+            limit: 50,
+          })
+        ).values(),
+      ];
+    if (path === 'grants/cleaned') {
+      await this.ctx.storage.delete('ended-grant:' + value.userId + ':' + value.grantId);
+      return null;
+    }
+    if (path === 'consent/create')
+      return this.transactions.create(
+        value.request as AuthRequest,
+        value.description as ConsentDescription,
+        value.binding,
+      );
+    if (path === 'consent/context') return this.transactions.context(value.id, value.binding);
+    if (path === 'consent/reserve')
+      return this.transactions.reserve(value.id, value.binding, value.code);
+    if (path === 'consent/complete')
+      return this.transactions.complete(value.id, value.binding, value.redirect);
+    if (path === 'consent/cancel') return this.transactions.cancel(value.id, value.binding);
+    if (path === 'consent/error') {
+      await this.transactions.error(value.id, value.binding, value.error);
+      return null;
+    }
+    throw new HttpError(404, 'NOT_FOUND');
+  }
+  async adminDevices(): Promise<AdminDevice[]> {
+    const result: AdminDevice[] = [];
+    for (const device of await this.devices.list()) {
+      if (!device.approved_at) continue;
+      const info = await this.sockets.info(device),
+        wire = await this.sockets.deviceWire(device.device_id);
+      result.push({
+        device_id: device.device_id,
+        name: device.name,
+        key_id: device.key_id,
+        public_key: device.public_key,
+        status: device.status === 'revoked' ? 'revoked' : 'approved',
+        approved_at: device.approved_at,
+        last_seen: info.lastSeen,
+        online: info.availability !== 'offline',
+        compatible: wire === null ? null : wire === WIRE_VERSION,
+        desktop_version: info.connectorVersion,
+        wire_protocol: wire,
+        server_wire_protocol: WIRE_VERSION,
+        interfaces: info.interfaces ?? [],
+        diagnostic: info.diagnostic,
       });
-      this.ctx.acceptWebSocket(pair[1], [deviceId]);
-      return new Response(null, { status: 101, webSocket: pair[0] });
     }
-    return json({ error: 'NOT_FOUND' }, 404);
+    return result;
   }
-  async registry() {
-    return this.#enrollment.devices();
+  private async authority(caller: Caller) {
+    const devices = (await this.devices.list())
+      .filter((d) => d.status === 'approved')
+      .map((d) => d.device_id);
+    return { ...caller, devices };
   }
-  async connectionSummary(auth: EventAuthority) {
-    const result = await this.#deviceList();
-    const updates = await this.#updates.read();
+  async connectionSummary(auth: Caller) {
+    await requireAccess(this.agents, auth);
+    const devices = await Promise.all(
+      (await this.devices.list())
+        .filter((d) => d.status === 'approved')
+        .map((d) => this.sockets.info(d)),
+    );
+    const updates = await this.updates.read();
     let events: Outcome<object>;
     try {
-      events = { ok: true, result: await this.#events.status(auth) };
+      events = {
+        ok: true,
+        result: await this.events.status({ ...auth, devices: devices.map((d) => d.deviceId) }),
+      };
     } catch (error) {
       events = { ok: false, error: errorValue(error) };
     }
-    return { result, updates, events, service: await this.#enrollment.info() };
+    await requireAccess(this.agents, auth);
+    return {
+      result: { devices, freshnessMs: 45_000 },
+      updates,
+      events,
+      service: serviceInfo(this.env),
+      record_retention_days: this.requests.records.retention.days,
+    };
   }
-  async eventRequest(
-    auth: EventAuthority,
-    method: string,
-    args: unknown,
-  ): Promise<Outcome<object>> {
+  async eventRequest(auth: Caller, method: string, args: unknown): Promise<Outcome<object>> {
     try {
-      return { ok: true, result: await this.#events.invoke(auth, method, args) };
+      await requireAccess(this.agents, auth);
+      const result = await this.events.invoke(await this.authority(auth), method, args);
+      await requireAccess(this.agents, auth);
+      return { ok: true, result };
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === -32015)
         return {
@@ -160,274 +266,36 @@ export class DeviceHub extends DurableObject<Env> {
     }
   }
   async invoke(
-    auth: Authority,
+    auth: Caller,
     operation: GatewayOperation,
     args: unknown,
   ): Promise<Outcome<Record<string, unknown>>> {
     try {
-      const registered = await this.#enrollment.devices();
-      const devices = auth.devices.filter((id) => registered.some((d) => d.id === id));
-      return {
-        ok: true,
-        result: await this.#coordinator.invoke(
-          { principal: auth.principal, devices },
-          operation,
-          args,
-        ),
-      };
+      await requireAccess(this.agents, auth);
+      const { devices } = await this.authority(auth);
+      const result = await this.requests.invoke(
+        { principal: auth.principal, devices },
+        operation,
+        args,
+      );
+      await requireAccess(this.agents, auth);
+      return { ok: true, result };
     } catch (error) {
-      // RPC exceptions do not retain arbitrary error properties. Keep native and
-      // validation errors in the same data envelope used by the MCP boundary.
       return { ok: false, error: errorValue(error) };
     }
   }
-  async #deviceList(): Promise<DeviceList> {
-    return {
-      devices: (await this.#enrollment.devices()).map((d) => {
-        const best = this.#discoverySockets(d.id)[0] ?? this.#sockets(d.id)[0];
-        return {
-          deviceId: d.id,
-          label: d.label,
-          availability: best?.info.availability || 'offline',
-          targetHostId: 'local',
-          connectorDeviceId: d.id,
-          desktopVersion: best?.info.desktopVersion ?? null,
-          connectorVersion: best?.info.connectorVersion ?? null,
-          lastSeen: best?.info.lastSeen ?? null,
-          diagnostic:
-            best && best.info.protocol !== WIRE_VERSION
-              ? { code: 'DEVICE_PROTOCOL_MISMATCH' }
-              : null,
-          interfaces: best?.info.interfaces ?? [],
-        };
-      }),
-      freshnessMs: 45000,
-    };
-  }
-  async #dispatch(
-    operation: DeviceOperation,
-    input: Record<string, unknown>,
-    id: string = crypto.randomUUID(),
-  ): Promise<Outcome> {
-    const args = z
-      .object({
-        connection_id: z.string(),
-        runtime_id: z.string().optional(),
-        interface: z.string().optional(),
-      })
-      .passthrough()
-      .parse(input);
-    const live = this.#sockets(args.connection_id);
-    const pinned = operation === 'call' || operation === 'respond' || operation === 'read_events';
-    const compatible = live.filter((x) => x.info.protocol === WIRE_VERSION);
-    const entry = pinned
-      ? (compatible.find((x) =>
-          x.info.interfaces?.some(
-            (i) =>
-              i.runtime_id === args.runtime_id &&
-              i.name === args.interface &&
-              i.availability === 'online',
-          ),
-        ) ?? undefined)
-      : operation === 'describe_methods'
-        ? this.#discoverySockets(args.connection_id, args.interface)[0]
-        : ['read_turn', 'inspect_turn', 'read_turn_result', 'resolve_turn'].includes(operation)
-          ? this.#discoverySockets(
-              args.connection_id,
-              operation === 'read_turn' || operation === 'inspect_turn'
-                ? 'client_coordination'
-                : 'app_server',
-            )[0]
-          : compatible[0];
-    if (!entry)
-      return {
-        ok: false,
-        error: {
-          code: !live.length
-            ? 'DEVICE_OFFLINE'
-            : pinned && compatible.length
-              ? compatible.some((x) =>
-                  x.info.interfaces?.some(
-                    (i) => i.runtime_id === args.runtime_id && i.name === args.interface,
-                  ),
-                )
-                ? 'INTERFACE_UNAVAILABLE'
-                : 'RUNTIME_CHANGED'
-              : 'DEVICE_UNAVAILABLE',
-        },
-      };
-    return new Promise<Outcome>((resolve) => {
-      const timer = setTimeout(() => {
-        this.#pending.delete(id);
-        resolve({
-          ok: false,
-          error: {
-            code:
-              operation === 'call' || operation === 'respond'
-                ? 'CALL_OUTCOME_UNKNOWN'
-                : 'DEVICE_TIMEOUT',
-            message:
-              operation === 'call' && args.request_id
-                ? 'Query get_request using the same request_id. No automatic resend.'
-                : 'No automatic resend. Check current native state before repeating a side-effecting operation.',
-          },
-        });
-      }, DEFAULT_TIMEOUT_MS);
-      this.#pending.set(id, {
-        socket: entry.socket,
-        recordsReply:
-          (operation === 'call' && typeof args.request_id === 'string') || operation === 'respond',
-        resolve,
-        timer,
-      });
-      try {
-        entry.socket.send(
-          JSON.stringify({ type: 'command', protocol: WIRE_VERSION, id, operation, args }),
-        );
-      } catch (cause) {
-        clearTimeout(timer);
-        this.#pending.delete(id);
-        resolve({ ok: false, error: this.#failure('DEVICE_DISCONNECTED', cause) });
-      }
-    });
-  }
   async webSocketMessage(socket: WebSocket, data: string | ArrayBuffer) {
-    if (typeof data !== 'string') {
-      this.#disconnect(socket, this.#failure('INVALID_DEVICE_MESSAGE', { type: 'binary' }), 1003);
-      return;
-    }
-    let raw: unknown;
-    try {
-      raw = JSON.parse(data);
-    } catch (cause) {
-      this.#disconnect(socket, this.#failure('INVALID_DEVICE_MESSAGE', cause), 1003);
-      return;
-    }
-    const batch = observationBatch.safeParse(raw);
-    if (batch.success) {
-      const info = attachment(socket);
-      if (info.protocol !== WIRE_VERSION) {
-        this.#disconnect(
-          socket,
-          this.#failure('DEVICE_PROTOCOL_MISMATCH', {
-            expected: WIRE_VERSION,
-            received: info.protocol,
-          }),
-          1008,
-        );
-        return;
-      }
-      try {
-        const ids = await this.#coordinator.observe(info.deviceId, batch.data.observations);
-        socket.send(JSON.stringify({ type: 'observations_ack', ids }));
-      } catch (cause) {
-        this.#disconnect(socket, this.#failure('DEVICE_OBSERVATION_FAILED', cause), 1011);
-      }
-      return;
-    }
-    const heartbeat = heartbeatSchema.safeParse(raw);
-    const response = responseSchema.safeParse(raw);
-    if (heartbeat.success) {
-      const msg = heartbeat.data;
-      const previous = attachment(socket);
-      // Close can lag behind handoff. A queued heartbeat must not revive a retired socket.
-      if (previous.lastSeen === 0) return;
-      socket.serializeAttachment({
-        deviceId: previous.deviceId,
-        connectedAt: previous.connectedAt ?? Date.now(),
-        protocol: msg.protocol,
-        lastSeen: Date.now(),
-        availability:
-          msg.protocol === WIRE_VERSION && msg.availability === 'online' ? 'online' : 'unavailable',
-        interfaces: msg.interfaces,
-        desktopVersion: String(msg.desktopVersion || '').slice(0, 100),
-        connectorVersion: String(msg.connectorVersion || '').slice(0, 100),
-      });
-      if (msg.protocol === WIRE_VERSION && msg.availability === 'online') {
-        for (const other of this.ctx.getWebSockets(previous.deviceId)) {
-          const info = attachment(other);
-          if (
-            other !== socket &&
-            info.lastSeen !== 0 &&
-            (info.connectedAt ?? 0) <= (previous.connectedAt ?? 0)
-          )
-            // Reuse disconnect semantics for pending RPCs; never dispatch them again.
-            this.#disconnect(other, { code: 'CONNECTION_REPLACED' }, 1000);
-        }
-      }
-      socket.send(JSON.stringify({ type: 'heartbeat_ack', protocol: WIRE_VERSION }));
-    } else if (response.success) {
-      const msg = response.data;
-      const pending = this.#pending.get(msg.id);
-      if (pending && pending.socket !== socket) {
-        this.#failure('REPLY_SOURCE_MISMATCH', { request_id: msg.id });
-        return;
-      }
-      const info = attachment(socket);
-      let reply: Outcome = msg;
-      try {
-        // Live ordinary queries have no durable receipt. A late reply can still
-        // belong to a timed-out write, so reconcile it when no waiter remains.
-        if (!pending || pending.recordsReply)
-          await this.#coordinator.recordReply(msg.id, msg, {
-            connection: info.deviceId,
-            runtimes: (info.interfaces ?? []).map((i) => i.runtime_id),
-          });
-      } catch (cause) {
-        // An unrelated source must not complete another connector's pending call.
-        if (errorCode(cause) === 'REPLY_SOURCE_MISMATCH') {
-          this.#failure('REPLY_SOURCE_MISMATCH', cause);
-          return;
-        }
-        // Receipt processing or persistence failed after receiving a reply.
-        // This is an unknown outcome, not rejection or permission to send again.
-        reply = { ok: false, error: this.#failure('REPLY_RECORD_FAILED', cause) };
-      }
-      if (!pending) return;
-      clearTimeout(pending.timer);
-      this.#pending.delete(msg.id);
-      pending.resolve(reply);
-    } else {
-      const type = raw && typeof raw === 'object' && 'type' in raw ? raw.type : undefined;
-      const invalid =
-        type === 'heartbeat'
-          ? heartbeat
-          : type === 'response'
-            ? response
-            : type === 'observations'
-              ? batch
-              : undefined;
-      if (invalid && !invalid.success)
-        this.#disconnect(socket, this.#failure('INVALID_DEVICE_MESSAGE', invalid.error), 1003);
-    }
+    await this.sockets.message(socket, data);
+  }
+  webSocketClose(socket: WebSocket) {
+    this.sockets.close(socket);
+  }
+  webSocketError(socket: WebSocket) {
+    this.sockets.close(socket);
   }
   async alarm() {
-    await this.#events.alarm();
-  }
-  webSocketClose(socket: WebSocket, code: number, reason: string, wasClean: boolean) {
-    this.#disconnect(socket, { code, reason, wasClean });
-  }
-  webSocketError(socket: WebSocket, cause: unknown) {
-    this.#disconnect(socket, this.#failure('DEVICE_WEBSOCKET_FAILED', cause));
-  }
-  #disconnect(socket: WebSocket, cause?: unknown, closeCode?: number) {
-    const info = attachment(socket);
-    socket.serializeAttachment({ ...info, lastSeen: 0 });
-    for (const [id, p] of this.#pending)
-      if (p.socket === socket) {
-        clearTimeout(p.timer);
-        this.#pending.delete(id);
-        p.resolve({
-          ok: false,
-          error: {
-            code: 'CONNECTION_LOST_OUTCOME_UNKNOWN',
-            message: 'Reconcile the same requestId after reconnect; do not resend.',
-            ...(cause === undefined ? {} : { cause: errorValue(cause) }),
-          },
-        });
-      }
-    try {
-      socket.close(closeCode);
-    } catch {}
+    await this.sockets.cleanup();
+    await this.requests.records.retention.alarm();
+    await this.events.alarm();
   }
 }

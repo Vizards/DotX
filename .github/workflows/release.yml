@@ -9,6 +9,10 @@ on:
         required: true
         default: main
         type: string
+      target_version:
+        description: Target stable version for this Pre-release (for example 0.1.0)
+        required: true
+        type: string
       rc_number:
         description: Optional positive RC number; leave empty for an automatically numbered dev build
         required: false
@@ -47,6 +51,7 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
           SOURCE_REF: ${{ inputs.ref }}
+          TARGET_VERSION: ${{ inputs.target_version }}
           RC_NUMBER: ${{ inputs.rc_number }}
         with:
           script: |
@@ -62,10 +67,12 @@ jobs:
             const { data: file } = await github.rest.repos.getContent({ ...repo, path: 'package.json', ref: sha });
             const sourceVersion = JSON.parse(Buffer.from(file.content, 'base64')).version;
             if (!/^\d+\.\d+\.\d+$/.test(sourceVersion)) throw new Error('Source must have a stable product version');
+            const targetVersion = preview ? process.env.TARGET_VERSION : sourceVersion;
+            if (!/^\d+\.\d+\.\d+$/.test(targetVersion ?? '')) throw new Error('Target version must be a stable product version');
             const rc = preview ? process.env.RC_NUMBER || '' : '';
             if (rc && !/^[1-9]\d*$/.test(rc)) throw new Error('RC number must be a positive integer');
             const version = preview
-              ? `${sourceVersion}-${rc ? `rc.${rc}` : `dev.${context.runNumber}.${process.env.GITHUB_RUN_ATTEMPT}`}`
+              ? `${targetVersion}-${rc ? `rc.${rc}` : `dev.${context.runNumber}.${process.env.GITHUB_RUN_ATTEMPT}`}`
               : sourceVersion;
             const tag = `v${version}`;
             const { data: changeFile } = await github.rest.repos.getContent({ ...repo, path: '.github/release-changes.json', ref: sha });
@@ -84,12 +91,24 @@ jobs:
             if (preview && !release) ({ data: release } = await github.rest.repos.createRelease({
               ...repo, tag_name: tag, target_commitish: sha, name: tag,
               draft: true, prerelease: true, body: rc
-                ? `Release candidate from ${sha}. Install or update to this version explicitly; stable and dev discovery do not select RC builds.`
+                ? `Release candidate from ${sha}. Discovered by deployments explicitly configured with RELEASE_CHANNEL=rc; other channels do not select this build.`
                 : `Development build from ${sha}. Discovered only by deployments explicitly configured with RELEASE_CHANNEL=dev; stable deployments ignore this Pre-release.`,
             }));
-            if (!preview && process.env.RELEASE_TAG !== tag) throw new Error('Release tag and source version differ');
             if (!release) throw new Error('Release draft not found');
             if (!release.draft) throw new Error('Release is already published');
+            const requirements = `
+
+            ## Installation and update requirements
+
+            0.1.0 requires a fresh native installation from 0.0.1; no owner keys, device tokens or OAuth grants are migrated. Preserve native Codex accounts, projects and conversations. Install the Server, connect the first Codex and then connect each Personal Agent using its own access code. Updates within the 0.1.0 development series preserve the account, Worker, origin, SERVICE_ID, CF OAuth client/secret and DO/KV resources; point both main and assets.directory at this release. After Desktop configuration or update, refresh every loaded host MCP configuration and verify the actual owner version. Refresh each Personal Agent catalog when remote_catalog is true. This release uses wire 5; 0.0.1 uses wire 4. Product versions may differ; wire versions must match. Report component completion separately from link recovery.
+
+            Apply the target Server template's assets.run_worker_first routing array: ["/*", "!/assets/*", "!/branding/*"]. Keep html_handling and not_found_handling set to "none", and deploy public/_headers with the assets. Public JS/CSS/branding files are served directly by Cloudflare; API and explicit page routes still run through the Worker, with no automatic HTML fallback for unknown API paths.
+
+            Server now automatically removes durable request receipts, answer deduplication and response routes after RECORD_RETENTION_DAYS (default 30). Preserve any chosen value in the actual Worker configuration. Existing development receipts keep their creation dates; old interaction records without timestamps start at adoption. Reducing retention applies to remaining records and can make them immediately eligible for deletion. After deletion, old request IDs no longer deduplicate; inspect native state before retrying unknown work. Native Codex tasks and conversations are not deleted. Existing subscription/retry lifecycle cleanup is unchanged. See the version-matched bundled docs for executable steps.`;
+            if (targetVersion === '0.1.0' && !release.body?.includes('## Installation and update requirements')) {
+              ({data:release}=await github.rest.repos.updateRelease({...repo,release_id:release.id,body:(release.body??'')+requirements}));
+            }
+            if (!preview && process.env.RELEASE_TAG !== tag) throw new Error('Release tag and source version differ');
             for (const [key, value] of Object.entries({ publish: 'true', sha, version, release_id: release.id, prerelease: preview, base_release: base ?? '' }))
               core.setOutput(key, String(value));
   build:
@@ -118,7 +137,7 @@ jobs:
         run: |
           node --input-type=module <<'JS'
           import fs from 'node:fs';
-          for (const path of ['package.json', 'apps/desktop/package.json', 'apps/server/package.json', 'packages/shared/package.json', 'apps/desktop/plugin/.codex-plugin/plugin.json']) {
+          for (const path of ['package.json', 'apps/desktop/package.json', 'apps/server/package.json', 'packages/shared/package.json', 'apps/desktop/plugin/plugin.json', 'apps/web/package.json']) {
             const value = JSON.parse(fs.readFileSync(path, 'utf8'));
             value.version = process.env.VERSION;
             fs.writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -134,7 +153,7 @@ jobs:
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import path from 'node:path';
-          import { WIRE_VERSION } from './packages/shared/src/gateway.ts';
+          import { WIRE_VERSION } from './packages/shared/src/wire/version.ts';
           const version = process.env.VERSION;
           const repository = process.env.GITHUB_REPOSITORY;
           const change = JSON.parse(fs.readFileSync('.github/release-changes.json', 'utf8'));
@@ -155,30 +174,40 @@ jobs:
           const metadata = { release: version, repository, source_commit: process.env.SOURCE_SHA,
             base_release: change.base_release, wire_protocol: WIRE_VERSION, changes: change.changes, assets };
           const write = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+          fs.rmSync('dist/release', { recursive: true, force: true });
           for (const dir of [plugin, server, `${desktop}/.agents/plugins`, 'dist/release/assets'])
             fs.mkdirSync(dir, { recursive: true });
           fs.cpSync('apps/desktop/plugin', plugin, { recursive: true });
           fs.cpSync('apps/desktop/skills', `${plugin}/skills`, { recursive: true });
-          fs.cpSync('apps/server/public', `${server}/public`, { recursive: true });
+          fs.cpSync('apps/server/dist/public', `${server}/public`, { recursive: true });
+          fs.cpSync('docs', `${plugin}/docs`, { recursive: true });
+          fs.cpSync('docs', `${server}/docs`, { recursive: true });
           for (const [from, to] of [
             ['LICENSE', `${desktop}/LICENSE`],
             ['LICENSE', `${plugin}/LICENSE`],
             ['LICENSE', `${server}/LICENSE`],
             ['apps/desktop/dist/plugin.mjs', `${plugin}/connector.mjs`],
-            ['apps/desktop/dist/setup/cli.mjs', `${plugin}/setup.mjs`],
+            ['apps/desktop/dist/cli.mjs', `${plugin}/cli.mjs`],
             ['apps/desktop/marketplace.json', `${desktop}/.agents/plugins/marketplace.json`],
             ['apps/desktop/README.md', `${desktop}/README.md`],
             ['apps/server/dist/worker.mjs', `${server}/worker.mjs`],
+            ['apps/server/dist/admin.mjs', `${server}/admin.mjs`],
             ['apps/server/README.md', `${server}/README.md`],
           ]) fs.copyFileSync(from, to);
           const config = JSON.parse(fs.readFileSync('apps/server/wrangler.json', 'utf8'));
           delete config.$schema;
           config.main = 'worker.mjs';
+          config.assets.directory = './public';
+          config.vars.SERVICE_ID = '';
+          config.vars.CF_ACCOUNT_ID = '';
+          config.vars.CF_WORKER_ID = '';
+          config.vars.CF_WORKER_NAME = '';
+          config.vars.CF_OAUTH_CLIENT_ID = '';
           config.vars.PUBLIC_ORIGIN = 'https://your-service.example.com';
           config.vars.RELEASE_REPOSITORY = repository;
           write(`${server}/wrangler.json`, config);
           const pkg = JSON.parse(fs.readFileSync('apps/server/package.json', 'utf8'));
-          write(`${server}/toolchain.json`, { wrangler: pkg.devDependencies.wrangler });
+          write(`${server}/toolchain.json`, { wrangler: pkg.devDependencies.wrangler, node: pkg.engines.node, pnpm: JSON.parse(fs.readFileSync('package.json', 'utf8')).packageManager });
           for (const directory of [plugin, server, 'dist/release/assets'])
             write(path.join(directory, 'release.json'), metadata);
           JS

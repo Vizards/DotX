@@ -1,7 +1,7 @@
 import { BridgeError, errorValue } from '@dotx/shared/errors';
-import { gatewaySchemas } from '@dotx/shared/gateway';
-import type { Call, NativeResponse } from '@dotx/shared/gateway';
-import type { DeviceOperation, DispatchArgs, TrackedTask } from '@dotx/shared/state';
+import { deviceRequestSchemas } from '@dotx/shared/wire/commands';
+import type { Call, NativeResponse } from '@dotx/shared/wire/commands';
+import type { DeviceOperation, DispatchArgs, TrackedTask } from '@dotx/shared/requests';
 import type { Adapter } from '../interfaces/adapter.ts';
 import { EventBuffer } from '../events/buffer.ts';
 import type { ResolveTurn, TurnIdentity } from '../tracking/attribution.ts';
@@ -72,7 +72,7 @@ export class Gateway {
     const adapter = this.adapters.get(a.interface);
     if (!adapter) throw new BridgeError('INTERFACE_NOT_FOUND');
     if (operation === 'describe_methods') {
-      const args = gatewaySchemas.describe_methods.parse(input),
+      const args = deviceRequestSchemas.describe_methods.parse(input),
         methods = await adapter.methods();
       const selected = args.method
         ? methods.filter((m) => m.name === args.method)
@@ -86,7 +86,7 @@ export class Gateway {
       };
     }
     if (operation === 'read_events') {
-      const args = gatewaySchemas.read_events.parse(input);
+      const args = deviceRequestSchemas.read_events.parse(input);
       const page = this.options.events.events(args.runtime_id, args.cursor, args.limit);
       page.events = page.events.map((e) => adapter.decorateEvent?.(e) ?? e);
       if (page.events.some((e) => e.interface !== args.interface))
@@ -99,7 +99,7 @@ export class Gateway {
       };
     }
     const { task, ...envelope } = a as DispatchArgs;
-    const args = gatewaySchemas.call.parse(envelope);
+    const args = deviceRequestSchemas.call.parse(envelope);
     if (adapter.status().runtime_id !== args.runtime_id) throw new BridgeError('RUNTIME_CHANGED');
     if (adapter.status().availability !== 'online') throw new BridgeError('INTERFACE_UNAVAILABLE');
     // Discovery is guidance, not an execution allowlist. The connector alone owns

@@ -13,7 +13,20 @@
     "zod": "4.6.7"
   },
   "exports": {
-    "./*": "./src/*.ts"
+    "./devices": "./src/devices.ts",
+    "./errors": "./src/errors.ts",
+    "./http/admin": "./src/http/admin.ts",
+    "./http/consent": "./src/http/consent.ts",
+    "./http/enrollment": "./src/http/enrollment.ts",
+    "./http/service": "./src/http/service.ts",
+    "./requests": "./src/requests.ts",
+    "./timeouts": "./src/timeouts.ts",
+    "./wire/commands": "./src/wire/commands.ts",
+    "./wire/messages": "./src/wire/messages.ts",
+    "./wire/notices": "./src/wire/notices.ts",
+    "./wire/observations": "./src/wire/observations.ts",
+    "./wire/version": "./src/wire/version.ts",
+    "./wire/authentication": "./src/wire/authentication.ts"
   },
   "license": "MIT"
 }

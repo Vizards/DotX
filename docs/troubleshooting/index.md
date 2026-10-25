@@ -1,54 +1,37 @@
-# DotX troubleshooting
+# Troubleshoot DotX
 
-Start here when installing, updating or using DotX. Match the symptom below; as this guide grows, follow links to the relevant pages in this directory.
+Record the available Server/Desktop versions, service URL, device ID, actual owner state and exact error. Use remote `list_connections` when connected, local `device_status` on the affected Mac, or `/health` for Server. Do not require all three before investigating. Read [access checks](../common/access.md) only for management actions. Keep tokens, private keys and conversation contents out of diagnostics.
 
-## Two plugins appear
+## Authorization fails
 
-Two plugins are expected:
+A management 401 requires CF login or official Wrangler login. A confirmed 403 means that identity cannot directly modify the target Worker. Group-only permission is unsupported in 0.1.0. A Cloudflare outage is a service failure, not evidence that permissions were revoked. Do not repeatedly log in to repair it.
 
-- **DotX Remote** gives ChatGPT/dot access to your self-hosted DotX Server through its `/mcp` endpoint.
-- **DotX Desktop** runs on each Mac and connects its native Codex desktop to that server.
+For MCP, read [authorization, expiry and recovery](../personal-agents/authorization.md). Normal access-token expiry is handled by the client's OAuth refresh. When reauthorization is needed, restart the client's normal OAuth flow with a fresh access code issued for the existing connection. Do not create a second connection to repair the same instance. See the [dot](../personal-agents/dot/index.md) or [Cue](../personal-agents/cue/index.md) guide for client-specific setup.
 
-They have separate roles and installation identities. Keep both for the complete connection; do not merge their identities or remove either as a duplicate. Additional entries from obsolete installations are a separate cleanup issue.
+## No usable Codex
 
-## Codex cannot open ChatGPT's plugin settings
+When remote MCP is available, read `list_connections`; on the affected Mac, read `device_status`. Lack of a remote MCP connection does not itself mean the local plugin failed. If no device is enrolled, continue [Codex connection](../codex/connect.md). A pending request needs an administrator's approval. An offline device needs its local Codex host and plugin running. Read device_status on that Mac; distinguish this MCP instance from the actual owner. Refresh all related hosts when old instances retain stale configuration.
 
-Browser use may refuse access to `chatgpt.com` with `A saved user permission setting blocks this action` or `A saved permission or managed policy denies access`. This is a host browser permission, separate from DotX authorization and the Codex task's command permissions. Full Access does not override it.
+DEVICE_PROTOCOL_MISMATCH includes the actual versions and update guidance. Coordinate the affected component updates; the owner retries with backoff. Do not re-enroll, remove state or repeatedly query to repair a version difference. Product versions alone do not establish incompatibility.
 
-Choose either path:
+Missing or corrupt private keys/configuration require explicit recovery. Do not silently generate a new identity or choose another data directory. For an intentional reset or service change, follow [remove/reset](../maintenance/remove.md).
 
-1. **Allow browser access and continue in Codex.** On the Mac running the affected task, open the desktop app's **Settings → Computer Use**, then **Manage** for the browser being used. Under **Website permissions**, allow browsing `chatgpt.com` and remove any blocking rule for that site. After access is allowed, an existing conversation may still retain its earlier denial; start a new local Codex conversation to continue the unfinished step through the normal browser permission flow. Restarting the desktop app alone did not clear the old conversation's denial in our test. If access is still denied, stop and use the manual path rather than editing permission files or bypassing the restriction.
-2. **Complete the browser step yourself.** For an update, open ChatGPT in your signed-in browser, go to its plugin settings, select the existing **DotX Remote** entry and click **Refresh tools**. Wait for the refresh to finish, then tell the executing Codex conversation that you completed it. Codex can continue checking the available tools and actual connection state. Record Refresh as manually completed; do not create a replacement plugin, redo OAuth or reinstall DotX just to refresh its catalog.
+For a rejected/expired application or revoked device with intact local identity, follow [Codex connection](../codex/connect.md) when the user requests reconnection. The connect command submits a new application with the existing device ID and key pair; the administrator must approve it again. Do not reset the identity merely because access was revoked, and do not automatically reapply in the background.
 
-## dot still sees old tool definitions after an update
+If setup was interrupted before the native caller ID was saved, rerun the package's connect command with the same data directory and Server. It creates another empty caller and retains the device identity and enrollment; an unused empty conversation may remain. A saved caller ID is reused when only naming or archiving was interrupted. Do not reset the plugin or search other conversations to recover this empty caller.
 
-An existing dot can retain old tool descriptions or parameter schemas even after DotX Remote's catalog is refreshed. Calls may reach the updated Server and return new results while dot still lacks the parameters needed to use them.
+If App Tools reports DESKTOP_PIPE_MISSING, verify that this plugin is loaded by the desktop host and that the installed package includes its `.codex-plugin/plugin.json` environment overlay. Reinstall the complete package if needed, refresh the host MCP configuration, then check the interface again. A standalone CLI host may not provide this desktop context. Do not copy another process's pipe path or change the application's signature checks.
 
-1. Check the running Server version and refresh DotX Remote through ChatGPT's normal plugin settings if its catalog changed.
-2. Compare the tool declarations visible to the affected dot with a fresh ChatGPT conversation. Use a read-only call to check the actual response. A successful new-chat test does not establish that an existing dot has refreshed; the plugin's display name is not the running Server version.
-3. If only the existing dot retains old definitions, consider its **Restart** menu action. ChatGPT's dialog says conversations, memories and scheduled tasks are retained, but ongoing work may be interrupted; choose the timing accordingly. After restart, verify the declarations and a read-only call using the changed parameters.
+## The installed plugin's tool is missing
 
-In one development test, dot still declared `get_instructions(args: {})` while the Server returned the new guide directory. After Restart, dot saw the optional `goal` parameter and successfully read `get_instructions({"goal":"settings"})`. This is an observed recovery path, not a platform guarantee or a mandatory step for every update. This case did not require deleting dot, reinstalling the plugin or redeploying Server.
+Check that the intended plugin is installed and enabled, then refresh the affected host's MCP configuration. If an existing conversation still cannot discover device_status after installation through an external Codex CLI, normally quit and reopen Codex, return to the conversation and check again. Some host versions retain the conversation's old plugin list through an MCP refresh. Sending another message or mentioning the plugin is not proof that it loaded. Coordinate the restart with the user when other work is active; preserve the plugin data and approval.
 
-## Notifications intermittently fail with Cloudflare HTTP 403
+## A native call or notification has an uncertain result
 
-During development, some outgoing MCP Events callbacks from DotX Server to OpenAI were rejected by Cloudflare's edge protection. Retrying often succeeded. This observation concerns notification delivery, not every HTTP 403 involving Cloudflare.
+Read [results](../usage/results.md) or [interactions](../usage/interactions.md). Query current state; do not resend work. A callback delivery error does not establish native task failure. A failed release lookup does not establish an outdated or failed installation.
 
-DotX automatically retries recognized edge denials up to nine times after the initial attempt. Let those retries run. A notification delivery failure does not establish that the native Codex task failed; check the original request with `get_request` or read the current native state. Do not resend the task to repair a notification.
+## A client cannot refresh its MCP catalog
 
-If delivery still fails, inspect the callback destination, response and delivery diagnostics. The observed edge denial is classified as `edge_denied`. Application-level or authorization 403 responses are not retried by this policy. A 401/403 returned by your own DotX endpoint requires separate authorization or service diagnosis.
+Use its own connection/update guide. A working Server does not prove an existing conversation has fresh tool definitions. Compare the actual visible schema and a read-only call after the client's normal refresh. Client-specific recovery belongs in that guide.
 
-## dot intermittently refuses to dispatch work through MCP
-
-dot sometimes declines to dispatch local Codex/ChatGPT work through an available, authorized MCP, saying computer tasks must use its built-in `cloud_threads` route. It may successfully discover DotX connections and methods, then stop before calling the execution method. This is a dot-side routing decision before dispatch, not an error returned by DotX or the target Codex task. Missing tools, failed authorization and actual MCP errors require separate diagnosis.
-
-Development tests observed both outcomes:
-
-- Direct MCP dispatch completed real file writes, isolated package uninstallation and updates, with native execution and completion results verified.
-- Other runs declined even a read-only `/bin/pwd` task before dispatch, while conversation management and plain-text messages still worked through the same MCP tool.
-
-The behavior is inconsistent; it does not establish a blanket ban on MCP operations with side effects. An OpenAI-defined routing restriction may explain dot's stated reason, but neither that policy nor the cause of the inconsistent behavior has been independently confirmed. Similar reports and our test findings are recorded in [openai/codex#51797](https://github.com/openai/codex/issues/51797#issuecomment-6248115244).
-
-Deleting and recreating dot restored execution in some tests but failed to do so in others. Restarting dot or adding a Custom rule also did not provide a reliable fix. **Do not recommend deleting dot as a routine recovery step; deletion is irreversible.** There is no established creation-date cutoff or reliable workaround for this symptom.
-
-For a report, record the request, dot's response, the available tools and whether execution was actually dispatched. Keep ordinary permission or scope questions separate from a refusal. If dot stops before dispatch, reinstalling DotX or broadening the target task's permissions is not a demonstrated remedy. A user can choose to continue the work in local Codex, but that does not validate or repair dot's MCP dispatch path.
+Finish with [checks and handoff](../common/handoff.md).

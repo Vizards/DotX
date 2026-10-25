@@ -19,7 +19,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check && pnpm lint && pnpm check
-      - name: Test Server interfaces
+      - name: Test Server public interfaces
         run: pnpm test
       - run: pnpm build
-      - run: pnpm --filter @dotx/server build:worker
+      - name: Validate Worker deployment after the component build
+        run: pnpm --filter @dotx/server exec wrangler deploy --dry-run

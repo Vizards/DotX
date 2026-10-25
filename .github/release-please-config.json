@@ -26,7 +26,12 @@
         },
         {
           "type": "json",
-          "path": "apps/desktop/plugin/.codex-plugin/plugin.json",
+          "path": "apps/desktop/plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/web/package.json",
           "jsonpath": "$.version"
         }
       ]

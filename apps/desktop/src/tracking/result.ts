@@ -1,7 +1,7 @@
 import { BridgeError } from '@dotx/shared/errors';
-import type { NativeResponse } from '@dotx/shared/gateway';
-import type { NativeItem } from '@dotx/shared/protocol';
-import type { TrackedTask } from '@dotx/shared/state';
+import type { NativeResponse } from '@dotx/shared/wire/commands';
+import type { NativeItem } from '../interfaces/app-tools/schema.ts';
+import type { TrackedTask } from '@dotx/shared/requests';
 
 // Status comes from observed desktop turns, never from the presence of output items.
 // Read one native page addressed to the exact turn. Expose its cursor rather than

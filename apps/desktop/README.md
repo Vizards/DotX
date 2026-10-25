@@ -1,11 +1,11 @@
-# DotX Desktop
+# DotX Desktop package
 
-Open this extracted Release attachment in local Codex, preferably with computer use enabled. For the first Mac and service, follow `plugins/dotx-desktop/skills/setup/SKILL.md`; to add this Mac to an existing service, follow `plugins/dotx-desktop/skills/join/SKILL.md`.
+This package connects a Mac's Codex to an existing DotX Server. It includes the local plugin, one navigation Skill and the complete version-matched Agent guides.
 
-- **Desktop:** install from this attachment's local marketplace on each Mac. Keep the extracted files in a persistent directory.
-- **Remote:** register your service's `/mcp` URL as a custom MCP connection in ChatGPT, using OAuth. This is a separate identity from Desktop.
-- **Server:** download the independent Server attachment from the same Release and deploy it to your Cloudflare account using official Wrangler. It runs one Worker, OAuth KV and a single DeviceHub DO.
+Start at [the bundled guide index](plugins/dotx-desktop/docs/index.md). For installation use [Connect this Mac's Codex](plugins/dotx-desktop/docs/codex/connect.md); for updates use [Update Codex](plugins/dotx-desktop/docs/codex/update.md).
 
-Adding another Mac is optional. Run join in local Codex on that Mac; it can discover the service through an authorized Remote connection on the same account, or use the existing service address. An administrator approves the new device. No second deployment, duplicate Remote connection, Cloudflare login on the new Mac or pre-existing remote control between Macs is needed.
+Install the local marketplace at `.agents/plugins/marketplace.json` through Codex's normal plugin mechanism. Keep the extracted package in a persistent location. The plugin uses the host-provided `PLUGIN_DATA` directory for its identity and configuration; the package and plugin cache contain no credentials. `device_status` reports the resolved storage and actual connector owner.
 
-For local updates, use `plugins/dotx-desktop/skills/update/SKILL.md`. ChatGPT/dot coordinates updates through DotX Remote's `get_instructions(goal="update")`. Read the target Release's notes for version-specific requirements and `release.json` for component changes. Desktop and Server share a release version, but unchanged components may remain installed. Worker deployment updates Remote execution code; changes to ChatGPT's cached tool catalog require a separate Refresh. Installation state and credentials live outside this package; activation may briefly disconnect DotX before it reconnects.
+Server deployment uses the independent Server attachment. Each Personal Agent follows its own guide. Computer use is optional where the host exposes the required operations through tools.
+
+Read `release.json` and the target GitHub Release notes before updating. A component update and the network becoming usable are separate checks. A 0.0.1 installation requires a fresh 0.1.0 connection; native Codex data is preserved.

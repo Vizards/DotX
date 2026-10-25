@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "dotx_desktop": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["${PLUGIN_ROOT}/launch.sh", "${PLUGIN_ROOT}"],
+      "cwd": "${PLUGIN_DATA}",
+      "env": {
+        "DOTX_PLUGIN_DATA": "${PLUGIN_DATA}",
+        "DOTX_PLUGIN_ROOT": "${PLUGIN_ROOT}"
+      }
+    }
+  },
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"
+}
