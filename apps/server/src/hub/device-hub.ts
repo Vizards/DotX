@@ -194,7 +194,7 @@ export class DeviceHub extends DurableObject<Env> {
     for (const device of await this.devices.list()) {
       if (!device.approved_at) continue;
       const info = await this.sockets.info(device),
-        wire = await this.sockets.deviceWire(device.device_id);
+        wire = info.wireProtocol;
       result.push({
         device_id: device.device_id,
         name: device.name,

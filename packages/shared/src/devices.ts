@@ -23,13 +23,3 @@ export interface Heartbeat {
   availability: Availability;
   desktopVersion?: string;
 }
-export interface DeviceInfo {
-  interfaces?: Heartbeat['interfaces'];
-  deviceId: string;
-  label: string;
-  availability: Availability;
-  desktopVersion: string | null;
-  connectorVersion: string | null;
-  lastSeen: number | null;
-  diagnostic: Diagnostic | null;
-}

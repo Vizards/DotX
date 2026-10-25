@@ -145,7 +145,6 @@ export async function postSigned(
     signatures.push(await sign(sub.oldSecret, id, timestamp, body));
   return webhookFetch(sub.url, {
     method: 'POST',
-    redirect: 'manual',
     headers: {
       'Content-Type': 'application/json',
       'User-Agent': `dotx-server/${packageInfo.version}`,

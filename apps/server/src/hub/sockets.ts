@@ -10,7 +10,7 @@ import { heartbeatSchema, responseSchema } from '@dotx/shared/wire/messages';
 import { observationBatch } from '@dotx/shared/wire/observations';
 import type { Observation } from '@dotx/shared/wire/observations';
 import type { DeviceOperation, Outcome } from '@dotx/shared/requests';
-import type { DeviceInfo, Heartbeat } from '@dotx/shared/devices';
+import type { Heartbeat } from '@dotx/shared/devices';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { errorCode, errorValue } from '@dotx/shared/errors';
 import { verifyProof } from '../devices/proof.ts';
@@ -279,7 +279,7 @@ export class Sockets {
       return false;
     return !saved(socket).retired;
   }
-  async info(device: DeviceRecord): Promise<DeviceInfo> {
+  async info(device: DeviceRecord) {
     const socket = await this.current(device.device_id);
     if (socket && saved(socket).wire_protocol !== WIRE_VERSION) await this.mismatch(socket);
     const entry = socket && !saved(socket).retired ? saved(socket) : undefined;
@@ -293,6 +293,7 @@ export class Sockets {
           : 'offline',
       desktopVersion: entry?.desktopVersion ?? null,
       connectorVersion: entry?.desktop_version ?? diagnostic?.desktop_version ?? null,
+      wireProtocol: entry?.wire_protocol ?? diagnostic?.desktop_wire_protocol ?? null,
       lastSeen: entry?.lastSeen ?? null,
       diagnostic: diagnostic ?? null,
       interfaces: entry?.interfaces ?? [],
@@ -466,13 +467,6 @@ export class Sockets {
   }
   close(socket: WebSocket) {
     this.disconnect(socket, this.error(saved(socket), 'DEVICE_DISCONNECTED'));
-  }
-  async deviceWire(id: string) {
-    const current = await this.current(id);
-    return current
-      ? saved(current).wire_protocol
-      : ((await this.ctx.storage.get<ConnectionError>(diagnosticKey(id)))?.desktop_wire_protocol ??
-          null);
   }
   async cleanup() {
     for (const socket of this.ctx.getWebSockets()) {

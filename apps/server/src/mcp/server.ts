@@ -1,10 +1,5 @@
 import { subscribeSchema, unsubscribeSchema } from '../events/catalog.ts';
-import {
-  McpServer,
-  createMcpHandler,
-  ProtocolError,
-  SUPPORTED_PROTOCOL_VERSIONS,
-} from '@modelcontextprotocol/server';
+import { McpServer, createMcpHandler, ProtocolError } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { gatewaySchemas } from './schemas.ts';
 import type { GatewayOperation } from './schemas.ts';
@@ -16,12 +11,12 @@ import type { InstructionGoal } from './guides.ts';
 
 interface McpOptions {
   publicOrigin: string;
-  events?: (method: string, args: Record<string, unknown>) => Promise<object>;
+  events: (method: string, args: Record<string, unknown>) => Promise<object>;
   connections: () => Promise<object>;
   invoke: (operation: GatewayOperation, args: Record<string, unknown>) => Promise<object>;
 }
 function createServer({ invoke, connections, events, publicOrigin }: McpOptions) {
-  const capabilities = { tools: {}, ...(events ? { events: {} } : {}) };
+  const capabilities = { tools: {}, events: {} };
   const server = new McpServer(
     {
       ...branding,
@@ -37,30 +32,27 @@ function createServer({ invoke, connections, events, publicOrigin }: McpOptions)
     {
       instructions: INSTRUCTIONS_GUIDANCE,
       capabilities,
-      supportedProtocolVersions: SUPPORTED_PROTOCOL_VERSIONS,
     },
   );
-  if (events) {
-    const schemas = {
-      'events/list': z.object({ cursor: z.string().optional() }),
-      'events/subscribe': subscribeSchema,
-      'events/unsubscribe': unsubscribeSchema,
-    };
-    for (const [name, params] of Object.entries(schemas))
-      server.server.setRequestHandler(name, { params }, async (args) => {
-        try {
-          return { ...(await events(name, args)) };
-        } catch (e) {
-          if (e && typeof e === 'object' && 'code' in e && e.code === -32015)
-            throw new ProtocolError(
-              -32015,
-              'CallbackEndpointError',
-              'data' in e ? e.data : undefined,
-            );
-          throw new ProtocolError(-32602, errorCode(e) ?? 'INVALID_EVENT_ARGUMENTS', errorValue(e));
-        }
-      });
-  }
+  const schemas = {
+    'events/list': z.object({ cursor: z.string().optional() }),
+    'events/subscribe': subscribeSchema,
+    'events/unsubscribe': unsubscribeSchema,
+  };
+  for (const [name, params] of Object.entries(schemas))
+    server.server.setRequestHandler(name, { params }, async (args) => {
+      try {
+        return { ...(await events(name, args)) };
+      } catch (e) {
+        if (e && typeof e === 'object' && 'code' in e && e.code === -32015)
+          throw new ProtocolError(
+            -32015,
+            'CallbackEndpointError',
+            'data' in e ? e.data : undefined,
+          );
+        throw new ProtocolError(-32602, errorCode(e) ?? 'INVALID_EVENT_ARGUMENTS', errorValue(e));
+      }
+    });
   function register<S extends z.ZodRawShape>(
     name: string,
     description: string,
@@ -158,11 +150,7 @@ function createServer({ invoke, connections, events, publicOrigin }: McpOptions)
 
 export async function serveMcp(request: Request, options: McpOptions) {
   // Subscription storage and delivery belong to the host, beyond this MCP request.
-  const handler = createMcpHandler(() => createServer(options), {
-    // Use the SDK's standard handshake fallback for clients on 2025 revisions.
-    // Both protocol eras use this same tool catalog, OAuth and business handlers.
-    legacy: 'stateless',
-  });
+  const handler = createMcpHandler(() => createServer(options));
   try {
     return await handler.fetch(request);
   } finally {

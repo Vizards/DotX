@@ -177,36 +177,33 @@ export class Agents {
       return publicAgent(record);
     });
   }
-  async consume(code: string, transaction: string, expiresAt: number, store?: Store) {
+  async consume(code: string, transaction: string, expiresAt: number, tx: Store) {
     const hash = await sha256(code.trim().toUpperCase());
-    const run = async (tx: Store) => {
-      const index = await tx.get<{ agent_id: string; round_id: string }>('access-code:' + hash);
-      if (!index)
-        throw new HttpError(
-          400,
-          'ACCESS_CODE_INVALID',
-          'The access code is invalid, expired or already used.',
-        );
-      const record = await this.get(index.agent_id, tx),
-        pending = record.pending;
-      if (
-        record.revoked ||
-        !pending ||
-        pending.round_id !== index.round_id ||
-        pending.code_hash !== hash
-      )
-        throw new HttpError(400, 'ACCESS_CODE_INVALID');
-      if (pending.transaction && pending.transaction !== transaction)
-        throw new HttpError(400, 'ACCESS_CODE_USED', 'This access code has already been used.');
-      if (!pending.transaction && pending.code_expires_at <= Date.now())
-        throw new HttpError(400, 'ACCESS_CODE_EXPIRED');
-      pending.transaction = transaction;
-      pending.phase = 'authorizing';
-      pending.expires_at = expiresAt;
-      await tx.put(agentKey(record.agent_id), record);
-      return { agent_id: record.agent_id, round_id: pending.round_id };
-    };
-    return store ? run(store) : this.store.transaction(run);
+    const index = await tx.get<{ agent_id: string; round_id: string }>('access-code:' + hash);
+    if (!index)
+      throw new HttpError(
+        400,
+        'ACCESS_CODE_INVALID',
+        'The access code is invalid, expired or already used.',
+      );
+    const record = await this.get(index.agent_id, tx),
+      pending = record.pending;
+    if (
+      record.revoked ||
+      !pending ||
+      pending.round_id !== index.round_id ||
+      pending.code_hash !== hash
+    )
+      throw new HttpError(400, 'ACCESS_CODE_INVALID');
+    if (pending.transaction && pending.transaction !== transaction)
+      throw new HttpError(400, 'ACCESS_CODE_USED', 'This access code has already been used.');
+    if (!pending.transaction && pending.code_expires_at <= Date.now())
+      throw new HttpError(400, 'ACCESS_CODE_EXPIRED');
+    pending.transaction = transaction;
+    pending.phase = 'authorizing';
+    pending.expires_at = expiresAt;
+    await tx.put(agentKey(record.agent_id), record);
+    return { agent_id: record.agent_id, round_id: pending.round_id };
   }
   async bind(identity: GrantIdentity, expiresAt: number) {
     return this.store.transaction(async (tx) => {

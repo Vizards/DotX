@@ -19,10 +19,6 @@ export interface Env {
   RELEASE_CHANNEL?: string;
   RECORD_RETENTION_DAYS?: string;
 }
-export interface OAuthProps {
-  agent_id: string;
-  round_id: string;
-}
 export function serviceInfo(env: Env): ServiceInfo {
   return {
     product: 'dotx',

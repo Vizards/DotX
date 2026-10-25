@@ -45,8 +45,6 @@ export async function serveOAuth(request: Request, env: Env, ctx: ExecutionConte
     refreshTokenIdleTTL: 2592000,
     clientRegistrationTTL: 7776000,
     scopesSupported: ['offline_access'],
-    allowTokenExchangeGrant: false,
-    disallowPublicClientRegistration: false,
     clientIdMetadataDocumentEnabled: true,
     resourceMetadata: {
       resource: env.PUBLIC_ORIGIN + '/mcp',
