@@ -236,6 +236,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
         with:
           script: |
             const fs = require('node:fs');
@@ -259,5 +260,7 @@ jobs:
               const asset = uploaded.find(asset => asset.name === name);
               if (!asset || asset.size !== fs.statSync(`assets/${name}`).size) throw new Error(`Incomplete upload: ${name}`);
             }
-            await github.rest.repos.updateRelease({ ...repo, release_id, draft: false,
+            const { data: published } = await github.rest.repos.updateRelease({ ...repo, release_id,
+              tag_name: `v${version}`, target_commitish: process.env.SOURCE_SHA, draft: false,
               prerelease: process.env.PRERELEASE === 'true', make_latest: process.env.PRERELEASE === 'true' ? 'false' : 'true' });
+            if (published.tag_name !== `v${version}`) throw new Error('Published release tag and artifact version differ');
