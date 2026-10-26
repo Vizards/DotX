@@ -55,13 +55,8 @@ export function cloudflareFixture(
     member,
     membershipResponse,
     status: 200,
-    expiresIn: 3600,
-    refreshStatus: 200,
-    rejectedTokens: new Set<string>(),
-    beforeRefresh: undefined as (() => Promise<void>) | undefined,
     calls: [] as { url: URL; authorization: string | null; body: URLSearchParams }[],
   };
-  const issued = new Set<string>();
   const outgoing = globalThis.fetch;
   t.mock.method(globalThis, 'fetch', async (input: any, init: any) => {
     const request = new Request(input, init);
@@ -73,29 +68,13 @@ export function cloudflareFixture(
     fixture.calls.push({ url, authorization, body });
     if (fixture.status !== 200)
       return Response.json({ success: false }, { status: fixture.status });
-    if (url.pathname === '/oauth2/token') {
-      if (body.get('grant_type') === 'refresh_token') {
-        await fixture.beforeRefresh?.();
-        if (fixture.refreshStatus !== 200)
-          return Response.json({ error: 'invalid_grant' }, { status: fixture.refreshStatus });
-      }
-      const access_token = 'synthetic-browser-' + issued.size;
-      issued.add(access_token);
-      return Response.json({
-        access_token,
-        refresh_token: 'synthetic-refresh-' + issued.size,
-        token_type: 'Bearer',
-        expires_in: fixture.expiresIn,
-      });
-    }
     const token = authorization?.replace(/^Bearer /, '') ?? '';
-    const browser = issued.has(token);
-    if ((!browser && token !== 'synthetic-wrangler-oauth') || fixture.rejectedTokens.has(token))
+    if (token !== 'synthetic-wrangler-oauth')
       return Response.json({ success: false }, { status: 401 });
     if (url.pathname === '/oauth2/userinfo')
       return Response.json({
         iss: 'https://dash.cloudflare.com',
-        aud: browser ? 'synthetic-browser-client' : '54d11594-84e4-41aa-b438-e81b8fa78ee7',
+        aud: '54d11594-84e4-41aa-b438-e81b8fa78ee7',
         sub: 'test-user',
       });
     if (url.pathname === '/client/v4/memberships') {

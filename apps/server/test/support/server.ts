@@ -59,8 +59,6 @@ export async function startServer(
             CF_ACCOUNT_ID: 'test-account',
             CF_WORKER_ID: 'test-worker',
             CF_WORKER_NAME: 'test-worker',
-            CF_OAUTH_CLIENT_ID: 'synthetic-browser-client',
-            CF_OAUTH_CLIENT_SECRET: 'synthetic-secret',
             ...(options.retentionDays ? { RECORD_RETENTION_DAYS: options.retentionDays } : {}),
           },
         },

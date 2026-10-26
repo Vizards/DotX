@@ -27,7 +27,7 @@ Help me install DotX: https://github.com/Vizards/DotX. Start at docs/index.md fo
 
 [Agent guides](docs/index.md) cover Server installation, local Codex connection and each Personal Agent. Start wherever you need; the Agent checks what is ready, completes the work it can and hands off any steps requiring another environment or your login. A new network normally connects Server → first Codex → Personal Agent. Codex Desktop is recommended for local setup; computer use is optional.
 
-To add another Mac, give local Codex the existing Server URL and ask it to follow [Codex connection](docs/codex/connect.md). An administrator approves that device through the Server's Cloudflare-authenticated management page or management CLI.
+To add another Mac, give local Codex the existing Server URL and ask it to follow [Codex connection](docs/codex/connect.md). An administrator approves that device through the Server's password/passkey management page or Wrangler-backed management CLI.
 
 0.1.0 is a fresh installation from 0.0.1. Native Codex accounts, projects and conversations are preserved. Use the chosen GitHub Release's notes and guides; this branch may describe unreleased behavior.
 

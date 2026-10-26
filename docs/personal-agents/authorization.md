@@ -1,6 +1,6 @@
 # Personal Agent authorization, expiry and recovery
 
-Read this common guide with the selected client's [dot](dot/index.md) or [Cue](cue/index.md) instructions. These rules apply to the Personal Agent's MCP connection, not Cloudflare administrator login. The client's OAuth implementation stores credentials, exchanges authorization codes and refreshes tokens; the Agent explains the workflow and helps recover failures. Do not read or copy raw tokens, schedule model-driven renewal, or send keepalive tool calls to preserve authorization.
+Read this common guide with the selected client's [dot](dot/index.md) or [Cue](cue/index.md) instructions. These rules apply to the Personal Agent's MCP connection, not administrator password/passkey login. The client's OAuth implementation stores credentials, exchanges authorization codes and refreshes tokens; the Agent explains the workflow and helps recover failures. Do not read or copy raw tokens, schedule model-driven renewal, or send keepalive tool calls to preserve authorization.
 
 ## Deliver an access code
 

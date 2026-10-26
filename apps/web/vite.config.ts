@@ -8,8 +8,7 @@ export default defineConfig({
     proxy: Object.fromEntries(
       [
         '/admin/api',
-        '/admin/login',
-        '/admin/callback',
+        '/admin/auth',
         '/admin/logout',
         '/oauth',
         '/health',

@@ -10,7 +10,11 @@ export function Navigation({ csrf }: { csrf: string }) {
         <Link to="/admin">Overview</Link>
         <Link to="/admin/devices">Codex</Link>
         <Link to="/admin/agents">Personal Agents</Link>
-        <button disabled={logout.isPending} onClick={() => logout.mutate(csrf)}>
+        <Link to="/admin/security">Browser login</Link>
+        <button
+          disabled={logout.isPending}
+          onClick={() => logout.mutate(csrf, { onSuccess: () => window.location.assign('/admin') })}
+        >
           Sign out
         </button>
       </nav>

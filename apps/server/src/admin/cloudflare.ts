@@ -2,8 +2,7 @@ import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { HttpError } from '../http/responses.ts';
 import { qualification, type Membership } from './permissions.ts';
 import type { Env } from '../env.ts';
-import type { CloudflareClient } from './config.ts';
-export const WRANGLER_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7';
+const WRANGLER_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7';
 const DASH = 'https://dash.cloudflare.com';
 const API = 'https://api.cloudflare.com/client/v4';
 interface ApiResult<T> {
@@ -32,11 +31,6 @@ async function upstream<T>(url: string, init: RequestInit): Promise<T> {
     throw new HttpError(401, 'CF_LOGIN_REQUIRED', 'Sign in to Cloudflare again.');
   if (response.status === 403)
     throw new HttpError(403, 'CF_ACCESS_DENIED', 'Cloudflare denied access to this resource.');
-  if (response.status === 400 && url === `${DASH}/oauth2/token`) {
-    const error = await response.json<{ error?: string }>().catch(() => null);
-    if (error?.error === 'invalid_grant')
-      throw new HttpError(401, 'CF_LOGIN_REQUIRED', 'Sign in to Cloudflare again.');
-  }
   if (!response.ok) throw new HttpError(503, 'CF_RESPONSE_INVALID');
   try {
     return await response.json<T>();
@@ -46,8 +40,8 @@ async function upstream<T>(url: string, init: RequestInit): Promise<T> {
 }
 const read = <T>(url: string, token: string) =>
   upstream<T>(url, { headers: { Authorization: `Bearer ${token}` } });
-export async function checkCloudflare(token: string, audience: string, env: Env) {
-  if (!env.CF_ACCOUNT_ID || !env.CF_WORKER_ID || !audience)
+export async function checkCloudflare(token: string, env: Env) {
+  if (!env.CF_ACCOUNT_ID || !env.CF_WORKER_ID)
     throw new HttpError(503, 'MANAGEMENT_NOT_CONFIGURED');
   const identity = await read<{ iss: string; aud: string | string[]; sub: string }>(
     `${DASH}/oauth2/userinfo`,
@@ -57,7 +51,7 @@ export async function checkCloudflare(token: string, audience: string, env: Env)
   if (
     identity.iss !== DASH ||
     audiences.length !== 1 ||
-    audiences[0] !== audience ||
+    audiences[0] !== WRANGLER_CLIENT_ID ||
     typeof identity.sub !== 'string'
   )
     throw new HttpError(401, 'CF_IDENTITY_INVALID');
@@ -100,45 +94,5 @@ export async function checkCloudflare(token: string, audience: string, env: Env)
       'TARGET_WORKER_MANAGEMENT_REQUIRED',
       'Direct permission to modify this Worker is required. Group-only permission is not supported.',
     );
-  return { subject: identity.sub, email: null, qualification: reason };
-}
-export const oauthEndpoint = `${DASH}/oauth2/auth`;
-export interface CloudflareTokens {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-}
-async function requestToken(fields: Record<string, string>, client: CloudflareClient) {
-  const response = await upstream<CloudflareTokens>(`${DASH}/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      ...fields,
-      client_id: client.client_id,
-      client_secret: client.client_secret,
-    }).toString(),
-  });
-  if (
-    !response.access_token ||
-    response.token_type?.toLowerCase() !== 'bearer' ||
-    !Number.isFinite(response.expires_in) ||
-    response.expires_in <= 0
-  )
-    throw new HttpError(503, 'CF_TOKEN_RESPONSE_INVALID');
-  return response;
-}
-export function exchangeCode(code: string, verifier: string, env: Env, client: CloudflareClient) {
-  return requestToken(
-    {
-      grant_type: 'authorization_code',
-      code,
-      code_verifier: verifier,
-      redirect_uri: env.PUBLIC_ORIGIN + '/admin/callback',
-    },
-    client,
-  );
-}
-export function refreshToken(token: string, client: CloudflareClient) {
-  return requestToken({ grant_type: 'refresh_token', refresh_token: token }, client);
+  return { subject: identity.sub, qualification: reason };
 }

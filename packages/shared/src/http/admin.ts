@@ -6,16 +6,20 @@ import type { ServiceInfo } from './service.ts';
 export const agentInput = z.strictObject({ name: displayName });
 export interface AdminSetupStatus {
   configured: boolean;
-  account_id: string;
   worker: string;
-  token_url: string;
+  password_enabled: boolean;
+  passkey_enabled: boolean;
+  reset?: boolean;
   expires_at?: number;
+}
+export interface AdminSecurity {
+  password_enabled: boolean;
+  passkeys: { id: string; name: string; created_at: number }[];
 }
 export interface AdminSession {
   login_configured: boolean;
   authenticated: true;
   subject: string;
-  email: string | null;
   account_id: string;
   worker: string;
   qualification: string;

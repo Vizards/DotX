@@ -3,7 +3,7 @@
 Read [access](../common/access.md) and [update coordination](../maintenance/update.md). Use the target release's Server attachment and notes.
 
 1. Identify the existing account, Worker, public URL and service ID. Read the running version. Obtain the current deployed configuration and bindings from Cloudflare using official Wrangler/CF APIs, including when working on another machine. Local installation files are not a prerequisite.
-2. Compare the target template with current deployment configuration. Preserve account, Worker, URL, service ID, DO/KV resources, OAuth client, secrets, authorization data and the chosen RECORD_RETENTION_DAYS. Apply only changes required by the target release; never replace the entire actual configuration with the default template. Do not recreate a missing-looking resource without checking its remote identity.
+2. Compare the target template with current deployment configuration. Preserve account, Worker, URL, service ID, DO/KV resources, browser login methods, secrets, authorization data and the chosen RECORD_RETENTION_DAYS. Apply only changes required by the target release; never replace the entire actual configuration with the default template. Do not recreate a missing-looking resource without checking its remote identity.
 3. Point both main and assets.directory to the target attachment's code and public files. Follow release-specific migration/order requirements and deploy with official Wrangler. This updates all web pages and MCP implementation together.
 4. Verify /health reports the target version and check the service's own management/public endpoints. This establishes component completion. Separately inspect devices and report which links are authenticated, wire-compatible, online and expose the required interface. A temporarily incompatible Desktop does not mean the Server update failed or justify automatic rollback.
 5. If remote_catalog changed, route each Personal Agent to its own client guide for the normal catalog refresh. Do not assume ChatGPT, recreate connections or repeat OAuth merely to refresh definitions.
@@ -17,7 +17,9 @@ pnpm dlx wrangler@4.151.0 deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.j
 pnpm dlx wrangler@4.151.0 deploy --config /ABSOLUTE/SERVICE/wrangler.json
 ```
 
-Use the target attachment's actual toolchain version if it differs from this example. The setup page stores new installations’ CF client configuration in DeviceHub; preserve that DO. Earlier development installations with CF_OAUTH_CLIENT_ID / CF_OAUTH_CLIENT_SECRET bindings keep using them and need no setup repeat. Keep Worker secrets in Cloudflare; a deployment does not require retrieving their values. Do not run `secret put` or generate a new `SERVICE_ID` as a routine update. If the current configuration is unavailable locally, recover it using the path below before deployment; inability to inspect it is a handoff, not permission to substitute defaults.
+Use the target attachment's actual toolchain version if it differs from this example. Password verifiers, passkey public keys and browser sessions live in DeviceHub; preserve that DO. Earlier development releases used CF OAuth browser login. When updating one of those releases, follow the target Release notes to set up password/passkey login once through Wrangler. Old CF browser sessions do not become password/passkey sessions. Existing CF OAuth client registrations can be removed from CF after confirming they belong only to the retired DotX browser login and the new login works; do not remove unrelated clients or Personal Agent OAuth data.
+
+Keep unrelated Worker secrets in Cloudflare; deployment does not require retrieving their values. Do not generate a new `SERVICE_ID` as a routine update. If the current configuration is unavailable locally, recover it using the path below before deployment; inability to inspect it is a handoff, not permission to substitute defaults.
 
 ## Recover deployment configuration on another machine
 
@@ -28,7 +30,7 @@ Use the target attachment's actual toolchain version if it differs from this exa
 | Category | What to preserve |
 | --- | --- |
 | Target and public identity | Account, Worker name/ID, origin, `SERVICE_ID`, routes and workers.dev exposure |
-| Plain variables | Current values, including release repository/channel and record retention; preserve CF OAuth bindings when present on an earlier development installation |
+| Plain variables | Current values, including release repository/channel and record retention; remove retired CF_OAUTH_CLIENT_ID / CF_OAUTH_CLIENT_SECRET bindings only as required by the target release |
 | Secrets | Existing secret binding names; keep their values in CF and do not replace them with placeholders |
 | Storage | `OAUTH_KV` namespace ID and `DEVICES` Durable Object binding/class; reuse existing resources |
 | Runtime | Deployed compatibility settings and other intentional settings, changed only as required by the release |

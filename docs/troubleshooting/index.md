@@ -4,7 +4,7 @@ Record the available Server/Desktop versions, service URL, device ID, actual own
 
 ## Authorization fails
 
-A management 401 requires CF login or official Wrangler login. A confirmed 403 means that identity cannot directly modify the target Worker. Group-only permission is unsupported in 0.1.0. A Cloudflare outage is a service failure, not evidence that permissions were revoked. Do not repeatedly log in to repair it.
+For browser management, a 401 requires DotX password or passkey login; lost credentials follow [browser-login recovery](../common/access.md#browser-login-and-recovery). For Wrangler management, a 401 requires checking the official Wrangler login; a confirmed 403 means that identity cannot directly modify the target Worker. Group-only permission is unsupported in 0.1.0. A CF outage affects Wrangler validation, not existing browser login. Do not reset browser credentials to repair it.
 
 For MCP, read [authorization, expiry and recovery](../personal-agents/authorization.md). Normal access-token expiry is handled by the client's OAuth refresh. When reauthorization is needed, restart the client's normal OAuth flow with a fresh access code issued for the existing connection. Do not create a second connection to repair the same instance. See the [dot](../personal-agents/dot/index.md) or [Cue](../personal-agents/cue/index.md) guide for client-specific setup.
 

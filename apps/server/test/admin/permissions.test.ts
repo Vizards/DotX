@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer } from '../support/server.ts';
-import { login } from '../support/browser.ts';
 
 const editor = '55b7b7b20ad14560a58db0121f015c17';
 const administrator = 'e99ac7f52b564790946ff5606061979d';
@@ -77,7 +76,7 @@ test('management APIs enforce target Worker authority before creating or approvi
   }
 });
 
-test('management requests stop membership pagination at the target and recheck browser authority', async (t) => {
+test('management requests stop membership pagination at the target and recheck Wrangler authority', async (t) => {
   const api = await startServer(t, 'paginated');
   await api.admin('/session');
   assert.deepEqual(
@@ -91,21 +90,14 @@ test('management requests stop membership pagination at the target and recheck b
   assert(
     api.cloudflare.calls.some((call) => call.url.pathname === '/client/v4/memberships/test-member'),
   );
-  const browser = await login(api);
   api.cloudflare.member.policies = [workerPolicy('synthetic-read-only')];
   const denied = await api.request('/admin/api/agents', {
     method: 'POST',
-    headers: browser.headers,
+    headers: ownerHeaders,
     body: JSON.stringify({ name: 'after revocation' }),
   });
   assert.equal(denied.status, 403);
-  assert.match(denied.headers.get('Set-Cookie')!, /Max-Age=0/);
   await denied.text();
   api.cloudflare.member.policies = [workerPolicy(editor)];
   assert.deepEqual((await api.admin('/agents')).agents, []);
-  const oldSession = await api.request('/admin/api/session', {
-    headers: { Cookie: browser.cookie },
-  });
-  assert.equal(oldSession.status, 401);
-  await oldSession.text();
 });

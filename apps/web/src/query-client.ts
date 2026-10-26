@@ -15,7 +15,6 @@ function onError(error: Error) {
   });
   queryClient.setQueryData(sessionQuery().queryKey, (): Session => ({
     authenticated: false,
-    reason: error.status === 401 ? 'login' : 'forbidden',
   }));
 }
 export const queryClient = new QueryClient({

@@ -78,9 +78,9 @@ pnpm dlx wrangler@4.151.0 deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.j
 pnpm dlx wrangler@4.151.0 deploy --config /ABSOLUTE/SERVICE/wrangler.json
 ```
 
-The first code deployment includes the immutable Worker ID. Retain the service URL and non-secret resource/configuration values for maintenance. Wrangler management works now; browser login is ready after the following step.
+The first code deployment includes the immutable Worker ID. Retain the service URL and non-secret resource/configuration values for maintenance. Wrangler management works now. Browser login is optional and can be set up now or later.
 
-## 5. Enable Cloudflare administrator login
+## 5. Offer browser login
 
 From the Server attachment, use the authorized Wrangler profile to issue a setup link:
 
@@ -88,25 +88,23 @@ From the Server attachment, use the authorized Wrangler profile to issue a setup
 node admin.mjs --url HTTPS_ORIGIN setup
 ```
 
-Give the user **only the returned DotX setup link**. Say: “Open this link on any device. It will guide you through creating a temporary Cloudflare API token and pasting it back on the same DotX page. Keep that page open; do not send the token in chat.” No browser automation capability is required of the installation Agent.
+Give the returned DotX link to the user: “Open this link on any device and choose a password or passkey for your DotX management page. You can add the other method later. Enter the password only on that page.” The user stays on their own Worker. The installation Agent needs no browser automation and never needs the password or passkey private key.
 
-The DotX page opens Cloudflare in another tab with **OAuth Client Write** and the target account prefilled. The user checks that this is the only permission, selects **Token expiration → Custom**, sets Start to now and End to one hour later, applies the range, reviews and creates the token. The expiry is a manual choice: CF's template URL does not prefill it. The user copies the token, returns to the original DotX page, pastes it there and selects **Finish setup**.
+The page saves the selected login method and signs the browser in. `/admin/security` lets the user add a password, add more passkeys or remove a method while retaining at least one. Future visits use the fixed `/admin` address. Passkeys are tied to the service hostname; a different hostname requires a new passkey.
 
-The Worker creates its private CF OAuth client and saves the client ID/secret in its existing DeviceHub storage. It configures the exact `/admin/callback`, Authorization Code + Refresh Token, Client Secret POST and User Details Read / Memberships Read. CF adds `offline_access`. The temporary API token is used in memory for that request only; it is not returned to the Agent, logged or stored by DotX. The user can revoke it in Cloudflare after completion or let it expire. Do not ask for its value or create a broader token.
-
-Read progress without retrieving credentials:
+Check non-secret progress with:
 
 ```sh
 node admin.mjs --url HTTPS_ORIGIN setup-status
 ```
 
-When `configured` is true, ask the user to use **Sign in with Cloudflare** on the completion page. This is the ordinary login/consent for their own new client. No Client ID/secret copying, Wrangler secret input or extra deployment is required. Do not report browser login verified until it actually succeeds.
+`configured: true` means a password or passkey is saved. Report a browser login as verified only when the user or an observed browser actually enters the management page. If the user defers browser setup, continue installing Codex and Personal Agents through Wrangler; report browser login as deferred, not a failed Server installation.
 
-Setup links last 24 hours. If expired, issue a new one; this replaces the previous unfinished link. If interrupted, check status before issuing another link or repeating creation. Once configured, setup cannot overwrite the login configuration. A network failure can leave the creation outcome unknown: check setup status and the target account's OAuth clients before retrying; an unused client may need removal. Never automatically repeat creation after a timeout.
+Setup links last 24 hours. Issuing another replaces the unfinished link. Check `setup-status` after an interrupted response; a consumed link cannot be used again. Once configured, `setup` leaves existing login methods alone. For forgotten credentials, follow [browser-login recovery](../common/access.md#browser-login-and-recovery).
 
 ## 6. Verify and continue
 
 1. Read `/health` and `/setup/info`. Verify the running version, wire, origin and service identity against the selected release and actual configuration.
-2. Check management access through `node admin.mjs --url HTTPS_ORIGIN session`, or CF browser login at `/admin`. Confirm `login_configured` is true and the user can sign in to the management page. Follow [access recovery](../common/access.md) for an actual authentication/permission failure.
+2. Check management access through `node admin.mjs --url HTTPS_ORIGIN session`. If browser setup was chosen, also check `login_configured` and confirm the user can enter `/admin`; otherwise record that optional step as deferred. Follow [access recovery](../common/access.md) for an actual authentication/permission failure.
 3. Report Server readiness only after those checks pass. Report CF upstream errors or unavailable GitHub update hints as such; neither establishes a need to recreate resources.
 4. If no Codex or Personal Agent exists, continue [connecting Codex](../codex/connect.md) first, then the selected Personal Agent. Do available work; otherwise give the exact next action through [handoff](../common/handoff.md).

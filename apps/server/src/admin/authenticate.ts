@@ -1,9 +1,8 @@
-import { requireClient } from './config.ts';
 import type { Env } from '../env.ts';
 import { HttpError } from '../http/responses.ts';
 import { sameSecret } from '../http/crypto.ts';
-import { checkCloudflare, WRANGLER_CLIENT_ID } from './cloudflare.ts';
-import { cookie, readSession, currentSession, SESSION_COOKIE } from './sessions.ts';
+import { checkCloudflare } from './cloudflare.ts';
+import { cookie, readSession, SESSION_COOKIE } from './sessions.ts';
 export async function authenticate(request: Request, env: Env) {
   const header = request.headers.get('Authorization');
   if (header && cookie(request, SESSION_COOKIE))
@@ -12,32 +11,21 @@ export async function authenticate(request: Request, env: Env) {
     const token = /^Bearer ([^\s]+)$/.exec(header)?.[1];
     if (!token) throw new HttpError(401, 'WRANGLER_OAUTH_REQUIRED');
     return {
-      ...(await checkCloudflare(token, WRANGLER_CLIENT_ID, env)),
+      ...(await checkCloudflare(token, env)),
       csrf_token: null,
       expires_at: null,
     };
   }
-  await authenticateSession(request, env);
-  let session = await currentSession(request, env);
-  const client = await requireClient(env);
-  let identity: Awaited<ReturnType<typeof checkCloudflare>>;
-  try {
-    identity = await checkCloudflare(session.token, client.client_id, env);
-  } catch (error) {
-    if (!(error instanceof HttpError) || error.code !== 'CF_LOGIN_REQUIRED') throw error;
-    // CF may reject a token before our expiry check observes it. Refresh once;
-    // the management action has not started and is never retried here.
-    session = await currentSession(request, env, session.token);
-    identity = await checkCloudflare(session.token, client.client_id, env);
-  }
+  const session = await authenticateSession(request, env);
   return {
-    ...identity,
+    subject: 'administrator',
+    qualification: 'browser',
     csrf_token: session.csrf,
-    expires_at: session.expiresAt,
+    expires_at: session.expires_at,
   };
 }
-// Browser session checks do not require Cloudflare to be reachable. Logging out
-// only removes this session; management actions additionally check CF authority.
+
+// Browser administration is independent of Cloudflare account membership.
 export async function authenticateSession(request: Request, env: Env) {
   if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
   const session = await readSession(request, env);

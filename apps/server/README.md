@@ -4,7 +4,7 @@ This independent attachment contains a bundled Worker, all web pages and brandin
 
 Start at [the guide index](docs/index.md), [Server installation](docs/server/install.md) or [Server update](docs/server/update.md). `release.json` identifies the release, wire version and component changes; `toolchain.json` identifies the official Wrangler and Node requirements. The target GitHub Release notes describe version-specific installation and update requirements.
 
-Keep the actual deployment configuration outside this attachment. Deploy `worker.mjs` and `public/` together as one Worker, with one SQLite DeviceHub DO and OAuth KV. Administrator identity comes from Cloudflare's direct permission to modify the target Worker; no administrator key or DotX password is created.
+Keep the actual deployment configuration outside this attachment. Deploy `worker.mjs` and `public/` together as one Worker, with one SQLite DeviceHub DO and OAuth KV. Agent management uses Wrangler's direct permission to modify the target Worker. Browser management uses this service's password or passkey, stored in DeviceHub; no CF OAuth client is needed.
 
 The management CLI uses the current official Wrangler OAuth login:
 
@@ -17,7 +17,7 @@ Use `--profile NAME` when the intended login uses a named Wrangler profile. The 
 
 For installation, `worker-create --account ACCOUNT_ID --worker NAME` creates the empty Worker and returns its ID before code deployment. `worker-identity` with the same arguments reads an existing Worker by exact name. Set that ID in the deployment configuration and follow the installation guide for one normal Wrangler deployment.
 
-After deployment, `node admin.mjs --url HTTPS_ORIGIN setup` returns the user’s setup-page link. The page guides the user to create a temporary OAuth Client Write API token and paste it directly into their Worker. The Worker creates and stores its own CF login client; the installer never receives the token or client secret. `setup-status` returns readiness. See the installation guide for the complete handoff.
+After deployment, `node admin.mjs --url HTTPS_ORIGIN setup` returns a private link where the user chooses a password or passkey. `setup-status` returns non-secret readiness. Browser setup can be deferred while the Agent continues through Wrangler. `reset-login` explicitly creates a recovery link; successful completion replaces browser credentials and sessions without changing connected Codex or Personal Agents. See the installation and access guides for the complete handoff.
 
 The public MCP endpoint is `/mcp`. Service discovery is `/setup/info`; client metadata and icon are `/branding/metadata.json` and `/branding/icon.png`. Each Personal Agent uses its own access-code OAuth authorization.
 

@@ -6,6 +6,8 @@ const pages = new Set([
   '/admin/',
   '/admin/agents',
   '/admin/agents/',
+  '/admin/security',
+  '/admin/security/',
   '/admin/devices',
   '/admin/devices/',
   '/authorize',
