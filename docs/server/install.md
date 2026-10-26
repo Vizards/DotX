@@ -12,23 +12,23 @@ Download the selected DotX Server GitHub Release attachment. Read its README, `r
 
 ## 2. Check the deployment login
 
-Use official Wrangler to identify the current login and target account. Examples use this release's Wrangler 4.151.0:
+Inspect existing official Wrangler profiles before proposing a new login. Examples use this release's Wrangler 4.151.0:
 
 ```sh
-pnpm dlx wrangler@4.151.0 whoami
-# Only when a default global login is needed:
-pnpm dlx wrangler@4.151.0 login
+pnpm dlx wrangler@4.151.0 auth list
+pnpm dlx wrangler@4.151.0 whoami --json
 ```
 
-For a named login, reuse its profile. If it needs authentication, use the official profile command, then activate it in the service's working directory:
+`whoami` describes the login selected for the current directory, not every saved login. `auth list` lists profile names and their bound directories; a profile name alone does not establish its account. If the requested account is not in the current login, inspect a likely existing profile by running `whoami --json --cwd /ABSOLUTE/BOUND_DIRECTORY` in one of its listed directories. If there is no bound directory, select that profile in the service's working directory and check it there. Reuse a verified match; ask the user to choose only when the deployment target is still missing or ambiguous.
+
+Select the matching profile for this service, without replacing other directories' logins:
 
 ```sh
-pnpm dlx wrangler@4.151.0 auth create PROFILE_NAME
-pnpm dlx wrangler@4.151.0 auth activate PROFILE_NAME
-pnpm dlx wrangler@4.151.0 whoami
+pnpm dlx wrangler@4.151.0 auth activate PROFILE_NAME /ABSOLUTE/SERVICE
+pnpm dlx wrangler@4.151.0 whoami --json --cwd /ABSOLUTE/SERVICE
 ```
 
-`auth create` authenticates or reauthenticates; `auth activate` selects the profile for the directory. Do not repeat them for an already valid active profile. In this version, `login` and `whoami` reject `--profile`; deployment commands and `admin.mjs` can use `--profile PROFILE_NAME` explicitly. Check the selected version's `--help` when needed.
+Only if no matching login exists, or the selected profile actually needs reauthentication, use `pnpm dlx wrangler@4.151.0 auth create PROFILE_NAME`, then select and verify it as above. Use `login` only when the user intends to authenticate the default profile. Do not infer expired credentials or missing permission from a network failure. Do not repeat authentication or activation for an already valid active profile. In this version, `login` and `whoami` reject `--profile`; deployment commands and `admin.mjs` can use `--profile PROFILE_NAME` explicitly. Check the selected version's `--help` when needed.
 
 `whoami` identifies the login, not its permission to modify every Worker. CF authorizes the resource operations below. For first installation, defer the DotX management `session` check until the Server exists; there is no administrator claiming/binding step. The deployment account qualifies through its direct target Worker permission, as described in [access](../common/access.md).
 
@@ -91,6 +91,8 @@ node admin.mjs --url HTTPS_ORIGIN setup
 Give the returned DotX link to the user: “Open this link on any device and choose a password or passkey for your DotX management page. You can add the other method later. Enter the password only on that page.” The user stays on their own Worker. The installation Agent needs no browser automation and never needs the password or passkey private key.
 
 The page saves the selected login method and signs the browser in. `/admin/security` lets the user add a password, add more passkeys or remove a method while retaining at least one. Future visits use the fixed `/admin` address. Passkeys are tied to the service hostname; a different hostname requires a new passkey.
+
+Explain the benefit in user terms: this login lets them open their management page from another device to approve Codex devices, manage Personal Agent connections and change login methods without finding the installation Agent or a Wrangler environment. It is separate from each Personal Agent's OAuth connection. Include the fixed management URL in the [completion message](../common/handoff.md#help-the-user-start-and-expand).
 
 Check non-secret progress with:
 

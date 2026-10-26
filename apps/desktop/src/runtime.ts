@@ -7,6 +7,7 @@ import { serveStatus, readOwner } from './local/ipc.ts';
 import { startDevice } from './native.ts';
 import { errorValue } from '@dotx/shared/errors';
 import packageInfo from '../package.json' with { type: 'json' };
+type OwnerStatus = Partial<ReturnType<ReturnType<typeof startDevice>['status']>>;
 export class Runtime {
   readonly dir: string;
   readonly root: string;
@@ -79,22 +80,31 @@ export class Runtime {
     }
   }
   async status(): Promise<object> {
-    const entry = { role: this.role, pid: process.pid, version: packageInfo.version };
-    let owner: unknown = this.native?.status() ?? null,
+    const entry = {
+      role: this.role,
+      pid: process.pid,
+      version: packageInfo.version,
+      diagnostic: this.diagnostic,
+    };
+    let owner: OwnerStatus | null = this.native?.status() ?? null,
       diagnostic = this.diagnostic;
-    if (this.role === 'standby') {
+    // An entry loaded before setup can still observe an owner started after refresh.
+    // Querying status does not reload this entry's config or start a connection.
+    if (!this.native) {
       try {
-        owner = await readOwner(this.dir);
+        owner = (await readOwner(this.dir)) as OwnerStatus;
+        diagnostic = null;
       } catch (error) {
-        diagnostic = { code: 'OWNER_STATUS_UNAVAILABLE', cause: errorValue(error) };
+        if (this.role === 'standby')
+          diagnostic = { code: 'OWNER_STATUS_UNAVAILABLE', cause: errorValue(error) };
       }
     }
     return {
       entry,
       data_dir: this.dir,
       docs_dir: path.join(this.root, 'docs'),
-      target_server: this.config?.service.origin ?? null,
-      device_id: this.config?.deviceId ?? null,
+      target_server: owner?.target_server ?? this.config?.service.origin ?? null,
+      device_id: owner?.deviceId ?? this.config?.deviceId ?? null,
       owner,
       diagnostic,
     };

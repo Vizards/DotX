@@ -15,11 +15,24 @@ Local Codex verification does not require `list_connections` when no Personal Ag
 
 A submitted Codex application can be handed off as **awaiting approval**, with its identity and target verified. It is not ready to execute. After approval, repeat the local checks above. An entry marked standby is healthy when it can read the approved actual owner's status.
 
+`entry` describes the queried plugin process; `owner` describes the connector actually serving this installation. An older entry can retain an unconfigured/unavailable role and its `entry.diagnostic` while reporting a healthy current owner. Assess connectivity from `owner.connection` and `owner.interfaces`; the top-level target and device fields prefer that owner's identity. A missing owner still requires the relevant setup/refresh/recovery action. Do not reset an online device because a leftover entry has an old setup diagnostic.
+
 When a Personal Agent has no usable Codex, identify the reason before choosing the next action:
 
 - No device installed: continue [Codex connection](../codex/connect.md) on the intended Mac.
 - Approval pending: perform the [management access check](access.md) if capable, then approve the matching application or hand it to the administrator.
 - Offline, incompatible or missing native interface: follow [troubleshooting](../troubleshooting/index.md). OAuth success alone does not resolve these states.
+
+## Help the user start and expand
+
+After the requested installation is ready, give a short, concrete completion message covering these four next-use scenarios. Use the Personal Agents actually connected, the verified device name and the real Server URL. Resolve guide links to the selected version; do not leave placeholders or send the user back to the repository README. Keep these instructions here rather than copying a separate ending into each component or client guide.
+
+1. **Start using it.** Tell the user where to send a request and offer one useful example suited to their goal. For an installed development environment: “In [connected Personal Agent], say: ‘On [device], open a new Codex conversation for the project I choose, review its recent changes and suggest improvements without editing files.’” If the project is already known, name it; otherwise let the user choose it. Explain that they can then continue that conversation through the same Personal Agent. Suggesting this prompt does not authorize sending it. If only `list_connections` has been checked, say connection verification is complete and the first actual task is still theirs to start.
+2. **Add another Personal Agent.** Give the existing Server's public `/mcp` URL and the selected version's [client guide](../index.md). Explain that an authorized Agent can create a separate named connection; the user can also create it at the real `/admin/agents` URL. The new client then completes its normal OAuth flow using that connection's access code. Keep the code out of the URL and generic handoff. Reauthorization of the same instance reuses its row. The same Server serves the additional client; do not deploy another Server.
+3. **Add another Codex device.** Give a message to use in Codex on the new Mac: “Connect this Mac's Codex to [existing Server URL] using [version-matched Codex connection guide].” Follow [Codex connection](../codex/connect.md) on that Mac; an Agent with management authority can approve the device, otherwise the user approves it at the real `/admin/devices` URL. After approval and verification, the already connected Personal Agents can discover and use it. Use the same Desktop package and existing Server.
+4. **Return to management.** Give the fixed, clickable `/admin` URL and explain that the saved password or passkey lets the user approve/revoke devices, create/reissue/revoke Personal Agent connections and manage browser login methods without Wrangler or the original installation Agent. Name the method actually configured; do not call a passkey a password. If browser setup was deferred, say so and point to the existing setup handoff or [setup/recovery instructions](access.md#browser-login-and-recovery); do not claim the page is ready for independent login. The private setup link is for configuration, not the everyday bookmark.
+
+If a stage is incomplete, lead with the exact remaining action and provide only next-use suggestions that are currently possible. Do not present pending authorization as ready, require more clients/devices to finish installation, or start additional installations just because these options are listed. Continue any next action the user has already requested; otherwise leave the choices with them.
 
 ## Hand off only the remaining work
 
