@@ -125,8 +125,16 @@ export class AdminCredentials {
       })),
     };
   }
-  async session(id: string) {
-    return this.live<BrowserSession>(this.store, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
+  async session(id: string, csrf?: string) {
+    // Check and extend atomically; a late request cannot recreate a revoked session.
+    return this.store.transaction(async (tx) => {
+      const session = await this.live<BrowserSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
+      if (csrf !== undefined && !sameSecret(session.csrf, csrf))
+        throw new HttpError(403, 'CSRF_REQUIRED', 'Refresh the management page before retrying.');
+      session.expires_at = Date.now() + sessionSeconds * 1000;
+      await this.save(tx, sessionKey(id), session);
+      return session;
+    });
   }
   async logout(id: string) {
     await this.store.delete(sessionKey(id));

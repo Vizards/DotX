@@ -12,12 +12,8 @@ const parameters = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 const derive = (password: string, salt: string) =>
   scryptSync(password, salt, 32, parameters).toString('base64url');
 export function passwordHash(password: unknown): PasswordHash {
-  if (typeof password !== 'string' || [...password].length < 15)
-    throw new HttpError(
-      400,
-      'PASSWORD_TOO_SHORT',
-      'Use at least 15 characters. Spaces and password-manager generated passwords are welcome.',
-    );
+  if (typeof password !== 'string' || password.length === 0)
+    throw new HttpError(400, 'PASSWORD_REQUIRED', 'Enter a password.');
   const salt = randomSecret(16);
   return { salt, hash: derive(password, salt) };
 }

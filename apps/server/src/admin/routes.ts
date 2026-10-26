@@ -2,8 +2,15 @@ import type { Env } from '../env.ts';
 import { serviceInfo } from '../env.ts';
 import { control, hub } from '../hub/namespace.ts';
 import { authenticate, authenticateSession } from './authenticate.ts';
-import { clearSession, browserAuthority, sessionResponse } from './sessions.ts';
-import type { BrowserSession } from './credentials.ts';
+import {
+  clearSession,
+  browserAuthority,
+  sessionResponse,
+  cookie,
+  setCookie,
+  SESSION_COOKIE,
+} from './sessions.ts';
+import { sessionSeconds, type BrowserSession } from './credentials.ts';
 import { HttpError, json, failure } from '../http/responses.ts';
 import { cleanEndedGrants } from '../oauth/grants.ts';
 export async function adminRoutes(
@@ -14,6 +21,14 @@ export async function adminRoutes(
   const path = new URL(request.url).pathname;
   if (!path.startsWith('/admin/')) return null;
   if (path !== '/admin/logout' && !path.startsWith('/admin/api/')) return null;
+  let renewedCookie: string | undefined;
+  const respond = (response: Response) => {
+    if (renewedCookie && !response.headers.has('Set-Cookie')) {
+      response = new Response(response.body, response);
+      response.headers.set('Set-Cookie', renewedCookie);
+    }
+    return response;
+  };
   try {
     if (path === '/admin/logout' && request.method === 'POST') {
       await authenticateSession(request, env);
@@ -28,23 +43,30 @@ export async function adminRoutes(
       await authenticate(request, env);
       return json(await control(env, 'admin/issue', { reset: path === '/admin/api/reset-login' }));
     }
-    if (path === '/admin/api/setup' && request.method === 'GET') {
-      await authenticate(request, env);
-      return json(await control(env, 'admin/status', {}));
-    }
     const actor = await authenticate(request, env);
+    if (actor.qualification === 'browser')
+      renewedCookie = setCookie(
+        env,
+        SESSION_COOKIE,
+        cookie(request, SESSION_COOKIE)!,
+        sessionSeconds,
+      );
+    if (path === '/admin/api/setup' && request.method === 'GET')
+      return respond(json(await control(env, 'admin/status', {})));
     if (path === '/admin/api/session' && request.method === 'GET')
-      return json({
-        authenticated: true,
-        login_configured: (await control<{ configured: boolean }>(env, 'admin/status', {}))
-          .configured,
-        ...actor,
-        account_id: env.CF_ACCOUNT_ID,
-        worker: env.CF_WORKER_NAME,
-        service: serviceInfo(env),
-      });
+      return respond(
+        json({
+          authenticated: true,
+          login_configured: (await control<{ configured: boolean }>(env, 'admin/status', {}))
+            .configured,
+          ...actor,
+          account_id: env.CF_ACCOUNT_ID,
+          worker: env.CF_WORKER_NAME,
+          service: serviceInfo(env),
+        }),
+      );
     if (path === '/admin/api/security' && request.method === 'GET')
-      return json(await control(env, 'admin/security', {}));
+      return respond(json(await control(env, 'admin/security', {})));
     const removal = /^\/admin\/api\/(password|passkeys\/([^/]+))$/.exec(path);
     if (removal && request.method === 'DELETE') {
       const session = await control<BrowserSession & { secret: string }>(env, 'admin/remove', {
@@ -63,7 +85,7 @@ export async function adminRoutes(
       );
       if (response.ok && !['GET', 'HEAD'].includes(request.method))
         ctx.waitUntil(cleanEndedGrants(env));
-      return response;
+      return respond(response);
     }
     throw new HttpError(405, 'METHOD_NOT_ALLOWED');
   } catch (error) {
@@ -75,6 +97,6 @@ export async function adminRoutes(
       !request.headers.has('Authorization')
     )
       response.headers.set('Set-Cookie', await clearSession(request, env));
-    return response;
+    return respond(response);
   }
 }

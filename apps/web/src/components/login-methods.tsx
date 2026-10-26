@@ -48,7 +48,6 @@ export function PasswordForm({
               type="password"
               autoComplete={auth ? 'new-password' : 'current-password'}
               required
-              minLength={auth ? 15 : undefined}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
@@ -57,24 +56,21 @@ export function PasswordForm({
         )}
       </form.Field>
       {auth && (
-        <>
-          <p>Use at least 15 characters. You can save it in your password manager.</p>
-          <form.Field name="confirm">
-            {(field) => (
-              <label>
-                Confirm password{' '}
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </label>
-            )}
-          </form.Field>
-        </>
+        <form.Field name="confirm">
+          {(field) => (
+            <label>
+              Confirm password{' '}
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+              />
+            </label>
+          )}
+        </form.Field>
       )}
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(busy) => (

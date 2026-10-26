@@ -147,7 +147,7 @@ export class DeviceHub extends DurableObject<Env> {
     if (path === 'admin/security') return this.adminCredentials.security();
     if (path === 'admin/issue') return this.adminCredentials.issue(value.reset === true);
     if (path === 'admin/context') return this.adminCredentials.context(value.hash);
-    if (path === 'admin/session') return this.adminCredentials.session(value.id);
+    if (path === 'admin/session') return this.adminCredentials.session(value.id, value.csrf);
     if (path === 'admin/logout') {
       await this.adminCredentials.logout(value.id);
       return null;

@@ -1,8 +1,9 @@
 import type { Env } from '../env.ts';
 import { HttpError } from '../http/responses.ts';
-import { sameSecret } from '../http/crypto.ts';
 import { checkCloudflare } from './cloudflare.ts';
-import { cookie, readSession, SESSION_COOKIE } from './sessions.ts';
+import { cookie, sessionId, SESSION_COOKIE } from './sessions.ts';
+import { control } from '../hub/namespace.ts';
+import type { BrowserSession } from './credentials.ts';
 export async function authenticate(request: Request, env: Env) {
   const header = request.headers.get('Authorization');
   if (header && cookie(request, SESSION_COOKIE))
@@ -28,12 +29,16 @@ export async function authenticate(request: Request, env: Env) {
 // Browser administration is independent of Cloudflare account membership.
 export async function authenticateSession(request: Request, env: Env) {
   if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
-  const session = await readSession(request, env);
+  const id = await sessionId(request);
   if (
     !['GET', 'HEAD'].includes(request.method) &&
-    (request.headers.get('Origin') !== env.PUBLIC_ORIGIN ||
-      !sameSecret(request.headers.get('X-CSRF-Token') ?? '', session.csrf))
+    request.headers.get('Origin') !== env.PUBLIC_ORIGIN
   )
     throw new HttpError(403, 'CSRF_REQUIRED', 'Refresh the management page before retrying.');
-  return session;
+  return control<BrowserSession>(env, 'admin/session', {
+    id,
+    csrf: ['GET', 'HEAD'].includes(request.method)
+      ? undefined
+      : (request.headers.get('X-CSRF-Token') ?? ''),
+  });
 }

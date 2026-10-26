@@ -23,9 +23,6 @@ export async function sessionId(request: Request) {
     throw new HttpError(401, 'ADMIN_LOGIN_REQUIRED', 'Sign in with your DotX password or passkey.');
   return sha256(value);
 }
-export async function readSession(request: Request, env: Env) {
-  return control<BrowserSession>(env, 'admin/session', { id: await sessionId(request) });
-}
 export async function clearSession(request: Request, env: Env) {
   const value = cookie(request, SESSION_COOKIE);
   if (value) await control(env, 'admin/logout', { id: await sha256(value) });
