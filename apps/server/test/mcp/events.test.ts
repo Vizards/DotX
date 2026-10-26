@@ -699,7 +699,11 @@ for (const phase of ['initial', 'retry'] as const) {
       if (body.type === 'verification') return Response.json({ challenge: body.challenge });
       const attempt = (attempts.get(url.pathname) ?? 0) + 1;
       attempts.set(url.pathname, attempt);
-      if (phase === 'retry' && attempt === 1) return new Response(null, { status: 503 });
+      if (phase === 'retry' && attempt === 1) {
+        // Make the retries due in different alarm invocations, not the same batch.
+        if (url.pathname === '/two') await delay(250);
+        return new Response(null, { status: 503 });
+      }
       received.push(url.pathname);
       if (received.length === 1) await blocked;
       return new Response(null, { status: 204 });

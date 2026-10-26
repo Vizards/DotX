@@ -389,11 +389,12 @@ export class Events {
       else expiry = Math.min(expiry, s.expires);
     }
     const retries = await this.store.list<Retry>({ prefix: 'events:retry:' });
-    await Promise.all(
-      [...retries.values()].map((r) =>
-        r.nextAt <= Date.now() ? this.send(r) : this.wake(r.nextAt),
-      ),
-    );
+    for (const r of retries.values()) {
+      // Finish this alarm before waiting for callbacks: a later alarm may own
+      // another subscriber's retry. send() already prevents duplicate in-flight work.
+      if (r.nextAt <= Date.now()) this.waitUntil(this.send(r));
+      else await this.wake(r.nextAt);
+    }
     if (Number.isFinite(expiry)) await this.wake(expiry);
     // Expired callback verification proofs contain only hashes and timestamps.
     for (const [key, until] of await this.store.list<number>({ prefix: 'events:verified:' }))
