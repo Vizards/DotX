@@ -11,3 +11,9 @@ export const decideRequest = (id: string, decision: 'approve' | 'reject', csrf: 
   });
 export const revokeDevice = (id: string, csrf: string) =>
   api<AdminDevice>(`/admin/api/devices/${encodeURIComponent(id)}/revoke`, { method: 'POST', csrf });
+export const renameDevice = (id: string, name: string, csrf: string) =>
+  api<AdminDevice>(`/admin/api/devices/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { name },
+    csrf,
+  });

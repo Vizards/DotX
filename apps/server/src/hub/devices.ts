@@ -6,6 +6,8 @@ import { keyId } from '../devices/proof.ts';
 import type { AtomicStore, Store } from './storage.ts';
 export interface DeviceRecord extends DeviceRequest {
   approved_at: number | null;
+  // Keep the enrollment name unchanged so replaying its operation stays idempotent.
+  display_name?: string;
 }
 const key = (id: string) => 'device:' + id;
 const operationKey = (id: string) => 'device-request:' + id;
@@ -58,6 +60,7 @@ export class Devices {
       if (device && ['pending', 'approved'].includes(device.status)) return this.result(device);
       const record: DeviceRecord = {
         ...input,
+        ...(device?.display_name !== undefined ? { display_name: device.display_name } : {}),
         key_id: fingerprint,
         status: 'pending',
         created_at: Date.now(),
@@ -105,6 +108,13 @@ export class Devices {
       await tx.put(key(id), next);
       await tx.put(operationKey(record.operation_id), next);
       return next;
+    });
+  }
+  async rename(id: string, name: string) {
+    await this.store.transaction(async (tx) => {
+      const record = await this.get(id, tx);
+      if (!record?.approved_at) throw new HttpError(404, 'DEVICE_NOT_FOUND');
+      await tx.put(key(id), { ...record, display_name: name });
     });
   }
 }

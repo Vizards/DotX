@@ -12,7 +12,7 @@ import { eventAccess } from '../events/authorization.ts';
 import { ReleaseUpdates } from '../updates/releases.ts';
 import { requireAccess, grantIdentity, type Caller } from './access.ts';
 import { enrollmentInput } from '@dotx/shared/http/enrollment';
-import { agentInput } from '@dotx/shared/http/admin';
+import { nameInput } from '@dotx/shared/http/admin';
 import type { AdminDevice } from '@dotx/shared/http/admin';
 import type { Outcome } from '@dotx/shared/requests';
 import { WIRE_VERSION } from '@dotx/shared/wire/version';
@@ -91,7 +91,7 @@ export class DeviceHub extends DurableObject<Env> {
       if (path === '/admin/api/agents') {
         if (request.method === 'GET') return json({ agents: await this.agents.list() });
         if (request.method === 'POST') {
-          const input = agentInput.safeParse(await readJson(request));
+          const input = nameInput.safeParse(await readJson(request));
           if (!input.success) throw new HttpError(400, 'INVALID_AGENT_NAME');
           return json(
             {
@@ -106,7 +106,7 @@ export class DeviceHub extends DurableObject<Env> {
       if (agent) {
         const [, id, action] = agent;
         if (!action && request.method === 'PATCH') {
-          const input = agentInput.safeParse(await readJson(request));
+          const input = nameInput.safeParse(await readJson(request));
           if (!input.success) throw new HttpError(400, 'INVALID_AGENT_NAME');
           return json(await this.agents.rename(id!, input.data.name));
         }
@@ -130,6 +130,13 @@ export class DeviceHub extends DurableObject<Env> {
       }
       if (path === '/admin/api/devices' && request.method === 'GET')
         return json({ devices: await this.adminDevices() });
+      const device = /^\/admin\/api\/devices\/([^/]+)$/.exec(path);
+      if (device && request.method === 'PATCH') {
+        const input = nameInput.safeParse(await readJson(request));
+        if (!input.success) throw new HttpError(400, 'INVALID_DEVICE_NAME');
+        await this.devices.rename(device[1]!, input.data.name);
+        return json((await this.adminDevices()).find((d) => d.device_id === device[1]));
+      }
       const revoke = /^\/admin\/api\/devices\/([^/]+)\/revoke$/.exec(path);
       if (revoke && request.method === 'POST') {
         await this.devices.revoke(revoke[1]!);
@@ -207,7 +214,7 @@ export class DeviceHub extends DurableObject<Env> {
         wire = info.wireProtocol;
       result.push({
         device_id: device.device_id,
-        name: device.name,
+        name: device.display_name ?? device.name,
         key_id: device.key_id,
         public_key: device.public_key,
         status: device.status === 'revoked' ? 'revoked' : 'approved',

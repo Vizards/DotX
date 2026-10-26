@@ -2,6 +2,16 @@
 
 Report what is actually verified. Complete available authorized work before handing it off. Do not start synthetic Codex tasks as part of ordinary user installation or updates.
 
+## Choose the next executable step
+
+Use the current state, including work the user completed in another Agent. Server deployment, access to a user's Mac, and configuring the current Personal Agent are separate capabilities. A shell in your own cloud environment does not establish access to the target Mac or its Codex host.
+
+When starting from nothing, aim for Server → first Codex → Personal Agent. After Server is ready, continue Codex installation only if you can actually work in the intended Mac's local Codex environment. Otherwise give the short handoff below. You can prepare the chosen Personal Agent's connection while local installation is handed off; report which stage still needs completion.
+
+If the user returns with “the Mac is installed,” inspect existing Server devices/applications through available management access or the already connected remote MCP. If you are the intended Personal Agent and have not connected yet, continue your connection guide and then call `list_connections`. A fresh device result is enough to choose the next step; do not wait for an earlier local-access task to finish just to repeat that check.
+
+When an operation fails or provides no result, report the last verified step, the actual blocker and the next action that can proceed. Do not describe unverified access as working or say installation succeeded while waiting for an unrelated task. Continue independent authorized work; hand off the missing local action instead of repeatedly saying “checking.”
+
 ## Check the stage you completed
 
 | Stage | Evidence required | Next action |
@@ -29,22 +39,22 @@ After the requested installation is ready, give a short, concrete completion mes
 
 1. **Start using it.** Tell the user where to send a request and offer one useful example suited to their goal. For an installed development environment: “In [connected Personal Agent], say: ‘On [device], open a new Codex conversation for the project I choose, review its recent changes and suggest improvements without editing files.’” If the project is already known, name it; otherwise let the user choose it. Explain that they can then continue that conversation through the same Personal Agent. Suggesting this prompt does not authorize sending it. If only `list_connections` has been checked, say connection verification is complete and the first actual task is still theirs to start.
 2. **Add another Personal Agent.** Give the existing Server's public `/mcp` URL and the selected version's [client guide](../index.md). Explain that an authorized Agent can create a separate named connection; the user can also create it at the real `/admin/agents` URL. The new client then completes its normal OAuth flow using that connection's access code. Keep the code out of the URL and generic handoff. Reauthorization of the same instance reuses its row. The same Server serves the additional client; do not deploy another Server.
-3. **Add another Codex device.** Give a message to use in Codex on the new Mac: “Connect this Mac's Codex to [existing Server URL] using [version-matched Codex connection guide].” Follow [Codex connection](../codex/connect.md) on that Mac; an Agent with management authority can approve the device, otherwise the user approves it at the real `/admin/devices` URL. After approval and verification, the already connected Personal Agents can discover and use it. Use the same Desktop package and existing Server.
+3. **Add another Codex device.** Give the short [handoff below](#hand-off-only-the-remaining-work) for Codex on the new Mac. An Agent with management authority can approve the device, otherwise the user approves it at the real `/admin/devices` URL. After approval and verification, the already connected Personal Agents can discover and use it. Reuse the existing Server.
 4. **Return to management.** Give the fixed, clickable `/admin` URL and explain that the saved password or passkey lets the user approve/revoke devices, create/reissue/revoke Personal Agent connections and manage browser login methods without Wrangler or the original installation Agent. Name the method actually configured; do not call a passkey a password. If browser setup was deferred, say so and point to the existing setup handoff or [setup/recovery instructions](access.md#browser-login-and-recovery); do not claim the page is ready for independent login. The private setup link is for configuration, not the everyday bookmark.
 
 If a stage is incomplete, lead with the exact remaining action and provide only next-use suggestions that are currently possible. Do not present pending authorization as ready, require more clients/devices to finish installation, or start additional installations just because these options are listed. Continue any next action the user has already requested; otherwise leave the choices with them.
 
 ## Hand off only the remaining work
 
-Give the user a concise message to pass on, or send it to another Agent when the user has authorized that communication. Use this information as needed:
+Default to a message the user can copy to the Agent that can do the remaining work. Do not ask the user to run commands, replace paths or relay plugin directories unless they choose manual operation. For a Mac connection, substitute real values into this short message:
 
 ```text
-Goal: what the user wants to achieve
-Target: Server URL, component versions, relevant device/Agent connection IDs
-Completed: actions and the status fields that verify them
-Next: one concrete action, who can perform it, and the relevant versioned guide/page
-Blocked by: actual error or missing capability; checks not yet completed
+Connect this Mac's Codex to my existing DotX Server using this guide.
+Server: HTTPS_ORIGIN
+Guide: VERSIONED_CODEX_CONNECTION_GUIDE_URL
 ```
+
+Put each URL on its own line, or use an explicit Markdown link. Keep adjacent punctuation and instructions outside the URL. When resuming, add one sentence describing completed work and the exact blocker, for example: “DotX Desktop is already installed; the previous conversation could not discover device_status. Load the existing plugin here and continue configuration.” Include an existing application/device ID when needed to select it. The receiving Agent obtains its own actual plugin paths and capabilities.
 
 Do not include access codes, OAuth credentials, private keys or conversation bodies in general handoffs or diagnostic records. Supply an access code only to the intended enrollment flow, with its actual deadline and [authorization guide](../personal-agents/authorization.md).
 

@@ -3,7 +3,7 @@ import { displayName } from './enrollment.ts';
 import type { EnrollmentStatus, DevicePublicKey } from './enrollment.ts';
 import type { InterfaceStatus } from '../devices.ts';
 import type { ServiceInfo } from './service.ts';
-export const agentInput = z.strictObject({ name: displayName });
+export const nameInput = z.strictObject({ name: displayName });
 export interface AdminSetupStatus {
   configured: boolean;
   worker: string;

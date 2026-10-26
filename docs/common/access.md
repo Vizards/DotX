@@ -47,6 +47,7 @@ node admin.mjs --url HTTPS_ORIGIN device-requests
 node admin.mjs --url HTTPS_ORIGIN device-approve --id OPERATION_ID
 node admin.mjs --url HTTPS_ORIGIN device-reject --id OPERATION_ID
 node admin.mjs --url HTTPS_ORIGIN devices
+node admin.mjs --url HTTPS_ORIGIN device-rename --id DEVICE_ID --name 'MacBook'
 node admin.mjs --url HTTPS_ORIGIN device-revoke --id DEVICE_ID
 node admin.mjs --url HTTPS_ORIGIN agents
 node admin.mjs --url HTTPS_ORIGIN agent-create --name 'Personal Agent name'

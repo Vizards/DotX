@@ -45,6 +45,11 @@ test('management APIs enforce target Worker authority before creating or approvi
       ['/admin/api/session', 'GET', undefined],
       ['/admin/api/agents', 'POST', JSON.stringify({ name: 'forbidden' })],
       [`/admin/api/device-requests/${device.input.operation_id}/approve`, 'POST', undefined],
+      [
+        `/admin/api/devices/${device.input.device_id}`,
+        'PATCH',
+        JSON.stringify({ name: 'forbidden' }),
+      ],
     ] as const) {
       const response = await api.request(path, { method, headers: candidate.headers, body });
       assert.equal(response.status, candidate.status, await response.clone().text());

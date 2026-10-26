@@ -5,10 +5,12 @@ export function DeviceList({
   devices,
   busy,
   revoke,
+  rename,
 }: {
   devices: AdminDevice[];
   busy: boolean;
   revoke: (device: AdminDevice) => void;
+  rename: (device: AdminDevice) => void;
 }) {
   const columns = useMemo<Column<AdminDevice>[]>(
     () => [
@@ -30,15 +32,21 @@ export function DeviceList({
       {
         id: 'actions',
         header: 'Manage',
-        cell: ({ row }) =>
-          row.original.status !== 'revoked' && (
-            <button disabled={busy} onClick={() => revoke(row.original)}>
-              Remove
-            </button>
-          ),
+        cell: ({ row }) => (
+          <>
+            <button disabled={busy} onClick={() => rename(row.original)}>
+              Rename
+            </button>{' '}
+            {row.original.status !== 'revoked' && (
+              <button disabled={busy} onClick={() => revoke(row.original)}>
+                Remove
+              </button>
+            )}
+          </>
+        ),
       },
     ],
-    [busy, revoke],
+    [busy, revoke, rename],
   );
   return devices.length ? (
     <DataTable data={devices} columns={columns} />

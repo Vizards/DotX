@@ -15,3 +15,8 @@ export const decideRequestMutation = (csrf: string) =>
   });
 export const revokeDeviceMutation = (csrf: string) =>
   mutationOptions({ mutationFn: (id: string) => api.revokeDevice(id, csrf), onSettled: refresh });
+export const renameDeviceMutation = (csrf: string) =>
+  mutationOptions({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.renameDevice(id, name, csrf),
+    onSettled: refresh,
+  });

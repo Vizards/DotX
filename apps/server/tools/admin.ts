@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { wranglerToken, workerIdentity, createWorker } from './wrangler.ts';
 const help =
-  'admin.mjs --url HTTPS_ORIGIN [--profile WRANGLER_PROFILE] session | setup | setup-status | reset-login | agents | agent-create --name NAME | agent-rename --id ID --name NAME | agent-reissue --id ID | agent-cancel --id ID | agent-revoke --id ID | devices | device-requests | device-approve --id OPERATION_ID | device-reject --id OPERATION_ID | device-revoke --id DEVICE_ID; installation: admin.mjs worker-identity | worker-create --account ACCOUNT_ID --worker NAME [--profile WRANGLER_PROFILE]';
+  'admin.mjs --url HTTPS_ORIGIN [--profile WRANGLER_PROFILE] session | setup | setup-status | reset-login | agents | agent-create --name NAME | agent-rename --id ID --name NAME | agent-reissue --id ID | agent-cancel --id ID | agent-revoke --id ID | devices | device-rename --id DEVICE_ID --name NAME | device-requests | device-approve --id OPERATION_ID | device-reject --id OPERATION_ID | device-revoke --id DEVICE_ID; installation: admin.mjs worker-identity | worker-create --account ACCOUNT_ID --worker NAME [--profile WRANGLER_PROFILE]';
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -86,6 +86,12 @@ async function main() {
       break;
     case 'devices':
       path = '/devices';
+      break;
+    case 'device-rename':
+      path = `/devices/${id()}`;
+      method = 'PATCH';
+      if (values.name === undefined) throw new Error('NAME_REQUIRED');
+      body = { name: values.name };
       break;
     case 'device-requests':
       path = '/device-requests';

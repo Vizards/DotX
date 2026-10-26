@@ -4,9 +4,9 @@ Use this guide for one Cue instance connecting to an existing DotX Server. Reuse
 
 ## Prepare the connection
 
-1. Obtain the Server origin. Read `/branding/metadata.json` and `/branding/icon.png` for its public name, description and icon. The endpoint is `HTTPS_ORIGIN/mcp`, with no credentials in its URL.
+1. Obtain the Server origin. Read `/branding/metadata.json` and `/branding/icon.png` for its public name, description and icon. The endpoint is `HTTPS_ORIGIN/mcp`, with no credentials in its URL. Inspect the actual endpoint of any existing Cue integration before reusing it. A catalog entry named “dotx” does not establish that it belongs to this Server; create a custom remote MCP connection with the exact URL when its target cannot be verified.
 2. Create a named Personal Agent row in `/admin/agents` or through the Server management CLI. Reissue the existing row for this same Cue instance; create a new row only for another instance.
-3. Obtain the access code and actual expiry from the administrator. If you cannot manage the Server, hand off this specific create/reissue action and continue after the code is available through the intended enrollment flow.
+3. Obtain the access code and actual expiry from the administrator before opening authorization. If you cannot manage the Server, hand off this specific create/reissue action and continue after the code is available through the intended enrollment flow.
 
 ## Add the remote MCP and authorize
 
@@ -19,6 +19,8 @@ After connection, call list_connections and report whether a Codex is usable.
 ```
 
 This message contains no access code. In the observed Cue 1.1.3 flow, Cue presents an add-remote-MCP card; **Continue** opens browser authorization. Existing apps can be inspected from **Settings → Apps**. If no connection action is offered, inspect the available Apps controls or hand off the visible missing step; do not invent a hidden configuration file or button.
+
+When presenting that action to the intended user, provide the target Server, access code and actual expiry together: “Open this connection action, enter this code on your DotX page, approve, then return to Cue.” Keep the code separate from the URL and outside general handoff/diagnostic records. Do not send the user to an access-code form before they have its code.
 
 1. Start authorization from Cue's remote MCP connection action. An Agent without browser control can give the user Cue's generated authorization link. Keep the original Cue flow open for its callback.
 2. On DotX's page, verify the intended service, client and callback, enter the access code and approve. Cue has identified its OAuth client as **Manus**, with a `manus.im` callback in prior validation; these labels explain that flow, not a replacement for checking the current transaction.

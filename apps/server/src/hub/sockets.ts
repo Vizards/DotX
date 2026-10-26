@@ -286,7 +286,7 @@ export class Sockets {
     const diagnostic = await this.ctx.storage.get<ConnectionError>(diagnosticKey(device.device_id));
     return {
       deviceId: device.device_id,
-      label: device.name,
+      label: device.display_name ?? device.name,
       availability:
         entry && Date.now() - entry.lastSeen < freshness
           ? (entry.availability ?? 'unavailable')
