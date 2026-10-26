@@ -5,7 +5,7 @@ Run in local Codex on the Mac being added. Need: the target Server and selected 
 ## Connect
 
 1. Install the release's Desktop package through Codex's normal plugin mechanism. Its extracted ZIP contains `.agents/plugins/marketplace.json`. With the official CLI, register it using `codex plugin marketplace add /ABSOLUTE/EXTRACTED_DESKTOP`, then install `dotx-desktop` from `dotx` through the normal host mechanism. Reuse an existing matching installation.
-2. Call `device_status` in this host. If unavailable, complete [plugin loading recovery](../troubleshooting/plugin-loading.md), then return here. Use its exact `data_dir`; resolve the package root as the parent of `docs_dir`. Do not infer paths or borrow another plugin's data.
+2. Try `device_status` in the installing conversation; the Agent is responsible for verifying the installation. If unavailable, use [plugin loading recovery](../troubleshooting/plugin-loading.md): keep trying normal loading, offer the user a convenient restart in parallel, and arrange a local continuation if needed. Return here when the tool works. Use its exact `data_dir`; resolve the package root as the parent of `docs_dir`. Do not infer paths or borrow another plugin's data.
 3. Run the installed package's command with a recognizable actual device name:
 
    ```sh

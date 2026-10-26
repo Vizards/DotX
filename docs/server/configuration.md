@@ -16,7 +16,7 @@ Use the attachment's toolchain version. Put the returned namespace ID and these 
 | --- | --- |
 | `name`, `account_id` | The chosen Worker name and CF account ID |
 | `main`, `assets.directory` | Paths to this attachment's `worker.mjs` and `public/`; resolve relative to the actual configuration file |
-| `vars.PUBLIC_ORIGIN` | The final HTTPS origin, with no trailing slash |
+| `vars.PUBLIC_ORIGIN` | The final HTTPS origin, with no trailing slash; [resolve it below](#resolve-the-service-address) |
 | `vars.SERVICE_ID` | A fresh UUID generated once for this service; preserve across updates |
 | `vars.CF_ACCOUNT_ID`, `vars.CF_WORKER_NAME` | The same target account and Worker name |
 | `vars.CF_WORKER_ID` | The immutable CF Worker resource ID; obtain before deployment using the Worker identity commands in the installation guide |
@@ -24,6 +24,22 @@ Use the attachment's toolchain version. Put the returned namespace ID and these 
 | `vars.RELEASE_CHANNEL` | `stable` by default; choose a prerelease channel such as `dev` or `rc` explicitly. See [release discovery](../maintenance/update.md#release-discovery) |
 | `vars.RECORD_RETENTION_DAYS` | `"30"` by default; positive days to retain request receipts, answer deduplication and answer routes. See [adjusting retention](retention.md) |
 | `kv_namespaces[].id` | The namespace created for the `OAUTH_KV` binding |
+
+### Resolve the service address
+
+For the default `workers.dev` address, read the selected account's subdomain before deployment using the [Cloudflare API](https://developers.cloudflare.com/api/resources/workers/subresources/subdomains/methods/get/):
+
+```text
+GET https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/workers/subdomain
+```
+
+Use existing authenticated CF tooling. With only Wrangler available, capture the official `wrangler auth token --json` output inside the calling process, using the selected profile, and send the token only in the CF request's Authorization header. Keep it out of terminal output, files and chat; do not read private credential files. Use the release's Wrangler version.
+
+Read `result.subdomain` from a successful response and set `PUBLIC_ORIGIN` to `https://WORKER_NAME.ACCOUNT_SUBDOMAIN.workers.dev`. Do not derive the subdomain from an email, account display name or profile name. The script-level `/workers/scripts/WORKER_NAME/subdomain` endpoint reports enablement, not the account subdomain.
+
+If authenticated API access is unavailable, inspect **Workers & Pages → Your subdomain** in the selected account's dashboard. If CF reports no registered subdomain, complete its Workers onboarding before continuing; do not rename an existing account subdomain. Ask the user only for a missing choice or action you cannot perform. For an intentionally configured custom domain, use that verified origin instead.
+
+Return to the configuration table. After deployment, compare Wrangler's reported service URL and `/setup/info` with the configured origin.
 
 ## Recover deployment configuration on another machine
 
