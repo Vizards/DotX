@@ -26,6 +26,23 @@ function Admin() {
         />
       </>
     );
+  if (!session.data.authenticated && session.data.reason === 'setup')
+    return (
+      <>
+        <h1>Finish setting up DotX</h1>
+        <p>
+          Cloudflare login is not configured yet. Open the setup link from your installation Agent
+          to finish. Never send an API token in chat.
+        </p>
+        <button
+          onClick={() => {
+            void session.refetch();
+          }}
+        >
+          Check again
+        </button>
+      </>
+    );
   if (!session.data.authenticated)
     return (
       <>

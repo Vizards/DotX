@@ -17,7 +17,7 @@ pnpm dlx wrangler@4.151.0 deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.j
 pnpm dlx wrangler@4.151.0 deploy --config /ABSOLUTE/SERVICE/wrangler.json
 ```
 
-Use the target attachment's actual toolchain version if it differs from this example. Keep Worker secrets in Cloudflare; a deployment does not require retrieving their values. Do not run `secret put` or generate a new `SERVICE_ID` as a routine update. If the current configuration is unavailable locally, recover it using the path below before deployment; inability to inspect it is a handoff, not permission to substitute defaults.
+Use the target attachment's actual toolchain version if it differs from this example. The setup page stores new installations’ CF client configuration in DeviceHub; preserve that DO. Earlier development installations with CF_OAUTH_CLIENT_ID / CF_OAUTH_CLIENT_SECRET bindings keep using them and need no setup repeat. Keep Worker secrets in Cloudflare; a deployment does not require retrieving their values. Do not run `secret put` or generate a new `SERVICE_ID` as a routine update. If the current configuration is unavailable locally, recover it using the path below before deployment; inability to inspect it is a handoff, not permission to substitute defaults.
 
 ## Recover deployment configuration on another machine
 
@@ -28,7 +28,7 @@ Use the target attachment's actual toolchain version if it differs from this exa
 | Category | What to preserve |
 | --- | --- |
 | Target and public identity | Account, Worker name/ID, origin, `SERVICE_ID`, routes and workers.dev exposure |
-| Plain variables | Current values, including CF OAuth client ID, release repository/channel and record retention |
+| Plain variables | Current values, including release repository/channel and record retention; preserve CF OAuth bindings when present on an earlier development installation |
 | Secrets | Existing secret binding names; keep their values in CF and do not replace them with placeholders |
 | Storage | `OAUTH_KV` namespace ID and `DEVICES` Durable Object binding/class; reuse existing resources |
 | Runtime | Deployed compatibility settings and other intentional settings, changed only as required by the release |

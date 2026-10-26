@@ -49,10 +49,12 @@ If creation fails or its result is unknown, read the exact name before deciding 
 Set the actual configuration's account/name and code/assets paths. Preserve the template's `DEVICES` SQLite DO binding, migration, compatibility settings and asset behavior. For a new service, create OAuth KV storage and retain its returned namespace ID:
 
 ```sh
-pnpm dlx wrangler@4.151.0 kv namespace create OAUTH_KV --config /ABSOLUTE/SERVICE/wrangler.json
+pnpm dlx wrangler@4.151.0 kv namespace create WORKER_NAME-oauth --config /ABSOLUTE/SERVICE/wrangler.json
 ```
 
-Use these non-secret configuration values; the OAuth client is created in the next step:
+Use a namespace title unique to this service (replace WORKER_NAME in the example); the Worker binding remains `OAUTH_KV`.
+
+Use these non-secret configuration values:
 
 | Configuration | Value |
 | --- | --- |
@@ -62,42 +64,49 @@ Use these non-secret configuration values; the OAuth client is created in the ne
 | `vars.SERVICE_ID` | A fresh UUID generated once for this service; preserve across updates |
 | `vars.CF_ACCOUNT_ID`, `vars.CF_WORKER_NAME` | The same target account and Worker name |
 | `vars.CF_WORKER_ID` | The immutable CF Worker resource ID; obtain before deployment using the commands below |
-| `vars.CF_OAUTH_CLIENT_ID` | The private CF OAuth client's ID |
 | `vars.RELEASE_REPOSITORY` | `Vizards/DotX` |
 | `vars.RELEASE_CHANNEL` | `stable` by default; choose a prerelease channel such as `dev` or `rc` explicitly. See [release discovery](../maintenance/update.md#release-discovery) |
 | `vars.RECORD_RETENTION_DAYS` | `"30"` by default; positive days to retain request receipts, answer deduplication and answer routes. See [adjusting retention](update.md#adjust-record-retention) |
 | `kv_namespaces[].id` | The namespace created for the `OAUTH_KV` binding |
 
-## 4. Configure Cloudflare administrator login
-
-Confirm the final public HTTPS origin before creating its callback. Create a private CF OAuth client in the target account:
-
-| Setting | Value |
-| --- | --- |
-| Response / grant types | Code; Authorization Code + Refresh Token |
-| Token endpoint authentication | Client Secret POST |
-| Callback | Exact `HTTPS_ORIGIN/admin/callback` |
-| Permissions | User Details Read and Memberships Read |
-
-CF adds the `offline_access` protocol scope for Refresh Token; DotX requests it during login. Set the returned ID as `vars.CF_OAUTH_CLIENT_ID`. Creating the client requires **OAuth Client Write**, separately from normal Wrangler deployment permission. If this capability is missing, hand off this precise account/client configuration step, then resume.
-
-Keep the client private. Store its secret through Wrangler's private input in the next step; never print it, commit it or place it on a command line. CF login/consent and secret input can require the user.
-
-## 5. Deploy code and web assets together
+## 4. Deploy code and web assets together
 
 Review the actual configuration against the template and release notes. Point both `main` and `assets.directory` to this attachment, resolving paths relative to the configuration file. Then validate and deploy:
 
 ```sh
 pnpm dlx wrangler@4.151.0 deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.json
 pnpm dlx wrangler@4.151.0 deploy --config /ABSOLUTE/SERVICE/wrangler.json
-pnpm dlx wrangler@4.151.0 secret put CF_OAUTH_CLIENT_SECRET --config /ABSOLUTE/SERVICE/wrangler.json
 ```
 
-The first code deployment already includes the immutable Worker ID; no second deployment is needed to fill it in. Management remains unavailable until all required identity and OAuth configuration is complete. Retain the service URL and non-secret resource/configuration values for maintenance.
+The first code deployment includes the immutable Worker ID. Retain the service URL and non-secret resource/configuration values for maintenance. Wrangler management works now; browser login is ready after the following step.
+
+## 5. Enable Cloudflare administrator login
+
+From the Server attachment, use the authorized Wrangler profile to issue a setup link:
+
+```sh
+node admin.mjs --url HTTPS_ORIGIN setup
+```
+
+Give the user **only the returned DotX setup link**. Say: “Open this link on any device. It will guide you through creating a temporary Cloudflare API token and pasting it back on the same DotX page. Keep that page open; do not send the token in chat.” No browser automation capability is required of the installation Agent.
+
+The DotX page opens Cloudflare in another tab with **OAuth Client Write** and the target account prefilled. The user checks that this is the only permission, selects **Token expiration → Custom**, sets Start to now and End to one hour later, applies the range, reviews and creates the token. The expiry is a manual choice: CF's template URL does not prefill it. The user copies the token, returns to the original DotX page, pastes it there and selects **Finish setup**.
+
+The Worker creates its private CF OAuth client and saves the client ID/secret in its existing DeviceHub storage. It configures the exact `/admin/callback`, Authorization Code + Refresh Token, Client Secret POST and User Details Read / Memberships Read. CF adds `offline_access`. The temporary API token is used in memory for that request only; it is not returned to the Agent, logged or stored by DotX. The user can revoke it in Cloudflare after completion or let it expire. Do not ask for its value or create a broader token.
+
+Read progress without retrieving credentials:
+
+```sh
+node admin.mjs --url HTTPS_ORIGIN setup-status
+```
+
+When `configured` is true, ask the user to use **Sign in with Cloudflare** on the completion page. This is the ordinary login/consent for their own new client. No Client ID/secret copying, Wrangler secret input or extra deployment is required. Do not report browser login verified until it actually succeeds.
+
+Setup links last 24 hours. If expired, issue a new one; this replaces the previous unfinished link. If interrupted, check status before issuing another link or repeating creation. Once configured, setup cannot overwrite the login configuration. A network failure can leave the creation outcome unknown: check setup status and the target account's OAuth clients before retrying; an unused client may need removal. Never automatically repeat creation after a timeout.
 
 ## 6. Verify and continue
 
 1. Read `/health` and `/setup/info`. Verify the running version, wire, origin and service identity against the selected release and actual configuration.
-2. Check management access through `node admin.mjs --url HTTPS_ORIGIN session`, or CF browser login at `/admin`. Confirm the management page loads. Follow [access recovery](../common/access.md) for an actual authentication/permission failure.
+2. Check management access through `node admin.mjs --url HTTPS_ORIGIN session`, or CF browser login at `/admin`. Confirm `login_configured` is true and the user can sign in to the management page. Follow [access recovery](../common/access.md) for an actual authentication/permission failure.
 3. Report Server readiness only after those checks pass. Report CF upstream errors or unavailable GitHub update hints as such; neither establishes a need to recreate resources.
 4. If no Codex or Personal Agent exists, continue [connecting Codex](../codex/connect.md) first, then the selected Personal Agent. Do available work; otherwise give the exact next action through [handoff](../common/handoff.md).

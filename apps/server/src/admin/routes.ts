@@ -1,6 +1,7 @@
 import type { Env } from '../env.ts';
 import { serviceInfo } from '../env.ts';
-import { hub } from '../hub/namespace.ts';
+import { readClient, requireClient } from './config.ts';
+import { control, hub } from '../hub/namespace.ts';
 import { authenticate, authenticateSession } from './authenticate.ts';
 import { startLogin, finishLogin, createSession, clearSession } from './sessions.ts';
 import { LOGIN_COOKIE, setCookie } from './sessions.ts';
@@ -25,9 +26,10 @@ export async function adminRoutes(
       const transaction = await finishLogin(request, env),
         code = new URL(request.url).searchParams.get('code');
       if (!code) throw new HttpError(401, 'CF_LOGIN_CANCELLED');
+      const client = await requireClient(env);
       const started = Date.now(),
-        token = await exchangeCode(code, transaction.verifier, env);
-      await checkCloudflare(token.access_token, env.CF_OAUTH_CLIENT_ID, env);
+        token = await exchangeCode(code, transaction.verifier, env, client);
+      await checkCloudflare(token.access_token, client.client_id, env);
       const remaining = Math.floor((started + token.expires_in * 1000 - Date.now()) / 1000);
       if (remaining <= 0) throw new HttpError(401, 'CF_LOGIN_EXPIRED');
       const session = await createSession(env, token, started + token.expires_in * 1000);
@@ -48,10 +50,27 @@ export async function adminRoutes(
       await authenticateSession(request, env);
       return json({ ok: true }, 200, { 'Set-Cookie': await clearSession(request, env) });
     }
+    if (path === '/admin/api/setup' && request.method === 'POST') {
+      if (!request.headers.has('Authorization'))
+        throw new HttpError(401, 'WRANGLER_OAUTH_REQUIRED');
+      await authenticate(request, env);
+      return json(await control(env, 'admin-setup/issue', {}));
+    }
+    if (path === '/admin/api/setup' && request.method === 'GET') {
+      await authenticate(request, env);
+      return json(await control(env, 'admin-setup/status', {}));
+    }
+    if (
+      path === '/admin/api/session' &&
+      !request.headers.has('Authorization') &&
+      !(await readClient(env))
+    )
+      throw new HttpError(503, 'CF_LOGIN_NOT_CONFIGURED');
     const actor = await authenticate(request, env);
     if (path === '/admin/api/session' && request.method === 'GET')
       return json({
         authenticated: true,
+        login_configured: !!(await readClient(env)),
         ...actor,
         account_id: env.CF_ACCOUNT_ID,
         worker: env.CF_WORKER_NAME,

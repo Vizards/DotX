@@ -39,8 +39,7 @@
     "SERVICE_ID": "00000000-0000-4000-8000-000000000002",
     "CF_ACCOUNT_ID": "",
     "CF_WORKER_ID": "",
-    "CF_WORKER_NAME": "dotx-server",
-    "CF_OAUTH_CLIENT_ID": ""
+    "CF_WORKER_NAME": "dotx-server"
   },
   "observability": {
     "enabled": true,

@@ -1,3 +1,4 @@
+import { AdminSetup } from '../admin/setup.ts';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env.ts';
 import { serviceInfo } from '../env.ts';
@@ -30,9 +31,15 @@ export class DeviceHub extends DurableObject<Env> {
   readonly requests: Coordinator;
   readonly updates: ReleaseUpdates;
   readonly adminSessions: AdminSessions;
+  readonly adminSetup: AdminSetup;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.adminSessions = new AdminSessions(ctx.storage, env);
+    this.adminSetup = new AdminSetup(ctx.storage, env);
+    this.adminSessions = new AdminSessions(ctx.storage, async () => {
+      const client = await this.adminSetup.client();
+      if (!client) throw new HttpError(503, 'CF_LOGIN_NOT_CONFIGURED');
+      return client;
+    });
     this.devices = new Devices(
       ctx.storage,
       env.PUBLIC_ORIGIN,
@@ -143,6 +150,11 @@ export class DeviceHub extends DurableObject<Env> {
   }
   async internal(path: string, input: unknown): Promise<unknown> {
     const value = input as Record<string, any>;
+    if (path === 'admin-setup/config') return this.adminSetup.client();
+    if (path === 'admin-setup/status') return this.adminSetup.status();
+    if (path === 'admin-setup/issue') return this.adminSetup.issue();
+    if (path === 'admin-setup/context') return this.adminSetup.context(value.secret);
+    if (path === 'admin-setup/complete') return this.adminSetup.complete(value.secret, value.token);
     if (path === 'admin-session/create') {
       await this.adminSessions.create(value.id, value.record as SessionRecord);
       return null;

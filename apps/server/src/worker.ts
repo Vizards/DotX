@@ -1,3 +1,4 @@
+import { setupRoutes } from './admin/setup.ts';
 import type { Env } from './env.ts';
 import { deviceRoute } from './devices/routes.ts';
 import { serveOAuth } from './oauth/provider.ts';
@@ -10,6 +11,8 @@ export default {
       if (url.origin !== env.PUBLIC_ORIGIN) throw new HttpError(421, 'ORIGIN_NOT_CONFIGURED');
       if (url.pathname === '/device/connect' || url.pathname === '/setup/enroll')
         return await deviceRoute(request, env);
+      const setup = await setupRoutes(request, env);
+      if (setup) return setup;
       if (url.pathname.startsWith('/internal/')) throw new HttpError(404, 'NOT_FOUND');
       if (url.pathname === '/mcp') {
         const origin = request.headers.get('Origin');

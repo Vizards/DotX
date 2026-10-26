@@ -4,6 +4,7 @@ import { HttpError } from '../http/responses.ts';
 import { oauthEndpoint, refreshToken, type CloudflareTokens } from './cloudflare.ts';
 import { control } from '../hub/namespace.ts';
 import type { Env } from '../env.ts';
+import { requireClient, type CloudflareClient } from './config.ts';
 export const SESSION_COOKIE = 'dotx-admin';
 export const LOGIN_COOKIE = 'dotx-admin-login';
 export function cookie(request: Request, name: string) {
@@ -18,31 +19,30 @@ export function setCookie(env: Env, name: string, value: string, seconds?: numbe
   const lifetime = seconds === undefined ? '' : `; Max-Age=${Math.max(0, Math.floor(seconds))}`;
   return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax${lifetime}${env.PUBLIC_ORIGIN.startsWith('https:') ? '; Secure' : ''}`;
 }
-async function key(env: Env) {
-  if (!env.CF_OAUTH_CLIENT_SECRET) throw new HttpError(503, 'CF_LOGIN_NOT_CONFIGURED');
+async function key(client: CloudflareClient) {
   return crypto.subtle.importKey(
     'raw',
     await crypto.subtle.digest(
       'SHA-256',
-      new TextEncoder().encode('dotx:admin-storage:v1:' + env.CF_OAUTH_CLIENT_SECRET),
+      new TextEncoder().encode('dotx:admin-storage:v1:' + client.client_secret),
     ),
     { name: 'AES-GCM' },
     false,
     ['encrypt', 'decrypt'],
   );
 }
-async function seal(env: Env, value: unknown) {
+async function seal(client: CloudflareClient, value: unknown) {
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: nonce },
-    await key(env),
+    await key(client),
     new TextEncoder().encode(JSON.stringify(value)),
   );
   return Buffer.concat([nonce, Buffer.from(encrypted)]).toString('base64url');
 }
-async function open<T>(env: Env, value: string | null): Promise<T | null> {
+async function open<T>(client: CloudflareClient, value: string | null): Promise<T | null> {
   if (!value) return null;
-  const decryptionKey = await key(env);
+  const decryptionKey = await key(client);
   try {
     const data = Buffer.from(value, 'base64url');
     return JSON.parse(
@@ -73,7 +73,7 @@ export interface SessionRecord {
 const safeReturn = (path: string | null) =>
   ['/admin', '/admin/devices', '/admin/agents'].includes(path ?? '') ? path! : '/admin';
 export async function startLogin(request: Request, env: Env) {
-  if (!env.CF_OAUTH_CLIENT_ID) throw new HttpError(503, 'CF_LOGIN_NOT_CONFIGURED');
+  const client = await requireClient(env);
   const state = randomSecret(),
     binding = randomSecret(),
     verifier = randomSecret();
@@ -83,12 +83,12 @@ export async function startLogin(request: Request, env: Env) {
     returnTo: safeReturn(new URL(request.url).searchParams.get('return_to')),
     expiresAt: Date.now() + 600_000,
   };
-  await env.OAUTH_KV.put('admin:login:' + (await sha256(state)), await seal(env, record), {
+  await env.OAUTH_KV.put('admin:login:' + (await sha256(state)), await seal(client, record), {
     expirationTtl: 600,
   });
   const url = new URL(oauthEndpoint);
   url.search = new URLSearchParams({
-    client_id: env.CF_OAUTH_CLIENT_ID,
+    client_id: client.client_id,
     redirect_uri: env.PUBLIC_ORIGIN + '/admin/callback',
     response_type: 'code',
     scope: 'user-details.read memberships.read offline_access',
@@ -111,7 +111,7 @@ export async function finishLogin(request: Request, env: Env) {
     binding = cookie(request, LOGIN_COOKIE);
   if (!state || !binding) throw new HttpError(401, 'CF_LOGIN_EXPIRED');
   const id = 'admin:login:' + (await sha256(state)),
-    record = await open<Login>(env, await env.OAUTH_KV.get(id));
+    record = await open<Login>(await requireClient(env), await env.OAUTH_KV.get(id));
   if (
     !record ||
     record.expiresAt <= Date.now() ||
@@ -163,17 +163,17 @@ export async function clearSession(request: Request, env: Env) {
 export class AdminSessions {
   private readonly refreshing = new Map<string, Promise<SessionRecord>>();
   private readonly store: DurableObjectStorage;
-  private readonly env: Env;
-  constructor(store: DurableObjectStorage, env: Env) {
+  private readonly client: () => Promise<CloudflareClient>;
+  constructor(store: DurableObjectStorage, client: () => Promise<CloudflareClient>) {
     this.store = store;
-    this.env = env;
+    this.client = client;
   }
   async create(id: string, record: SessionRecord) {
-    await this.store.put('admin:session:' + id, await seal(this.env, record));
+    await this.store.put('admin:session:' + id, await seal(await this.client(), record));
   }
   async read(id: string) {
     const record = await open<SessionRecord>(
-      this.env,
+      await this.client(),
       (await this.store.get<string>('admin:session:' + id)) ?? null,
     );
     if (!record) throw new HttpError(401, 'CF_LOGIN_REQUIRED', 'Sign in with Cloudflare again.');
@@ -201,7 +201,7 @@ export class AdminSessions {
     const started = Date.now();
     let tokens: CloudflareTokens;
     try {
-      tokens = await refreshToken(record.refreshToken, this.env);
+      tokens = await refreshToken(record.refreshToken, await this.client());
     } catch (error) {
       if (error instanceof HttpError && error.status === 401) await this.delete(id);
       throw error;
@@ -212,7 +212,7 @@ export class AdminSessions {
       refreshToken: tokens.refresh_token || record.refreshToken,
       expiresAt: started + tokens.expires_in * 1000,
     };
-    const encrypted = await seal(this.env, updated);
+    const encrypted = await seal(await this.client(), updated);
     await this.store.transaction(async (tx) => {
       // Logout does not wait for CF and an in-flight refresh must not recreate it.
       if (!(await tx.get('admin:session:' + id)))

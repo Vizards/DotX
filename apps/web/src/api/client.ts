@@ -13,7 +13,13 @@ export class ApiError extends Error {
 }
 export async function api<T>(
   path: string,
-  options: { method?: string; body?: unknown; csrf?: string | null; signal?: AbortSignal } = {},
+  options: {
+    method?: string;
+    body?: unknown;
+    csrf?: string | null;
+    setup?: string;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<T> {
   const timeout = AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
@@ -33,6 +39,7 @@ export async function api<T>(
                 : 'application/json',
           }),
       ...(options.csrf ? { 'X-CSRF-Token': options.csrf } : {}),
+      ...(options.setup ? { 'X-DotX-Setup': options.setup } : {}),
     },
     body:
       options.body === undefined

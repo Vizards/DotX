@@ -1,3 +1,4 @@
+import { requireClient } from './config.ts';
 import type { Env } from '../env.ts';
 import { HttpError } from '../http/responses.ts';
 import { sameSecret } from '../http/crypto.ts';
@@ -18,15 +19,16 @@ export async function authenticate(request: Request, env: Env) {
   }
   await authenticateSession(request, env);
   let session = await currentSession(request, env);
+  const client = await requireClient(env);
   let identity: Awaited<ReturnType<typeof checkCloudflare>>;
   try {
-    identity = await checkCloudflare(session.token, env.CF_OAUTH_CLIENT_ID, env);
+    identity = await checkCloudflare(session.token, client.client_id, env);
   } catch (error) {
     if (!(error instanceof HttpError) || error.code !== 'CF_LOGIN_REQUIRED') throw error;
     // CF may reject a token before our expiry check observes it. Refresh once;
     // the management action has not started and is never retried here.
     session = await currentSession(request, env, session.token);
-    identity = await checkCloudflare(session.token, env.CF_OAUTH_CLIENT_ID, env);
+    identity = await checkCloudflare(session.token, client.client_id, env);
   }
   return {
     ...identity,

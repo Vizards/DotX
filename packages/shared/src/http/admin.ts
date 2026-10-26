@@ -4,7 +4,15 @@ import type { EnrollmentStatus, DevicePublicKey } from './enrollment.ts';
 import type { InterfaceStatus } from '../devices.ts';
 import type { ServiceInfo } from './service.ts';
 export const agentInput = z.strictObject({ name: displayName });
+export interface AdminSetupStatus {
+  configured: boolean;
+  account_id: string;
+  worker: string;
+  token_url: string;
+  expires_at?: number;
+}
 export interface AdminSession {
+  login_configured: boolean;
   authenticated: true;
   subject: string;
   email: string | null;

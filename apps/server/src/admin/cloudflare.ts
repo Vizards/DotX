@@ -2,6 +2,7 @@ import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { HttpError } from '../http/responses.ts';
 import { qualification, type Membership } from './permissions.ts';
 import type { Env } from '../env.ts';
+import type { CloudflareClient } from './config.ts';
 export const WRANGLER_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7';
 const DASH = 'https://dash.cloudflare.com';
 const API = 'https://api.cloudflare.com/client/v4';
@@ -108,14 +109,14 @@ export interface CloudflareTokens {
   expires_in: number;
   refresh_token?: string;
 }
-async function requestToken(fields: Record<string, string>, env: Env) {
+async function requestToken(fields: Record<string, string>, client: CloudflareClient) {
   const response = await upstream<CloudflareTokens>(`${DASH}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       ...fields,
-      client_id: env.CF_OAUTH_CLIENT_ID,
-      client_secret: env.CF_OAUTH_CLIENT_SECRET,
+      client_id: client.client_id,
+      client_secret: client.client_secret,
     }).toString(),
   });
   if (
@@ -127,7 +128,7 @@ async function requestToken(fields: Record<string, string>, env: Env) {
     throw new HttpError(503, 'CF_TOKEN_RESPONSE_INVALID');
   return response;
 }
-export function exchangeCode(code: string, verifier: string, env: Env) {
+export function exchangeCode(code: string, verifier: string, env: Env, client: CloudflareClient) {
   return requestToken(
     {
       grant_type: 'authorization_code',
@@ -135,9 +136,9 @@ export function exchangeCode(code: string, verifier: string, env: Env) {
       code_verifier: verifier,
       redirect_uri: env.PUBLIC_ORIGIN + '/admin/callback',
     },
-    env,
+    client,
   );
 }
-export function refreshToken(token: string, env: Env) {
-  return requestToken({ grant_type: 'refresh_token', refresh_token: token }, env);
+export function refreshToken(token: string, client: CloudflareClient) {
+  return requestToken({ grant_type: 'refresh_token', refresh_token: token }, client);
 }

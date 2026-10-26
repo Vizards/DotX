@@ -102,6 +102,8 @@ jobs:
 
             0.1.0 requires a fresh native installation from 0.0.1; no owner keys, device tokens or OAuth grants are migrated. Preserve native Codex accounts, projects and conversations. Install the Server, connect the first Codex and then connect each Personal Agent using its own access code. Updates within the 0.1.0 development series preserve the account, Worker, origin, SERVICE_ID, CF OAuth client/secret and DO/KV resources; point both main and assets.directory at this release. After Desktop configuration or update, refresh every loaded host MCP configuration and verify the actual owner version. Refresh each Personal Agent catalog when remote_catalog is true. This release uses wire 5; 0.0.1 uses wire 4. Product versions may differ; wire versions must match. Report component completion separately from link recovery.
 
+            New installations configure browser login through the Worker setup page after deployment: run admin.mjs setup, give the returned link to the user, and verify setup-status plus browser login. The page preselects OAuth Client Write; set a one-hour custom token expiry manually in Cloudflare, then paste the temporary token only into the DotX page. The Worker stores its private CF login client in DeviceHub. No CF client ID/secret handling or extra deployment is needed. Existing dev installations retain their CF_OAUTH_CLIENT_ID/CF_OAUTH_CLIENT_SECRET bindings or stored client configuration; do not reinitialize or replace their DO.
+
             Apply the target Server template's assets.run_worker_first routing array: ["/*", "!/assets/*", "!/branding/*"]. Keep html_handling and not_found_handling set to "none", and deploy public/_headers with the assets. Public JS/CSS/branding files are served directly by Cloudflare; API and explicit page routes still run through the Worker, with no automatic HTML fallback for unknown API paths.
 
             Server now automatically removes durable request receipts, answer deduplication and response routes after RECORD_RETENTION_DAYS (default 30). Preserve any chosen value in the actual Worker configuration. Existing development receipts keep their creation dates; old interaction records without timestamps start at adoption. Reducing retention applies to remaining records and can make them immediately eligible for deletion. After deletion, old request IDs no longer deduplicate; inspect native state before retrying unknown work. Native Codex tasks and conversations are not deleted. Existing subscription/retry lifecycle cleanup is unchanged. See the version-matched bundled docs for executable steps.`;
@@ -202,7 +204,6 @@ jobs:
           config.vars.CF_ACCOUNT_ID = '';
           config.vars.CF_WORKER_ID = '';
           config.vars.CF_WORKER_NAME = '';
-          config.vars.CF_OAUTH_CLIENT_ID = '';
           config.vars.PUBLIC_ORIGIN = 'https://your-service.example.com';
           config.vars.RELEASE_REPOSITORY = repository;
           write(`${server}/wrangler.json`, config);

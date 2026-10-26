@@ -1,5 +1,7 @@
 import type { Env } from '../env.ts';
 const pages = new Set([
+  '/setup/admin',
+  '/setup/admin/',
   '/admin',
   '/admin/',
   '/admin/agents',

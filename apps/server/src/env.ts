@@ -12,8 +12,8 @@ export interface Env {
   CF_ACCOUNT_ID: string;
   CF_WORKER_ID: string;
   CF_WORKER_NAME: string;
-  CF_OAUTH_CLIENT_ID: string;
-  CF_OAUTH_CLIENT_SECRET: string;
+  CF_OAUTH_CLIENT_ID?: string;
+  CF_OAUTH_CLIENT_SECRET?: string;
   OAUTH_PROVIDER: OAuthHelpers;
   RELEASE_REPOSITORY?: string;
   RELEASE_CHANNEL?: string;
