@@ -7,7 +7,7 @@ Report what is actually verified. Complete available authorized work before hand
 | Stage | Evidence required | Next action |
 | --- | --- | --- |
 | Server | `/health` and `/setup/info` identify the intended origin, version, wire and service; management access and web page loading work | If neither Codex nor Personal Agent exists, [connect Codex](../codex/connect.md) first |
-| Local Codex | After host MCP refresh, `device_status` shows the intended Server/device, actual owner version, authenticated and approved connection, and required native interface availability | [Connect the chosen Personal Agent](../index.md), or check an existing remote connection |
+| Local Codex | Once the plugin has loaded and picked up its first configuration, `device_status` shows the intended Server/device, actual owner version, authenticated and approved connection, and required native interface availability | [Connect the chosen Personal Agent](../index.md), or check an existing remote connection |
 | Personal Agent | Its OAuth connection can make an authenticated `list_connections` request, and the result contains a usable Codex with the required interface | Continue the user's intended work; if none is usable, resolve the specific missing prerequisite below |
 | Update | Each changed component reports the target running version; separately check the authenticated, compatible link and required native interface | Refresh affected clients' catalogs, then resume the user's task after reconciling any uncertain work |
 

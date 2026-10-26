@@ -22,21 +22,42 @@ export class Runtime {
   constructor(dir: string, root: string) {
     this.dir = dir;
     this.root = root;
+    this.loadInitialConfig();
+  }
+  private loadInitialConfig() {
+    let release: (() => void) | null | undefined;
     try {
-      const config = readConfig(dir);
+      // Setup writes caller and enrollment state in stages. Wait until its lock
+      // is released, including when this entry starts during the setup command.
+      release = tryLock(this.dir, 'installation.lock');
+      if (!release) {
+        this.diagnostic = { code: 'DEVICE_SETUP_IN_PROGRESS' };
+        return;
+      }
+      const config = readConfig(this.dir);
       if (config) {
         validateConfig(config);
+        if (!config.callerArchived) throw new Error('DEVICE_SETUP_INCOMPLETE');
         this.config = config;
         this.role = 'standby';
         this.diagnostic = null;
+      } else {
+        this.diagnostic = { code: 'SETUP_REQUIRED' };
       }
     } catch (error) {
-      this.role = 'unavailable';
+      // Only missing/incomplete first setup is retried. Corrupt configuration or
+      // a connector startup failure still requires explicit recovery.
+      if (!(error instanceof Error && error.message === 'DEVICE_SETUP_INCOMPLETE'))
+        this.role = 'unavailable';
       this.diagnostic = errorValue(error);
+    } finally {
+      release?.();
     }
   }
   start() {
-    if (this.stopped || this.starting || this.native || !this.config) return;
+    if (this.stopped || this.starting || this.native) return;
+    if (this.role === 'unconfigured') this.loadInitialConfig();
+    if (!this.config) return;
     this.starting = this.startOwner().finally(() => {
       this.starting = undefined;
     });
@@ -88,7 +109,7 @@ export class Runtime {
     };
     let owner: OwnerStatus | null = this.native?.status() ?? null,
       diagnostic = this.diagnostic;
-    // An entry loaded before setup can still observe an owner started after refresh.
+    // An entry loaded before setup can still observe an owner started later.
     // Querying status does not reload this entry's config or start a connection.
     if (!this.native) {
       try {

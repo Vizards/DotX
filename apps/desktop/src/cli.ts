@@ -84,7 +84,7 @@ async function main() {
       target_server: service.origin,
       application,
       next_action:
-        'Refresh the host MCP configuration, then call device_status to verify the actual owner and target connection. ' +
+        'The loaded plugin picks up complete first-time configuration automatically. Call device_status to verify the actual owner and target connection. ' +
         (application.status === 'approved'
           ? 'This device is already approved; no new approval is needed.'
           : 'Approve this application through the Server management page or an authorized Wrangler management tool.'),
