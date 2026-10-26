@@ -1,5 +1,7 @@
 # Confirm a result or reconcile an uncertain operation
 
+Use after dispatch or an uncertain outcome. Complete: the actual result is known, or uncertainty and the next available check are reported. Return to the user’s task without duplicating unresolved work.
+
 `call` waits for a native RPC response, not completion of the work it starts. Consume `native.result` or its error directly; ordinary RPC payloads are not archived. `rpc_status=returned` means the RPC returned.
 
 ## Choose the request behavior before calling
@@ -35,4 +37,4 @@ Receipts and deduplication normally last 30 days from first creation. `list_conn
 
 Cleanup can be delayed by a batch or in-flight Server operation; do not rely on a record still existing after its deadline. Once removed, `get_request` returns `REQUEST_NOT_FOUND`, and reusing that request ID can execute a new operation. No permanent deletion marker is retained.
 
-A missing receipt proves neither success nor that the task stopped. Inspect the actual conversation before deciding what to do; never retry uncertain work solely because its receipt disappeared. Cleanup leaves native Codex conversations and tasks intact. To change retention, follow [Server maintenance](../server/update.md#adjust-record-retention).
+A missing receipt proves neither success nor that the task stopped. Inspect the actual conversation before deciding what to do; never retry uncertain work solely because its receipt disappeared. Cleanup leaves native Codex conversations and tasks intact. To change retention, follow [Server maintenance](../server/retention.md).

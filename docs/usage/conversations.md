@@ -1,5 +1,7 @@
 # Start or continue a Codex conversation
 
+Need: the intended device and user-authorized task. Complete: the native result is verified, not merely dispatched. Choose new or existing conversation below; linked settings/observation tasks return to that chosen branch.
+
 First [discover the target and native method schema](connections.md). Write prompts as direct requests, preserving the user's intent and wording. Add only context the destination needs; do not prepend third-person delegation boilerplate such as “The user asks you to…”.
 
 ## Start a new conversation

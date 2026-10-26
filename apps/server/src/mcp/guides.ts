@@ -17,6 +17,16 @@ import interactions from '../../../../docs/usage/interactions.md';
 import update from '../../../../docs/maintenance/update.md';
 import remove from '../../../../docs/maintenance/remove.md';
 import troubleshooting from '../../../../docs/troubleshooting/index.md';
+import wrangler_login from '../../../../docs/server/wrangler-login.md';
+import browser_login from '../../../../docs/server/browser-login.md';
+import server_configuration from '../../../../docs/server/configuration.md';
+import retention from '../../../../docs/server/retention.md';
+import management_commands from '../../../../docs/common/commands.md';
+import access_code from '../../../../docs/personal-agents/access-code.md';
+import device_approval from '../../../../docs/codex/approve.md';
+import plugin_loading from '../../../../docs/troubleshooting/plugin-loading.md';
+import device_recovery from '../../../../docs/troubleshooting/device.md';
+import answers from '../../../../docs/usage/answers.md';
 
 export const INSTRUCTIONS_GUIDANCE =
   'Read get_instructions for the relevant task; omit goal for the complete guide index. Reuse guidance already in context.';
@@ -47,11 +57,40 @@ export const INSTRUCTION_GUIDES = {
   dot: guide('Connect, configure or update dot', 'personal-agents/dot/index.md', dot),
   cue: guide('Connect, configure or update Cue', 'personal-agents/cue/index.md', cue),
   authorization: guide(
-    'Personal Agent authorization, expiry and recovery',
+    'Recover OAuth or check authorization lifetimes',
     'personal-agents/authorization.md',
     authorization,
   ),
   access: guide('Check capabilities and management access', 'common/access.md', access),
+  access_code: guide(
+    'Obtain a Personal Agent access code',
+    'personal-agents/access-code.md',
+    access_code,
+  ),
+  management_commands: guide(
+    'Look up a management command',
+    'common/commands.md',
+    management_commands,
+  ),
+  wrangler_login: guide('Select the deployment login', 'server/wrangler-login.md', wrangler_login),
+  browser_login: guide('Set up or recover browser login', 'server/browser-login.md', browser_login),
+  server_configuration: guide(
+    'Prepare or recover deployment configuration',
+    'server/configuration.md',
+    server_configuration,
+  ),
+  retention: guide('Adjust record retention', 'server/retention.md', retention),
+  device_approval: guide('Approve a Codex application', 'codex/approve.md', device_approval),
+  plugin_loading: guide(
+    'Load an installed Codex plugin',
+    'troubleshooting/plugin-loading.md',
+    plugin_loading,
+  ),
+  device_recovery: guide(
+    'Resolve an unavailable Codex',
+    'troubleshooting/device.md',
+    device_recovery,
+  ),
   handoff: guide('Verify completion and hand off the next step', 'common/handoff.md', handoff),
   connections: guide('Find devices and choose an interface', 'usage/connections.md', connections),
   conversations: guide(
@@ -62,6 +101,7 @@ export const INSTRUCTION_GUIDES = {
   settings: guide('Change conversation permissions or Fast', 'usage/settings.md', settings),
   results: guide('Confirm results or reconcile an unknown outcome', 'usage/results.md', results),
   interactions: guide('Receive events and answer questions', 'usage/interactions.md', interactions),
+  answers: guide('Answer an interaction or continue a Plan', 'usage/answers.md', answers),
   update: guide('Coordinate a component update', 'maintenance/update.md', update),
   remove: guide('Uninstall, reset or change service', 'maintenance/remove.md', remove),
   troubleshooting: guide(

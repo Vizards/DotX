@@ -47,6 +47,7 @@ For installation, configuration, connection, usage, updates or troubleshooting, 
 ## Installation and releases
 
 - `docs/` is the only maintained Agent guide source. Desktop bundles it with one navigation Skill; Server returns full Markdown through `get_instructions`. Setup commands return results and links without choosing browser sessions.
+- Organize guides as task nodes: state the needed input, action, completion check and conditional next step. Link to reusable subtasks with a return point; keep command references and observed-error recovery off the normal path. Add new pages to the MCP guide catalog so clients can follow them without browser access. Keep investigation history and maintainer test procedures in Notion.
 - Server installation, local Codex connection and Personal Agent connection are independent guides with completion checks and handoffs. First and later Macs use the same plugin. Client-specific configuration and refresh belong under `docs/personal-agents/`, not core Server/Desktop logic.
 - Server owns public branding under `apps/server/public/branding/`. MCP metadata and setup reuse it; Server releases include `public/`, and deployment moves `main` and `assets.directory` together.
 - Use official Wrangler and declarative deployment configuration. Do not introduce a deployment orchestrator or installation state machine.

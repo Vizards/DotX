@@ -4,7 +4,7 @@ Use this guide before the first native operation, or after a connector restart i
 
 ## Discover the target
 
-1. Call `list_connections` and find the intended Mac among the authorized devices. If it is pending, offline or incompatible, follow [troubleshooting](../troubleshooting/index.md#no-usable-codex) before sending work.
+1. Call `list_connections` and find the intended Mac among the authorized devices. If it is pending, offline or incompatible, follow [troubleshooting](../troubleshooting/device.md) before sending work.
 2. Select the interface that owns the operation:
 
 | Interface | Purpose |

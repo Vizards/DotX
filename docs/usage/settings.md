@@ -1,5 +1,7 @@
 # Change conversation permissions or Fast
 
+Complete: the requested settings are applied and freshly read back. Return to the task waiting to dispatch work; verify actual permissions again when its next turn starts.
+
 Use this guide when the user requests a settings change or requires a particular permission scope before work. Discover the current `client_coordination` method schemas through [connections](connections.md).
 
 ## Apply and verify a change

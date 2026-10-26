@@ -1,39 +1,43 @@
 # DotX agent guide
 
-Start from the user's goal. Inspect what is already complete, do the authorized work available in your environment, and verify the result. Do not require a particular Agent, browser or workstation.
+Choose your starting point; read only the guide needed for the next action.
 
-## Find the relevant guide
+## Installation and continuation
 
-- With DotX Remote MCP available, call `get_instructions` with the goal below to receive the full guide. Without a goal it returns this index and the available guides.
-- In the Desktop plugin, read the bundled files through the relative links below. Use `device_status.docs_dir` to locate that installation's guides.
-- From GitHub or a release attachment, read the selected version's `docs/index.md` and follow its links. Use the installed version for current behavior and the target version for an update; do not substitute `main` or the latest guide for an older version.
+Recommended path for a complete new network:
 
-| User goal | MCP goal | Guide |
+```mermaid
+flowchart LR
+    Server["Install Server"] --> Codex["Connect first Codex"]
+    Codex --> PA["Connect Personal Agent"]
+    PA --> Verify["Verify the complete link"]
+    Verify --> Deliver["Hand over for use"]
+```
+
+- **Fresh installation:** start with Server and continue through delivery. Verify each stage before reporting it complete.
+- **Resume installation:** inspect existing results and continue the first unfinished stage. Unknown does not mean missing; preserve completed work and identities.
+- **One specific task:** use the table below and complete that scope without restarting the whole installation.
+
+Use the [state and capability decision diagram](common/handoff.md#choose-the-next-action) to choose what to do here and what to hand off. Missing Mac access does not prevent Server deployment. Preparations can overlap; full delivery still requires all stages and [end-to-end verification](common/handoff.md#verify-the-complete-link).
+
+## Choose a task
+
+| User's goal | Guide | MCP goal |
 | --- | --- | --- |
-| Install a Server | `server_install` | [Server installation](server/install.md) |
-| Connect this Mac's Codex | `codex_connect` | [Codex connection](codex/connect.md) |
-| Connect or configure dot | `dot` | [dot](personal-agents/dot/index.md) |
-| Connect or configure Cue | `cue` | [Cue](personal-agents/cue/index.md) |
-| Recover OAuth or understand expiry | `authorization` | [Personal Agent authorization](personal-agents/authorization.md) |
-| Discover devices and native interfaces | `connections` | [Connections](usage/connections.md) |
-| Start or continue work | `conversations` | [Conversations](usage/conversations.md) |
-| Set permissions or Fast | `settings` | [Settings](usage/settings.md) |
-| Confirm results or reconcile an uncertain outcome | `results` | [Results](usage/results.md) |
-| Receive events and answer questions | `interactions` | [Interactions](usage/interactions.md) |
-| Choose and coordinate an update | `update` | [Update coordination](maintenance/update.md) |
-| Update Server | `server_update` | [Server update](server/update.md) |
-| Update local Codex | `codex_update` | [Codex update](codex/update.md) |
-| Uninstall, reset or change Server | `remove` | [Removal](maintenance/remove.md) |
-| Diagnose a failure | `troubleshooting` | [Troubleshooting](troubleshooting/index.md) |
-| Check management authority | `access` | [Access](common/access.md) |
-| Verify a stage and continue on another Agent | `handoff` | [Checks and handoff](common/handoff.md) |
+| Install a Server | [Install Server](server/install.md) | `server_install` |
+| Connect this Mac's Codex | [Connect Codex](codex/connect.md) | `codex_connect` |
+| Connect dot | [Connect dot](personal-agents/dot/index.md) | `dot` |
+| Connect Cue | [Connect Cue](personal-agents/cue/index.md) | `cue` |
+| Use an existing network | [Find a Codex](usage/connections.md) | `connections` |
+| Update components | [Coordinate an update](maintenance/update.md) | `update` |
+| Uninstall, reset or change Server | [Remove or reset](maintenance/remove.md) | `remove` |
+| Resolve a failure | [Choose the observed problem](troubleshooting/index.md) | `troubleshooting` |
+| Verify, continue or hand off | [Completion and handoff](common/handoff.md) | `handoff` |
 
-Read only the relevant pages. Deployment, approval, revocation and other management actions require the [access check](common/access.md). Ordinary MCP use follows the existing Personal Agent authorization and does not require Wrangler or a Cloudflare login.
+## Read a guide
 
-## Continue from the current stage
+- **MCP:** call `get_instructions` with its goal. Omit the goal for the complete path-to-goal catalog; linked subtasks are readable through MCP without a browser.
+- **Desktop:** follow bundled relative links; `device_status.docs_dir` identifies the guides.
+- **GitHub/release files:** follow links within the selected version. Use installed-version guides for current behavior and target-version guides for updates.
 
-Server installation, local Codex connection and Personal Agent connection are independent tasks. A new complete network normally proceeds Server → first Codex → Personal Agent. If the user enters elsewhere, inspect the missing prerequisite and continue that guide. Reuse completed installation, configuration and approval steps.
-
-Finish each stage with [checks and handoff](common/handoff.md). Complete available authorized work; when a capability is missing, give the user or next authorized Agent the exact remaining action. No separate Get Started workflow is required.
-
-This directory is the sole maintained guide source. Desktop bundles these files; Server returns them through `get_instructions`. Server and Desktop may run different product versions; wire compatibility determines whether they can communicate.
+Reuse guidance already read. Complete linked subtasks, then return to the step that requested them. If blocked, report the last verified result and the exact remaining action.

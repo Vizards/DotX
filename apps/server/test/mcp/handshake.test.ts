@@ -83,4 +83,36 @@ test('MCP serves the standard initialize handshake and modern discovery with the
       `https://github.com/Vizards/DotX/blob/v${authorization.version}/docs/personal-agents/cue/index.md`,
     ),
   );
+  // Every advertised guide is readable through MCP, including linked task nodes.
+  // A client without web access must not be stranded at a GitHub-only subtask.
+  const catalogCall = await api.rpc(token, 'tools/call', {
+    name: 'get_instructions',
+    arguments: {},
+  });
+  const catalog = JSON.parse(catalogCall.result.content[0].text);
+  const sources = new Set<string>([catalog.source]);
+  const documents = [catalog];
+  for (const entry of catalog.guides) {
+    const response = await api.rpc(token, 'tools/call', {
+      name: 'get_instructions',
+      arguments: { goal: entry.goal },
+    });
+    assert.equal(response.result.isError, undefined, entry.goal);
+    const document = JSON.parse(response.result.content[0].text);
+    assert.equal(document.path, entry.path);
+    assert.equal(document.source, entry.source);
+    assert.match(document.instructions, /^# /, entry.goal);
+    sources.add(document.source);
+    documents.push(document);
+  }
+  const guideRoot = new URL('.', catalog.source).href;
+  for (const document of documents) {
+    for (const [, href] of document.instructions.matchAll(/\]\(([^\s)]+)\)/g)) {
+      if (href.startsWith('#')) continue;
+      assert.match(href, /^https?:\/\//, `${document.path}: unresolved link ${href}`);
+      if (href.startsWith(guideRoot)) {
+        assert(sources.has(href.split('#')[0]), `${document.path}: uncatalogued guide ${href}`);
+      }
+    }
+  }
 });

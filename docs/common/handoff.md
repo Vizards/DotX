@@ -1,52 +1,76 @@
-# Verify the stage and continue
+# Continue or hand off
 
-Report what is actually verified. Complete available authorized work before handing it off. Do not start synthetic Codex tasks as part of ordinary user installation or updates.
+Use when a stage finishes or needs another executor. Choose the next action from verified state, then execute it, hand it off, or leave an optional choice with the user.
 
-## Choose the next executable step
+## Check the capability needed now
 
-Use the current state, including work the user completed in another Agent. Server deployment, access to a user's Mac, and configuring the current Personal Agent are separate capabilities. A shell in your own cloud environment does not establish access to the target Mac or its Codex host.
+Judge actual tools and environment, not the Agent's product name.
 
-When starting from nothing, aim for Server → first Codex → Personal Agent. After Server is ready, continue Codex installation only if you can actually work in the intended Mac's local Codex environment. Otherwise give the short handoff below. You can prepare the chosen Personal Agent's connection while local installation is handed off; report which stage still needs completion.
-
-If the user returns with “the Mac is installed,” inspect existing Server devices/applications through available management access or the already connected remote MCP. If you are the intended Personal Agent and have not connected yet, continue your connection guide and then call `list_connections`. A fresh device result is enough to choose the next step; do not wait for an earlier local-access task to finish just to repeat that check.
-
-When an operation fails or provides no result, report the last verified step, the actual blocker and the next action that can proceed. Do not describe unverified access as working or say installation succeeded while waiting for an unrelated task. Continue independent authorized work; hand off the missing local action instead of repeatedly saying “checking.”
-
-## Check the stage you completed
-
-| Stage | Evidence required | Next action |
+| Task | Required capability | If missing |
 | --- | --- | --- |
-| Server | `/health` and `/setup/info` identify the intended origin, version, wire and service; management access and web page loading work | If neither Codex nor Personal Agent exists, [connect Codex](../codex/connect.md) first |
-| Local Codex | Once the plugin has loaded and picked up its first configuration, `device_status` shows the intended Server/device, actual owner version, authenticated and approved connection, and required native interface availability | [Connect the chosen Personal Agent](../index.md), or check an existing remote connection |
-| Personal Agent | Its OAuth connection can make an authenticated `list_connections` request, and the result contains a usable Codex with the required interface | Continue the user's intended work; if none is usable, resolve the specific missing prerequisite below |
-| Update | Each changed component reports the target running version; separately check the authenticated, compatible link and required native interface | Refresh affected clients' catalogs, then resume the user's task after reconciling any uncertain work |
+| Deploy Server | Release toolchain and official Wrangler access to the target account | Request CF authorization or hand off deployment; browser automation is optional |
+| Connect Codex | Access to the intended Mac's actual Codex host | Hand off to Codex on that Mac; your own cloud shell is not that host |
+| Approve a device / issue a code | Verified Worker management access or authorized management browser | Hand off the action; a Wrangler-capable Agent needs no browser-login setup |
+| Configure a PA | Its real plugin/MCP tools or settings | Hand off the missing configuration or consent step; the user can operate the browser |
 
-Local Codex verification does not require `list_connections` when no Personal Agent is connected yet. The local plugin exposes `device_status`; an authorized maintenance Agent can also corroborate the device through `admin.mjs devices`. If remote MCP is already available, add its `list_connections` result. Record end-to-end acceptance as pending until the Personal Agent can use that link; do not create a connection solely to obtain a local installation check.
+Complete available work first. PA preparation can overlap Mac installation; both still need their own completion checks.
 
-A submitted Codex application can be handed off as **awaiting approval**, with its identity and target verified. It is not ready to execute. After approval, repeat the local checks above. An entry marked standby is healthy when it can read the approved actual owner's status.
+## Choose the next action
 
-`entry` describes the queried plugin process; `owner` describes the connector actually serving this installation. An older entry can retain an unconfigured/unavailable role and its `entry.diagnostic` while reporting a healthy current owner. Assess connectivity from `owner.connection` and `owner.interfaces`; the top-level target and device fields prefer that owner's identity. A missing owner still requires the relevant setup/refresh/recovery action. Do not reset an online device because a leftover entry has an old setup diagnostic.
+Fresh and resumed installations use the same decision path. Inspect unknown state before treating a component as missing. For one specific task, enter at “Select the next guide” and stop when that task is verified.
 
-When a Personal Agent has no usable Codex, identify the reason before choosing the next action:
+```mermaid
+flowchart TD
+    State["Inspect current results"] --> Server{"Server ready?"}
+    Server -- No --> Deploy["Install or recover Server"]
+    Server -- Yes --> Codex{"First usable Codex ready?"}
+    Codex -- No --> Device["Connect, approve or recover Codex"]
+    Codex -- Yes --> PA{"Target PA connected?"}
+    PA -- No --> Connect["Connect Personal Agent"]
+    PA -- Yes --> Link{"Complete link verified?"}
+    Link -- No --> Verify["Verify or diagnose the link"]
+    Link -- Yes --> Deliver["Hand over for use"]
+    Deploy --> Next["Select the next guide"]
+    Device --> Next
+    Connect --> Next
+    Verify --> Next
+    Next --> Can{"Have the capability and authorization?"}
+    Can -- Yes --> Execute["Execute and check the result"]
+    Can -- No --> Handoff["Do available work; hand off the remainder"]
+    Handoff --> Result["Receive and check the result"]
+    Execute --> State
+    Result --> State
+```
 
-- No device installed: continue [Codex connection](../codex/connect.md) on the intended Mac.
-- Approval pending: perform the [management access check](access.md) if capable, then approve the matching application or hand it to the administrator.
-- Offline, incompatible or missing native interface: follow [troubleshooting](../troubleshooting/index.md). OAuth success alone does not resolve these states.
+Use the table below for the corresponding guide and cases where the nominal installation order cannot yet be verified from this environment. If blocked, continue independent authorized work instead of repeating the same check.
 
-## Help the user start and expand
+| Verified state | Continue |
+| --- | --- |
+| Server ready, no Codex | [Connect Codex](../codex/connect.md), locally or by handoff |
+| Device awaiting approval | [Approve that application](../codex/approve.md) |
+| Codex ready, PA not connected | [Connect dot](../personal-agents/dot/index.md) or [Cue](../personal-agents/cue/index.md) |
+| User reports the Mac was connected elsewhere | Inspect management `devices` or remote `list_connections`. If needed, connect the current PA first, then query |
+| MCP works, no usable Codex | [Resolve the device state](../troubleshooting/device.md) |
+| PA sees usable Codex | For full installation, verify the complete link below; for a single-stage request, report that stage |
+| Component updated, link unavailable | [Coordinate remaining updates](../maintenance/update.md) or diagnose the actual error |
 
-After the requested installation is ready, give a short, concrete completion message covering these four next-use scenarios. Use the Personal Agents actually connected, the verified device name and the real Server URL. Resolve guide links to the selected version; do not leave placeholders or send the user back to the repository README. Keep these instructions here rather than copying a separate ending into each component or client guide.
+Use fresh results instead of waiting for an obsolete local-access task. If blocked, state the last verified step and remaining action; continue independent authorized work.
 
-1. **Start using it.** Tell the user where to send a request and offer one useful example suited to their goal. For an installed development environment: “In [connected Personal Agent], say: ‘On [device], open a new Codex conversation for the project I choose, review its recent changes and suggest improvements without editing files.’” If the project is already known, name it; otherwise let the user choose it. Explain that they can then continue that conversation through the same Personal Agent. Suggesting this prompt does not authorize sending it. If only `list_connections` has been checked, say connection verification is complete and the first actual task is still theirs to start.
-2. **Add another Personal Agent.** Give the existing Server's public `/mcp` URL and the selected version's [client guide](../index.md). Explain that an authorized Agent can create a separate named connection; the user can also create it at the real `/admin/agents` URL. The new client then completes its normal OAuth flow using that connection's access code. Keep the code out of the URL and generic handoff. Reauthorization of the same instance reuses its row. The same Server serves the additional client; do not deploy another Server.
-3. **Add another Codex device.** Give the short [handoff below](#hand-off-only-the-remaining-work) for Codex on the new Mac. An Agent with management authority can approve the device, otherwise the user approves it at the real `/admin/devices` URL. After approval and verification, the already connected Personal Agents can discover and use it. Reuse the existing Server.
-4. **Return to management.** Give the fixed, clickable `/admin` URL and explain that the saved password or passkey lets the user approve/revoke devices, create/reissue/revoke Personal Agent connections and manage browser login methods without Wrangler or the original installation Agent. Name the method actually configured; do not call a passkey a password. If browser setup was deferred, say so and point to the existing setup handoff or [setup/recovery instructions](access.md#browser-login-and-recovery); do not claim the page is ready for independent login. The private setup link is for configuration, not the everyday bookmark.
+## Verify the complete link
 
-If a stage is incomplete, lead with the exact remaining action and provide only next-use suggestions that are currently possible. Do not present pending authorization as ready, require more clients/devices to finish installation, or start additional installations just because these options are listed. Continue any next action the user has already requested; otherwise leave the choices with them.
+For full installation, including resumed installations:
 
-## Hand off only the remaining work
+1. In the actual PA, call `list_connections`; verify the intended Server and approved, online, compatible device/interface.
+2. Use [native discovery](../usage/connections.md) to inspect a read-only capability/status method with `describe_methods`, then `call` it on that device/current runtime. Read the native result; reuse an equivalent recent successful call when available.
+3. Report the verified PA → Server → Codex path. On failure, preserve completed stages and [diagnose that failure](../troubleshooting/index.md).
 
-Default to a message the user can copy to the Agent that can do the remaining work. Do not ask the user to run commands, replace paths or relay plugin directories unless they choose manual operation. For a Mac connection, substitute real values into this short message:
+OAuth and device discovery alone are not full native verification. This check does not create conversations, send synthetic tasks, change settings or require unrelated conversation content. Actual work remains the user's choice.
+
+## Hand off a task
+
+Give one copyable message, substituting real values and versioned links. The user forwards it; the receiving Agent resolves commands and local paths.
+
+**To Codex on the target Mac:**
 
 ```text
 Connect this Mac's Codex to my existing DotX Server using this guide.
@@ -54,8 +78,31 @@ Server: HTTPS_ORIGIN
 Guide: VERSIONED_CODEX_CONNECTION_GUIDE_URL
 ```
 
-Put each URL on its own line, or use an explicit Markdown link. Keep adjacent punctuation and instructions outside the URL. When resuming, add one sentence describing completed work and the exact blocker, for example: “DotX Desktop is already installed; the previous conversation could not discover device_status. Load the existing plugin here and continue configuration.” Include an existing application/device ID when needed to select it. The receiving Agent obtains its own actual plugin paths and capabilities.
+**To the Personal Agent being added:**
 
-Do not include access codes, OAuth credentials, private keys or conversation bodies in general handoffs or diagnostic records. Supply an access code only to the intended enrollment flow, with its actual deadline and [authorization guide](../personal-agents/authorization.md).
+```text
+Connect yourself to my existing DotX Server using this guide, then verify the usable Codex connection.
+Server: HTTPS_ORIGIN
+Guide: VERSIONED_CLIENT_GUIDE_URL
+```
 
-Link the next concrete guide and identify the action; a link to the project README alone is not a handoff. Report component readiness, pending approval and end-to-end usability separately.
+**To a management Agent:**
+
+```text
+Perform ACTION for TARGET on this existing DotX Server, verify the result, and report what can continue.
+Server: HTTPS_ORIGIN
+Guide: VERSIONED_TASK_GUIDE_URL
+```
+
+Include known application/device/PA row IDs. For resumption, add one sentence with completed work and the blocker. Keep credentials, codes and conversation bodies out of general handoffs; [deliver a code only to its enrollment flow](../personal-agents/access-code.md#deliver-and-return).
+
+## Close the requested installation
+
+Use actual names and URLs in a short completion message:
+
+- **Ready:** which PA reaches which Codex, checks passed, and any remaining verification. Do not claim full delivery from discovery alone.
+- **Use:** suggest one relevant request, such as “On Mac mini, read the progress of the Codex task I choose.” Do not send it unasked.
+- **Expand:** offer the handoffs above for another PA or Mac using this Server; do not start extra installations unasked.
+- **Manage:** give `/admin` and the configured password/passkey method, or state setup was deferred. Offer [browser setup](../server/browser-login.md) when wanted; it enables management without Wrangler.
+
+Lead with any incomplete action. Installation, approval, current conversation tool loading and actual remote use are separate results.
