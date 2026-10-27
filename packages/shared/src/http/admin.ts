@@ -16,6 +16,20 @@ export interface AdminSecurity {
   password_enabled: boolean;
   passkeys: { id: string; name: string; created_at: number }[];
 }
+export interface AdminClaim {
+  challenge: string;
+  reset: boolean;
+  verified: boolean;
+  expires_at: number;
+}
+export interface AdminClaimStatus {
+  claim: AdminClaim | null;
+  secret_name: string;
+  secret_present: boolean;
+  value_format_issue: 'name_in_value' | null;
+  settings_url: string;
+  worker: string;
+}
 export interface AdminSession {
   login_configured: boolean;
   authenticated: true;

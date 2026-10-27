@@ -6,6 +6,7 @@ import { sha256 } from '../http/crypto.ts';
 import { HttpError, json } from '../http/responses.ts';
 export const SESSION_COOKIE = 'dotx-admin';
 export const CEREMONY_COOKIE = 'dotx-admin-passkey';
+export const CLAIM_COOKIE = 'dotx-admin-claim';
 export function cookie(request: Request, name: string) {
   return request.headers
     .get('Cookie')
@@ -32,6 +33,11 @@ export async function browserAuthority(request: Request): Promise<BrowserAuthori
   if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
   const setup = request.headers.get('X-DotX-Setup');
   if (setup) return { setup: await sha256(setup) };
+  if (request.headers.get('X-DotX-Claim') === '1') {
+    const claim = cookie(request, CLAIM_COOKIE);
+    if (!claim) throw new HttpError(401, 'CLAIM_EXPIRED');
+    return { claim: await sha256(claim) };
+  }
   return { session: await sessionId(request), csrf: request.headers.get('X-CSRF-Token') ?? '' };
 }
 export function sessionResponse(env: Env, session: BrowserSession & { secret: string }) {
@@ -39,6 +45,7 @@ export function sessionResponse(env: Env, session: BrowserSession & { secret: st
     'Set-Cookie': setCookie(env, SESSION_COOKIE, session.secret, sessionSeconds),
   });
   response.headers.append('Set-Cookie', setCookie(env, CEREMONY_COOKIE, '', 0));
+  response.headers.append('Set-Cookie', setCookie(env, CLAIM_COOKIE, '', 0));
   return response;
 }
 export const ceremonyCookie = (env: Env, value: string) =>

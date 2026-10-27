@@ -1,5 +1,6 @@
 import type { Env } from '../env.ts';
 import type { BrowserSession } from './credentials.ts';
+import type { AdminClaim } from '@dotx/shared/http/admin';
 import { control } from '../hub/namespace.ts';
 import { readJson } from '../http/body.ts';
 import { randomSecret, sha256 } from '../http/crypto.ts';
@@ -11,11 +12,18 @@ import {
   ceremonyCookie,
   sessionResponse,
   clearSession,
+  CLAIM_COOKIE,
+  setCookie,
 } from './sessions.ts';
 
 export async function browserRoutes(request: Request, env: Env): Promise<Response | null> {
   const path = new URL(request.url).pathname;
-  if (!path.startsWith('/admin/auth/') && path !== '/setup/admin/api') return null;
+  if (
+    !path.startsWith('/admin/auth/') &&
+    !path.startsWith('/admin/api/claim/') &&
+    path !== '/setup/admin/api'
+  )
+    return null;
   try {
     if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_AUTH_REQUIRED');
     if (path === '/admin/auth/methods' && request.method === 'GET')
@@ -31,6 +39,54 @@ export async function browserRoutes(request: Request, env: Env): Promise<Respons
     const body = (await readJson(request)) as Record<string, any> | null;
     if (!body || typeof body !== 'object' || Array.isArray(body))
       throw new HttpError(400, 'INVALID_JSON');
+    if (path === '/admin/api/claim/start' || path === '/admin/api/claim/verify') {
+      // Copy/paste may add surrounding whitespace; preserve the challenge itself.
+      const deployedChallenge = env.DOTX_ADMIN_CLAIM?.trim();
+      const previous = cookie(request, CLAIM_COOKIE);
+      const id = previous ? await sha256(previous) : undefined;
+      let claim: AdminClaim | null;
+      let claimCookie: string | undefined;
+      if (path.endsWith('/start')) {
+        const raw = randomSecret();
+        const result = await control<{ claim: AdminClaim; created: boolean }>(
+          env,
+          'admin/claim-start',
+          {
+            id,
+            nextId: await sha256(raw),
+            restart: body.restart === true,
+          },
+        );
+        claim = result.claim;
+        claimCookie = setCookie(
+          env,
+          CLAIM_COOKIE,
+          result.created ? raw : previous!,
+          Math.max(0, Math.ceil((claim.expires_at - Date.now()) / 1000)),
+        );
+      } else {
+        // Use this request's deployed binding, never a cached value or public input.
+        claim = await control<AdminClaim | null>(env, 'admin/claim-verify', {
+          id,
+          deployedChallenge,
+        });
+      }
+      return json(
+        {
+          claim,
+          secret_name: 'DOTX_ADMIN_CLAIM',
+          secret_present: !!deployedChallenge,
+          // Report only an actionable shape error, never the deployed value.
+          value_format_issue: deployedChallenge?.startsWith('DOTX_ADMIN_CLAIM=')
+            ? 'name_in_value'
+            : null,
+          settings_url: `https://dash.cloudflare.com/${encodeURIComponent(env.CF_ACCOUNT_ID)}/workers/services/view/${encodeURIComponent(env.CF_WORKER_NAME)}/production/settings#variables`,
+          worker: env.CF_WORKER_NAME,
+        },
+        200,
+        claimCookie ? { 'Set-Cookie': claimCookie } : undefined,
+      );
+    }
     if (path.endsWith('/options')) {
       const raw = cookie(request, CEREMONY_COOKIE) ?? randomSecret();
       const id = await sha256(raw);

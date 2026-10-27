@@ -15,7 +15,7 @@ function Setup() {
         <Feedback error={status.error} />
         <p>
           This link may have expired or already been used. <a href="/admin">Try signing in</a>, or
-          ask your Agent for a new link.
+          use Cloudflare verification there, or ask your Agent for a new link.
         </p>
       </>
     );

@@ -8,6 +8,7 @@ import type { AdminSetupStatus, AdminSecurity } from '@dotx/shared/http/admin';
 import { api } from './client.ts';
 export interface LoginAuthority {
   setup?: string;
+  claim?: boolean;
   csrf?: string;
 }
 export const loginMethods = (signal?: AbortSignal) =>
