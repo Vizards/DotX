@@ -19,17 +19,31 @@ DotX connects your Personal Agent to native Codex on your Macs. Start new tasks,
 
 ## Get started
 
-Give an Agent your goal and this repository link:
+Copy the message for your goal. The Agent follows the [Agent guides](docs/index.md) and asks for any missing details, such as your existing Server URL.
+
+### Install for the first time
+
+Send to any Agent. Codex Desktop is recommended.
 
 ```text
-Help me install DotX: https://github.com/Vizards/DotX. Start at docs/index.md for the selected release.
+Help me install DotX: https://github.com/Vizards/DotX
 ```
 
-[Agent guides](docs/index.md) cover Server installation, local Codex connection and each Personal Agent. Start wherever you need; the Agent checks what is ready, completes the work it can and hands off any steps requiring another environment or your login. A new network normally connects Server → first Codex → Personal Agent. Codex Desktop is recommended for local setup; computer use is optional.
+### Connect another Personal Agent
 
-To add another Mac, give local Codex the existing Server URL and ask it to follow [Codex connection](docs/codex/connect.md). An administrator approves that device through the Server's password/passkey management page or Wrangler-backed management CLI.
+Send to the Personal Agent you want to add.
 
-0.1.0 is a fresh installation from 0.0.1. Native Codex accounts, projects and conversations are preserved. Use the chosen GitHub Release's notes and guides; this branch may describe unreleased behavior.
+```text
+Connect yourself to my existing DotX network: https://github.com/Vizards/DotX
+```
+
+### Connect another Mac's Codex
+
+Send to Codex on that Mac.
+
+```text
+Connect this Mac's Codex to my existing DotX network: https://github.com/Vizards/DotX
+```
 
 ## What you can do
 
