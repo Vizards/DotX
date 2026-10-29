@@ -24,6 +24,7 @@ const claimAttemptKey = temporary + 'claim-attempts';
 const sessionKey = (id: string) => temporary + 'session:' + id;
 const ceremonyKey = (id: string) => temporary + 'ceremony:' + id;
 export const sessionSeconds = 30 * 24 * 60 * 60;
+const sessionRenewalInterval = 60 * 60 * 1000;
 export const ceremonySeconds = 5 * 60;
 const setupMilliseconds = 24 * 60 * 60 * 1000;
 interface Passkey extends WebAuthnCredential {
@@ -164,8 +165,11 @@ export class AdminCredentials {
       const session = await this.live<BrowserSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
       if (csrf !== undefined && !sameSecret(session.csrf, csrf))
         throw new HttpError(403, 'CSRF_REQUIRED', 'Refresh the management page before retrying.');
-      session.expires_at = Date.now() + sessionSeconds * 1000;
-      await this.save(tx, sessionKey(id), session);
+      const expiresAt = Date.now() + sessionSeconds * 1000;
+      if (expiresAt - session.expires_at >= sessionRenewalInterval) {
+        session.expires_at = expiresAt;
+        await this.save(tx, sessionKey(id), session);
+      }
       return session;
     });
   }
@@ -217,6 +221,22 @@ export class AdminCredentials {
       const credentials = await this.authority(tx, auth);
       credentials.password = passwordHash(password);
       return this.changed(tx, credentials);
+    });
+  }
+  async renamePasskey(auth: BrowserAuthority, passkeyId: string, name: unknown) {
+    return this.store.transaction(async (tx) => {
+      const credentials = await this.authority(tx, auth);
+      const passkey = credentials.passkeys.find((key) => key.id === passkeyId);
+      if (!passkey) throw new HttpError(404, 'PASSKEY_NOT_FOUND');
+      const label = typeof name === 'string' ? name.trim() : '';
+      if (!label) throw new HttpError(400, 'PASSKEY_NAME_REQUIRED');
+      passkey.name = label.slice(0, 64);
+      await tx.put(credentialsKey, credentials);
+      return credentials.passkeys.map(({ id, name: label, created_at }) => ({
+        id,
+        name: label,
+        created_at,
+      }));
     });
   }
   async remove(auth: BrowserAuthority, passkeyId?: string) {

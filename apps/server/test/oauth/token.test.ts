@@ -17,18 +17,15 @@ test('OAuth integration requires registered redirects and S256 PKCE, and rejects
     assert.equal(invalid.headers.get('Location'), null);
     await invalid.text();
   }
-  const invitation = await api.admin('/agents', 'POST', { name: 'PKCE' });
-  const approval = await flow.approve(invitation.access_code);
+  await api.admin(`/agent-requests/${flow.transaction}/approve`, 'POST', {});
+  const approval = await flow.finish();
   const callback = new URL(approval.headers.get('Location')!);
   const wrong = await flow.exchange(callback, { code_verifier: 'a'.repeat(64) });
   assert.equal(wrong.status, 400);
   assert.equal(((await wrong.json()) as any).error, 'invalid_grant');
   const fresh = await beginAuthorization(api.request);
-  const nextCode = await api.admin(
-    `/agents/${invitation.connection.agent_id}/enrollment-code`,
-    'POST',
-  );
-  const next = await fresh.approve(nextCode.access_code);
+  await api.admin(`/agent-requests/${fresh.transaction}/approve`, 'POST', {});
+  const next = await fresh.finish();
   const nextCallback = new URL(next.headers.get('Location')!);
   const granted = await fresh.exchange(nextCallback);
   assert.equal(granted.status, 200);

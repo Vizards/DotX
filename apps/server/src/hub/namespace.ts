@@ -31,17 +31,14 @@ export function consentHub(env: Env) {
       control<string>(env, 'consent/create', { request, description, binding }),
     consentContext: (id: string, binding: string) =>
       control<ConsentContext>(env, 'consent/context', { id, binding }),
-    reserveConsent: (id: string, binding: string, code: string) =>
+    reserveConsent: (id: string, binding: string) =>
       control<Awaited<ReturnType<Transactions['reserve']>>>(env, 'consent/reserve', {
         id,
         binding,
-        code,
       }),
     completeConsent: (id: string, binding: string, redirect: string) =>
       control<string>(env, 'consent/complete', { id, binding, redirect }),
     cancelConsent: (id: string, binding: string) =>
       control<string>(env, 'consent/cancel', { id, binding }),
-    consentError: (id: string, binding: string, error: { code: string; message: string }) =>
-      control<null>(env, 'consent/error', { id, binding, error }),
   };
 }

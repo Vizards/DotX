@@ -26,8 +26,7 @@ Use the [state and capability decision diagram](common/handoff.md#choose-the-nex
 | --- | --- | --- |
 | Install a Server | [Install Server](server/install.md) | `server_install` |
 | Connect this Mac's Codex | [Connect Codex](codex/connect.md) | `codex_connect` |
-| Connect dot | [Connect dot](personal-agents/dot/index.md) | `dot` |
-| Connect Cue | [Connect Cue](personal-agents/cue/index.md) | `cue` |
+| Connect any Personal Agent | [Connect a Personal Agent](personal-agents/index.md) | `personal_agent` |
 | Use an existing network | [Find a Codex](usage/connections.md) | `connections` |
 | Update components | [Coordinate an update](maintenance/update.md) | `update` |
 | Uninstall, reset or change Server | [Remove or reset](maintenance/remove.md) | `remove` |

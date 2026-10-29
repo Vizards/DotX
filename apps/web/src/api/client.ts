@@ -4,11 +4,13 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly path: string;
-  constructor(status: number, code: string, message: string, path: string) {
+  readonly details: unknown;
+  constructor(status: number, code: string, message: string, path: string, details?: unknown) {
     super(message);
     this.path = path;
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 export async function api<T>(
@@ -58,6 +60,7 @@ export async function api<T>(
       error?.code ?? 'HTTP_ERROR',
       error?.message ?? `Request failed (${response.status})`,
       path,
+      error?.details,
     );
   }
   if (body === null)

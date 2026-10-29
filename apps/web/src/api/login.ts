@@ -19,6 +19,12 @@ export const loginPassword = (password: string) =>
   api('/admin/auth/password', { method: 'POST', body: { password } });
 export const setPassword = (auth: LoginAuthority, password: string) =>
   api('/admin/auth/password/set', { ...auth, method: 'POST', body: { password } });
+export const renamePasskey = (csrf: string, id: string, name: string) =>
+  api<{ passkeys: AdminSecurity['passkeys'] }>('/admin/api/passkeys/' + encodeURIComponent(id), {
+    csrf,
+    method: 'PATCH',
+    body: { name },
+  });
 export const removeLogin = (csrf: string, id?: string) =>
   api(id === undefined ? '/admin/api/password' : '/admin/api/passkeys/' + encodeURIComponent(id), {
     csrf,

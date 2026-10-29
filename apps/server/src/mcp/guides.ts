@@ -4,6 +4,7 @@ import server_install from '../../../../docs/server/install.md';
 import server_update from '../../../../docs/server/update.md';
 import codex_connect from '../../../../docs/codex/connect.md';
 import codex_update from '../../../../docs/codex/update.md';
+import personal_agent from '../../../../docs/personal-agents/index.md';
 import dot from '../../../../docs/personal-agents/dot/index.md';
 import cue from '../../../../docs/personal-agents/cue/index.md';
 import authorization from '../../../../docs/personal-agents/authorization.md';
@@ -22,7 +23,7 @@ import browser_login from '../../../../docs/server/browser-login.md';
 import server_configuration from '../../../../docs/server/configuration.md';
 import retention from '../../../../docs/server/retention.md';
 import management_commands from '../../../../docs/common/commands.md';
-import access_code from '../../../../docs/personal-agents/access-code.md';
+import approval from '../../../../docs/personal-agents/approval.md';
 import device_approval from '../../../../docs/codex/approve.md';
 import plugin_loading from '../../../../docs/troubleshooting/plugin-loading.md';
 import device_recovery from '../../../../docs/troubleshooting/device.md';
@@ -54,6 +55,7 @@ export const INSTRUCTION_GUIDES = {
   server_update: guide('Update Server and web pages', 'server/update.md', server_update),
   codex_connect: guide('Connect a local Codex', 'codex/connect.md', codex_connect),
   codex_update: guide('Update the local Codex plugin', 'codex/update.md', codex_update),
+  personal_agent: guide('Connect a Personal Agent', 'personal-agents/index.md', personal_agent),
   dot: guide('Connect, configure or update dot', 'personal-agents/dot/index.md', dot),
   cue: guide('Connect, configure or update Cue', 'personal-agents/cue/index.md', cue),
   authorization: guide(
@@ -62,11 +64,7 @@ export const INSTRUCTION_GUIDES = {
     authorization,
   ),
   access: guide('Check capabilities and management access', 'common/access.md', access),
-  access_code: guide(
-    'Obtain a Personal Agent access code',
-    'personal-agents/access-code.md',
-    access_code,
-  ),
+  approval: guide('Approve a Personal Agent request', 'personal-agents/approval.md', approval),
   management_commands: guide(
     'Look up a management command',
     'common/commands.md',

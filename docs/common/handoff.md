@@ -10,7 +10,7 @@ Judge actual tools and environment, not the Agent's product name.
 | --- | --- | --- |
 | Deploy Server | Release toolchain and official Wrangler access to the target account | Request CF authorization or hand off deployment; browser automation is optional |
 | Connect Codex | Access to the intended Mac's actual Codex host | Hand off to Codex on that Mac; your own cloud shell is not that host |
-| Approve a device / issue a code | Verified Worker management access or authorized management browser | Hand off the action; a Wrangler-capable Agent needs no browser-login setup |
+| Approve a Codex or PA request | Verified Worker management access or authorized management browser | Hand off the actual request; a Wrangler-capable Agent needs no browser-login setup |
 | Configure a PA | Its real plugin/MCP tools or settings | Hand off the missing configuration or consent step; the user can operate the browser |
 
 Complete available work first. PA preparation can overlap Mac installation; both still need their own completion checks.
@@ -48,7 +48,7 @@ Use the table below for the corresponding guide and cases where the nominal inst
 | --- | --- |
 | Server ready, no Codex | [Connect Codex](../codex/connect.md), locally or by handoff |
 | Device awaiting approval | [Approve that application](../codex/approve.md) |
-| Codex ready, PA not connected | [Connect dot](../personal-agents/dot/index.md) or [Cue](../personal-agents/cue/index.md) |
+| Codex ready, PA not connected | [Connect a Personal Agent](../personal-agents/index.md) |
 | User reports the Mac was connected elsewhere | Inspect management `devices` or remote `list_connections`. If needed, connect the current PA first, then query |
 | MCP works, no usable Codex | [Resolve the device state](../troubleshooting/device.md) |
 | PA sees usable Codex | For full installation, verify the complete link below; for a single-stage request, report that stage |
@@ -83,7 +83,7 @@ Guide: VERSIONED_CODEX_CONNECTION_GUIDE_URL
 ```text
 Connect yourself to my existing DotX Server using this guide, then verify the usable Codex connection.
 Server: HTTPS_ORIGIN
-Guide: VERSIONED_CLIENT_GUIDE_URL
+Guide: VERSIONED_PERSONAL_AGENT_GUIDE_URL
 ```
 
 **To a management Agent:**
@@ -94,7 +94,7 @@ Server: HTTPS_ORIGIN
 Guide: VERSIONED_TASK_GUIDE_URL
 ```
 
-Include known application/device/PA row IDs. For resumption, add one sentence with completed work and the blocker. Keep credentials, codes and conversation bodies out of general handoffs; [deliver a code only to its enrollment flow](../personal-agents/access-code.md#deliver-and-return).
+Include known application/device/PA row IDs for another Agent. For human device approval, show the actual device name, short verification label and exact approval link together; follow [device approval](../codex/approve.md). For resumption, add one sentence with completed work and the blocker. Keep credentials and conversation bodies out of handoffs. A PA approval handoff includes the target Server and actual OAuth request link; follow [request approval](../personal-agents/approval.md).
 
 ## Close the requested installation
 

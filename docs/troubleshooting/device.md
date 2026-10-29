@@ -12,7 +12,7 @@ Use when discovery or setup reports an unusable device. Read `device_status` on 
 | Application pending | [Approve the device](../codex/approve.md), then check again |
 | Device offline | Inspect the target Mac's Codex host/plugin and current diagnostic; cloud approval alone cannot make it run |
 | `DEVICE_PROTOCOL_MISMATCH` | [Coordinate updates](../maintenance/update.md). The owner retains its lock and retries with backoff; do not re-enroll |
-| Required native interface unavailable | Preserve its native error and follow the relevant recovery below |
+| Required native interface unavailable (including **Online · no interface**) | Inspect `device_status` on the affected Mac and preserve the native error before following the relevant recovery below. The browser's **Fix** action provides a prompt to send to that Mac's Codex |
 | Missing/corrupt existing private key or configuration | Report the error; use [explicit reset/replacement](../maintenance/remove.md) only when authorized |
 
 ## Interpret owner and setup state

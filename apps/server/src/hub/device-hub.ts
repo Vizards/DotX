@@ -12,7 +12,7 @@ import { eventAccess } from '../events/authorization.ts';
 import { ReleaseUpdates } from '../updates/releases.ts';
 import { requireAccess, grantIdentity, type Caller } from './access.ts';
 import { enrollmentInput } from '@dotx/shared/http/enrollment';
-import { nameInput } from '@dotx/shared/http/admin';
+import { nameInput, agentApprovalInput } from '@dotx/shared/http/admin';
 import type { AdminDevice } from '@dotx/shared/http/admin';
 import type { Outcome } from '@dotx/shared/requests';
 import { WIRE_VERSION } from '@dotx/shared/wire/version';
@@ -88,21 +88,9 @@ export class DeviceHub extends DurableObject<Env> {
       if (path.startsWith('/internal/'))
         return json(await this.internal(path.slice(10), await request.json()));
       if (!path.startsWith('/admin/api/')) throw new HttpError(404, 'NOT_FOUND');
-      if (path === '/admin/api/agents') {
-        if (request.method === 'GET') return json({ agents: await this.agents.list() });
-        if (request.method === 'POST') {
-          const input = nameInput.safeParse(await readJson(request));
-          if (!input.success) throw new HttpError(400, 'INVALID_AGENT_NAME');
-          return json(
-            {
-              ...(await this.agents.issue(undefined, input.data.name)),
-              mcp_url: this.env.PUBLIC_ORIGIN + '/mcp',
-            },
-            201,
-          );
-        }
-      }
-      const agent = /^\/admin\/api\/agents\/([^/]+)(?:\/(enrollment-code|revoke))?$/.exec(path);
+      if (path === '/admin/api/agents' && request.method === 'GET')
+        return json({ agents: await this.agents.list() });
+      const agent = /^\/admin\/api\/agents\/([^/]+)(?:\/(revoke))?$/.exec(path);
       if (agent) {
         const [, id, action] = agent;
         if (!action && request.method === 'PATCH') {
@@ -110,15 +98,22 @@ export class DeviceHub extends DurableObject<Env> {
           if (!input.success) throw new HttpError(400, 'INVALID_AGENT_NAME');
           return json(await this.agents.rename(id!, input.data.name));
         }
-        if (action === 'enrollment-code' && request.method === 'POST')
-          return json({
-            ...(await this.agents.issue(id)),
-            mcp_url: this.env.PUBLIC_ORIGIN + '/mcp',
-          });
-        if (action === 'enrollment-code' && request.method === 'DELETE')
-          return json(await this.agents.cancel(id!));
         if (action === 'revoke' && request.method === 'POST')
           return json(await this.agents.revoke(id!));
+      }
+      if (path === '/admin/api/agent-requests' && request.method === 'GET')
+        return json({ requests: await this.transactions.list() });
+      const approval = /^\/admin\/api\/agent-requests\/([^/]+)(?:\/(approve|reject))?$/.exec(path);
+      if (approval) {
+        const [, id, action] = approval;
+        if (!action && request.method === 'GET') return json(await this.transactions.inspect(id!));
+        if (action === 'approve' && request.method === 'POST') {
+          const input = agentApprovalInput.safeParse(await readJson(request));
+          if (!input.success) throw new HttpError(400, 'INVALID_APPROVAL');
+          return json(await this.transactions.approve(id!, input.data.name));
+        }
+        if (action === 'reject' && request.method === 'POST')
+          return json(await this.transactions.reject(id!));
       }
       if (path === '/admin/api/device-requests' && request.method === 'GET')
         return json({ requests: await this.devices.requests() });
@@ -167,6 +162,8 @@ export class DeviceHub extends DurableObject<Env> {
     if (path === 'admin/set-password')
       return this.adminCredentials.setPassword(value.auth, value.password);
     if (path === 'admin/remove') return this.adminCredentials.remove(value.auth, value.passkeyId);
+    if (path === 'admin/passkey-rename')
+      return this.adminCredentials.renamePasskey(value.auth, value.passkeyId, value.name);
     if (path === 'admin/register-options')
       return this.adminCredentials.registrationOptions(value.auth, value.id);
     if (path === 'admin/register')
@@ -199,15 +196,10 @@ export class DeviceHub extends DurableObject<Env> {
         value.binding,
       );
     if (path === 'consent/context') return this.transactions.context(value.id, value.binding);
-    if (path === 'consent/reserve')
-      return this.transactions.reserve(value.id, value.binding, value.code);
+    if (path === 'consent/reserve') return this.transactions.reserve(value.id, value.binding);
     if (path === 'consent/complete')
       return this.transactions.complete(value.id, value.binding, value.redirect);
     if (path === 'consent/cancel') return this.transactions.cancel(value.id, value.binding);
-    if (path === 'consent/error') {
-      await this.transactions.error(value.id, value.binding, value.error);
-      return null;
-    }
     throw new HttpError(404, 'NOT_FOUND');
   }
   async adminDevices(): Promise<AdminDevice[]> {

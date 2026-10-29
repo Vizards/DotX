@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 import { wranglerToken, workerIdentity, createWorker } from './wrangler.ts';
 const help =
-  'admin.mjs --url HTTPS_ORIGIN [--profile WRANGLER_PROFILE] session | setup | setup-status | reset-login | agents | agent-create --name NAME | agent-rename --id ID --name NAME | agent-reissue --id ID | agent-cancel --id ID | agent-revoke --id ID | devices | device-rename --id DEVICE_ID --name NAME | device-requests | device-approve --id OPERATION_ID | device-reject --id OPERATION_ID | device-revoke --id DEVICE_ID; installation: admin.mjs worker-identity | worker-create --account ACCOUNT_ID --worker NAME [--profile WRANGLER_PROFILE]';
+  'admin.mjs --url HTTPS_ORIGIN [--profile WRANGLER_PROFILE] session | setup | setup-status | reset-login | agents | agent-rename --id ID --name NAME | agent-requests | agent-request --id REQUEST_ID | agent-approve --id REQUEST_ID [--name NAME] | agent-reject --id REQUEST_ID | agent-revoke --id ID | devices | device-rename --id DEVICE_ID --name NAME | device-requests | device-approve --id OPERATION_ID | device-reject --id OPERATION_ID | device-revoke --id DEVICE_ID; installation: admin.mjs worker-identity | worker-create --account ACCOUNT_ID --worker NAME [--profile WRANGLER_PROFILE]';
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -62,23 +62,25 @@ async function main() {
     case 'agents':
       path = '/agents';
       break;
-    case 'agent-create':
-      path = '/agents';
+    case 'agent-requests':
+      path = '/agent-requests';
+      break;
+    case 'agent-request':
+      path = `/agent-requests/${id()}`;
+      break;
+    case 'agent-approve':
+      path = `/agent-requests/${id()}/approve`;
       method = 'POST';
-      body = name();
+      body = values.name === undefined ? {} : { name: values.name };
+      break;
+    case 'agent-reject':
+      path = `/agent-requests/${id()}/reject`;
+      method = 'POST';
       break;
     case 'agent-rename':
       path = `/agents/${id()}`;
       method = 'PATCH';
       body = name();
-      break;
-    case 'agent-reissue':
-      path = `/agents/${id()}/enrollment-code`;
-      method = 'POST';
-      break;
-    case 'agent-cancel':
-      path = `/agents/${id()}/enrollment-code`;
-      method = 'DELETE';
       break;
     case 'agent-revoke':
       path = `/agents/${id()}/revoke`;

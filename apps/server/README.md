@@ -13,12 +13,12 @@ node admin.mjs --url https://YOUR_WORKER.workers.dev session
 node admin.mjs --help
 ```
 
-Use `--profile NAME` when the intended login uses a named Wrangler profile. The CLI prints management results and newly issued access codes, never Cloudflare tokens. Desktop does not include this tool or Wrangler.
+Use `--profile NAME` when the intended login uses a named Wrangler profile. The CLI prints management results, never Cloudflare tokens. Desktop does not include this tool or Wrangler.
 
 For installation, `worker-create --account ACCOUNT_ID --worker NAME` creates the empty Worker and returns its ID before code deployment. `worker-identity` with the same arguments reads an existing Worker by exact name. Set that ID in the deployment configuration and follow the installation guide for one normal Wrangler deployment.
 
 After deployment, `node admin.mjs --url HTTPS_ORIGIN setup` returns a private link where the user chooses a password or passkey. `setup-status` returns non-secret readiness. Browser setup can be deferred while the Agent continues through Wrangler. `reset-login` explicitly creates a recovery link; successful completion replaces browser credentials and sessions without changing connected Codex or Personal Agents. See the installation and access guides for the complete handoff.
 
-The public MCP endpoint is `/mcp`. Service discovery is `/setup/info`; client metadata and icon are `/branding/metadata.json` and `/branding/icon.png`. Each Personal Agent uses its own access-code OAuth authorization.
+The public MCP endpoint is `/mcp`. Service discovery is `/setup/info`; client metadata and icon are `/branding/metadata.json` and `/branding/icon.png`. Each Personal Agent starts standard OAuth. A browser administrator or a Wrangler-authorized installation Agent approves its pending request; the original authorization page then continues to the client callback.
 
 The template serves `/assets/*` and `/branding/*` through Cloudflare Static Assets without executing the Worker. Keep `public/_headers` with the assets to preserve their response headers. Other paths enter the Worker; only declared page routes return the HTML shell. Keep `html_handling` and `not_found_handling` set to `none` so unknown API paths never fall back to the web page.

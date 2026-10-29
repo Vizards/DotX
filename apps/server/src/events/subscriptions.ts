@@ -22,7 +22,6 @@ export interface EventAuthority {
   user_id?: string;
   client_id?: string;
   grant_id?: string;
-  round_id?: string;
 }
 interface Subscription {
   id: string;

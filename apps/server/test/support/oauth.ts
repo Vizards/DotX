@@ -45,8 +45,7 @@ export async function beginAuthorization(
     Origin: 'http://localhost',
     'Content-Type': 'application/x-www-form-urlencoded',
   };
-  const form = (code: string, decision = 'approve') =>
-    new URLSearchParams({ transaction, decision, access_code: code }).toString();
+  const form = (decision = 'finish') => new URLSearchParams({ transaction, decision }).toString();
   return {
     client_id,
     query,
@@ -54,11 +53,11 @@ export async function beginAuthorization(
     cookie,
     headers,
     form,
-    approve: (code: string, json = false) =>
+    finish: (json = false) =>
       request('/authorize', {
         method: 'POST',
         headers: { ...headers, ...(json ? { Accept: 'application/json' } : {}) },
-        body: form(code),
+        body: form(),
       }),
     exchange: (callback: URL, overrides: Record<string, string> = {}) =>
       request('/oauth/token', {

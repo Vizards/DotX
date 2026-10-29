@@ -124,14 +124,10 @@ export async function startServer(
       headers: { ...ownerHeaders, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     }).then(json);
-  async function authorizeSession(scopes?: string[], existing?: string) {
-    const access = await admin(
-      existing ? `/agents/${existing}/enrollment-code` : '/agents',
-      'POST',
-      existing ? undefined : { name: 'Synthetic agent' },
-    );
+  async function authorizeSession(scopes?: string[]) {
     const flow = await beginAuthorization(request, scopes);
-    const approval = await flow.approve(access.access_code);
+    const access = await admin(`/agent-requests/${flow.transaction}/approve`, 'POST', {});
+    const approval = await flow.finish();
     assert.equal(approval.status, 303, await approval.clone().text());
     const callback = new URL(approval.headers.get('Location')!);
     assert(callback.searchParams.has('code'), callback.href);
@@ -140,7 +136,7 @@ export async function startServer(
     const client_id = flow.client_id;
     return {
       token: tokens.access_token as string,
-      agent_id: access.connection.agent_id as string,
+      agent_id: access.agent_id as string,
       async refresh() {
         const response = await request('/oauth/token', {
           method: 'POST',

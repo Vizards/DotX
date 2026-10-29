@@ -106,7 +106,7 @@ test('claim recovery preserves old access until save, then revokes old login wit
   await read(initial);
   const oldSession = cookies(initial);
   const device = await api.enroll();
-  const agent = await api.admin('/agents', 'POST', { name: 'existing' });
+  const agent = await api.authorizeSession();
   const recovery = await begin(api);
   assert.equal(recovery.data.claim.reset, true);
   await api.reload({ adminClaim: recovery.data.claim.challenge });
@@ -126,7 +126,7 @@ test('claim recovery preserves old access until save, then revokes old login wit
   assert.equal((await post(api, '/admin/auth/password', '', { password: 'old' })).status, 401);
   assert.equal((await post(api, '/admin/auth/password', '', { password: 'new' })).status, 200);
   assert.equal((await api.admin('/devices')).devices[0].device_id, device.input.device_id);
-  assert.equal((await api.admin('/agents')).agents[0].agent_id, agent.connection.agent_id);
+  assert.equal((await api.admin('/agents')).agents[0].agent_id, agent.agent_id);
 });
 
 test('unmatched and restarted requests cannot reuse a previously written challenge', async (t) => {

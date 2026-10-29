@@ -1,5 +1,10 @@
 import { z } from 'zod';
 export const displayName = z.string();
+/** A visual matching aid only; approval always uses the complete operation ID. */
+export function applicationLabel(operationId: string): string {
+  const prefix = operationId.slice(0, 8).toUpperCase();
+  return `${prefix.slice(0, 4)}-${prefix.slice(4)}`;
+}
 export const publicKeySchema = z.strictObject({
   kty: z.literal('OKP'),
   crv: z.literal('Ed25519'),

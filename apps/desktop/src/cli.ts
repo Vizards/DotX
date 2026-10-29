@@ -11,7 +11,7 @@ import { readOwner } from './local/ipc.ts';
 import { serviceInfo } from './connection/service.ts';
 import { enroll } from './connection/enrollment.ts';
 import { bootstrap } from './interfaces/caller.ts';
-import { displayName } from '@dotx/shared/http/enrollment';
+import { applicationLabel, displayName } from '@dotx/shared/http/enrollment';
 import { errorCode } from '@dotx/shared/errors';
 import packageInfo from '../package.json' with { type: 'json' };
 process.umask(0o077);
@@ -81,8 +81,12 @@ async function main() {
       version: packageInfo.version,
       data_dir: dir,
       device_id: ready.deviceId,
+      device_name: ready.label,
       target_server: service.origin,
-      application,
+      application: {
+        ...application,
+        verification_label: applicationLabel(application.operation_id),
+      },
       next_action:
         'The loaded plugin picks up complete first-time configuration automatically. Call device_status to verify the actual owner and target connection. ' +
         (application.status === 'approved'

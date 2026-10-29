@@ -5,6 +5,7 @@ import {
   setPassword,
   registerPasskey,
   removeLogin,
+  renamePasskey,
   type LoginAuthority,
 } from '../api/login.ts';
 export const passwordMutation = (auth?: LoginAuthority) =>
@@ -17,6 +18,10 @@ export const passkeyMutation = (auth?: LoginAuthority) =>
   mutationOptions({
     mutationFn: (name: string) => (auth ? registerPasskey(auth, name) : loginPasskey()),
     gcTime: 0,
+  });
+export const renamePasskeyMutation = (csrf: string) =>
+  mutationOptions({
+    mutationFn: ({ id, name }: { id: string; name: string }) => renamePasskey(csrf, id, name),
   });
 export const removeLoginMutation = (csrf: string) =>
   mutationOptions({

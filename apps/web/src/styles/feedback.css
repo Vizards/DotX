@@ -1,0 +1,255 @@
+/* ── Fields ──────────────────────────────────────── */
+.field {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.field > span {
+  display: block;
+  padding-bottom: 6px;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.field input {
+  width: 100%;
+  height: 45px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--glass);
+  color: var(--text);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  outline: none;
+  transition:
+    border-color var(--t-in) var(--ease),
+    box-shadow var(--t-in) var(--ease);
+}
+
+.field input::placeholder {
+  color: var(--text-4);
+}
+
+.field input:hover,
+.field input:focus {
+  border-color: var(--line-4);
+}
+
+.field input:focus {
+  box-shadow: 0 0 0 3px var(--accent-bg-strong);
+}
+
+.field small {
+  display: block;
+  margin-top: 5px;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+
+.field small[data-tone='ok'] {
+  color: var(--live-text);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: var(--space-4);
+  font-size: var(--fs-caption);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.check input {
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+/* ── Notices ─────────────────────────────────────── */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 15px 20px;
+  border-radius: var(--r-note);
+  border: 1px solid var(--line-3);
+  background: var(--surface);
+  margin-bottom: var(--space-5);
+}
+
+.notice[data-tone='attn'] {
+  border-color: rgba(242, 200, 119, 0.25);
+  background: var(--attn-bg);
+}
+
+.notice[data-tone='risk'] {
+  border-color: rgba(231, 135, 135, 0.3);
+  background: var(--risk-bg);
+}
+
+.notice .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice[data-selected='true'] {
+  border-color: var(--accent);
+}
+
+.notice .request-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.request-heading .title {
+  margin: 0;
+}
+
+.request-heading .codechip {
+  font-size: var(--fs-table);
+  color: var(--text);
+}
+
+.notice .title {
+  margin: 0 0 3px;
+  font-size: var(--fs-table);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-variant-numeric: tabular-nums;
+  color: var(--attn-text);
+}
+
+.countdown .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--attn);
+  box-shadow: 0 0 0 3px var(--attn-glow);
+  flex: none;
+}
+
+.notice .meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--fs-caption);
+  color: var(--text-2);
+}
+
+.notice .ops {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.codechip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-tag);
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font-code);
+  font-size: var(--fs-micro);
+}
+
+.codechip:hover {
+  border-color: var(--line-4);
+}
+
+/* ── States ──────────────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 200px;
+  padding: 30px;
+  text-align: center;
+}
+
+.empty h3 {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.empty p {
+  margin: 0;
+  font-size: var(--fs-table);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 11px 14px;
+  border-radius: var(--r-note);
+  border: 1px solid rgba(231, 135, 135, 0.3);
+  background: var(--risk-bg);
+  color: var(--risk-text);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+}
+
+.alert > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.alert .btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.table-feedback {
+  padding: var(--space-4);
+}
+
+.notice .alert {
+  margin-top: var(--space-3);
+}
+
+form > .alert {
+  margin-bottom: var(--space-4);
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+}
+
+.spinner {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid var(--line-3);
+  border-top-color: var(--accent);
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

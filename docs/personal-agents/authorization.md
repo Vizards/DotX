@@ -1,43 +1,40 @@
 # Personal Agent OAuth recovery and lifetimes
 
-Use for an observed authorization problem or a question about expiry. Normal connection starts in the [dot](dot/index.md) or [Cue](cue/index.md) guide. Their OAuth clients store/exchange/refresh credentials; the Agent does not handle raw tokens or schedule keepalive calls.
+Use for an observed authorization problem or expiry question. Start a new connection with [Connect a Personal Agent](index.md). The client's OAuth implementation stores, exchanges and refreshes credentials.
 
 ## Recover an interruption
 
 | Current state | Action and return point |
 | --- | --- |
-| No access code | [Obtain it](access-code.md), then return to the client's authorization action |
-| Mistyped access code | Correct it on the same page; an error does not consume the invitation. Retry immediately while attempt budget remains |
-| Code checks exhausted | Wait for the page's remaining window; retry the same unexpired code/transaction. Extra submissions do not extend the window; reissuing cannot bypass it |
-| Authorization page expired | Restart OAuth from the client. An unused code may still be valid; replace it only if no longer usable |
-| Code consumed but client cannot finish | [Reissue on the same Server row](access-code.md), then repeat the client's OAuth flow |
-| Access token expired | Let the client refresh normally; do not immediately request another access code |
-| Refresh rejected, authorization revoked/replaced, or credentials lost | Inspect the actual error; if reauthorization is required, obtain a new code for that same row and complete client OAuth |
-| Client registration invalid | Let the client's normal registration/reconnection flow recover; keep the DotX row |
-| Network/service failure | Preserve the failure and retry when appropriate; it does not establish revoked permission |
-| OAuth succeeded but tools missing | Use [dot loading recovery](dot/index.md#tools-missing-or-catalog-changed) or Cue's visible connection controls; do not reissue solely for catalog loading |
+| Waiting for approval | [Approve the request](approval.md), then return to the original authorization page. It checks the result and continues automatically, including when approval happened on another computer |
+| Signed in or completed browser setup in another tab | Return to the original authorization page in that browser; it detects the session. Select **Allow connection** unless an administrator already approved the request |
+| Page closed | Reopen the same URL in the same browser while the request is valid. Approval is retained; the page continues automatically |
+| Original browser cookie lost, request expired, rejected or removed | Start OAuth again from the client; get approval for the new request |
+| Access token expired | Let the client refresh normally; do not request reauthorization solely for expiry |
+| Refresh rejected or credentials lost | Inspect the actual error. If needed, start OAuth again and [approve the new request](approval.md) |
+| Connection removed | New approval is required; approval creates a new record |
+| Client registration invalid | Let the client's normal registration flow recover; a new approved authorization creates a new DotX row |
+| Network/service failure | Preserve the failure and retry the same request when appropriate. It does not establish revoked permission |
+| Approval succeeded but callback interrupted | Retry **Continue to client** on the original page. If it reports authorization interrupted, restart OAuth from the client |
+| OAuth succeeded but tools missing | [Refresh the client's tools](index.md#refresh-tools), then repeat `list_connections` |
 
-After recovery, make the client's real `list_connections` check. For replacement authorization, also perform the checks below before resuming native work.
+After recovery, make the client's real `list_connections` check. After a new authorization, also perform the checks below before resuming native work.
 
 ## Normal use and renewal
 
 | Item | Behavior |
 | --- | --- |
-| Access code | 30 minutes from issuance; actual `expires_at` governs. Six characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`; case and surrounding whitespace ignored |
-| Code checks | Ten new checks per Server per 60 seconds, shared by applicants. Existing MCP calls, token refresh and device connections are unaffected |
-| Browser authorization transaction | Ten minutes from creation, independently of the access code. The page shows its actual deadline |
-| OAuth authorization code | Client exchanges it automatically; provider allows ten minutes. It is distinct from the human-entered access code |
+| Browser authorization request | Ten minutes from creation; the page shows its deadline. Approval does not extend it |
+| OAuth authorization code | Client exchanges it automatically; provider allows ten minutes |
 | Access token | Normally one hour; OAuth `expires_in` is authoritative |
-| Refresh authorization | Initially 30 days; each successful refresh extends it to 30 days from that refresh. Chat activity/MCP calls alone do not prove renewal |
+| Refresh authorization | Initially 30 days; each successful refresh extends it to 30 days from that refresh. MCP calls alone do not prove renewal |
 | Dynamically registered client | 90-day registration, renewed during successful token exchanges when due; CIMD clients do not use this stored registration |
 
-The access code's expiry does not limit the connection after enrollment. Administrators can revoke/replace authorization earlier. The provider does not expose the refresh policy in the token response; this guide supplies it.
-
-DotX has no configurable PA read/write scopes. An approved connection can use all seven tools and every approved Codex; native task permissions still apply. Leave business scopes empty; the client may request `offline_access` for renewal.
+The request's expiry does not limit a completed connection. Administrators can revoke authorization earlier. DotX has no configurable PA read/write scopes. An approved connection can use all seven tools and every approved Codex; native task permissions still apply. Leave business scopes empty; the client may request `offline_access` for renewal.
 
 ## After reauthorization
 
-One instance keeps one Server row. Reissuing ends its previous unfinished enrollment but leaves active access working until the new token first authenticates to MCP. That request replaces the old grant. Old receipts, tracking access and subscriptions do not transfer; native tasks continue. Ordinary token refresh does not replace the grant.
+Every newly approved OAuth request creates an independent Server connection. Old connections and their access remain valid until removed or expired; remove an obsolete connection explicitly after checking the new one. Old receipts, tracking access and subscriptions do not transfer to the new connection; native tasks continue. Ordinary token refresh stays within the same connection and does not create another row.
 
 1. Discover current connections and runtime IDs.
 2. Read actual conversation/turn state before sending work. Do not resend uncertain work to recreate a receipt.

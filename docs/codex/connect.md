@@ -14,7 +14,7 @@ Run in local Codex on the Mac being added. Need: the target Server and selected 
 
    Use Node satisfying the release requirement. This prepares the Ed25519 identity, native caller and public-key application. If configured for another Server, use the explicitly requested [service-change flow](../maintenance/remove.md).
 4. The loaded plugin picks up complete first configuration automatically. Call `device_status` again and allow initialization; do not request a routine app restart. For an error, use [the reported device state](../troubleshooting/device.md).
-5. If pending, complete [device approval](approve.md), then return here. An already approved device needs no new approval.
+5. If pending, complete [device approval](approve.md), then return here. When the user must approve, show `device_name`, `application.verification_label` and the exact `application.approval_url` from the command result together; ask them to match the name and short label before approving. An already approved device needs no new approval.
 
 ## Verify and continue
 

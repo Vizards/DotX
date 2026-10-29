@@ -47,7 +47,7 @@ Connect this Mac's Codex to my existing DotX network: https://github.com/Vizards
 
 ## What you can do
 
-Personal Agents connect to the same MCP/OAuth interface using separate authorizations. [dot](docs/personal-agents/dot/index.md) and [Cue](docs/personal-agents/cue/index.md) have client-specific setup and update guides. Other clients can use the standard flow; compatibility must be checked in that client. [Report compatibility issues](https://github.com/Vizards/DotX/issues).
+Any Personal Agent with MCP support is welcome to try DotX. Start with the [Personal Agent guide](docs/personal-agents/index.md), with ready-to-use recipes for [dot](docs/personal-agents/dot/index.md) and [Cue](docs/personal-agents/cue/index.md). Connected a new client? We welcome a PR sharing the steps that worked for you.
 
 ### Start tasks and continue conversations
 

@@ -63,25 +63,16 @@ export async function consent(request: Request, env: Env) {
   const wantsJson = request.headers.get('Accept')?.includes('application/json');
   const finish = (location: string) =>
     wantsJson ? json({ redirect: location }) : redirect(location);
-  if (form.get('decision') !== 'approve') return finish(await service.cancelConsent(id, binding));
-  let transaction;
-  try {
-    transaction = await service.reserveConsent(id, binding, form.get('access_code') ?? '');
-  } catch (error) {
-    if (wantsJson) throw error;
-    if (error instanceof HttpError && error.code.startsWith('ACCESS_CODE_')) {
-      await service.consentError(id, binding, { code: error.code, message: error.message });
-      return redirect('/authorize?transaction=' + encodeURIComponent(id));
-    }
-    throw error;
-  }
+  if (form.get('decision') === 'deny') return finish(await service.cancelConsent(id, binding));
+  if (form.get('decision') !== 'finish') throw new HttpError(400, 'INVALID_DECISION');
+  const transaction = await service.reserveConsent(id, binding);
   if (transaction.phase === 'complete') return finish(transaction.redirect!);
   const result = await env.OAUTH_PROVIDER.completeAuthorization({
     request: transaction.request,
     userId: transaction.agent_id!,
-    metadata: { agent_id: transaction.agent_id, round_id: transaction.round_id },
+    metadata: { agent_id: transaction.agent_id },
     scope: transaction.request.scope.filter((scope) => scope === 'offline_access'),
-    props: { agent_id: transaction.agent_id, round_id: transaction.round_id },
+    props: { agent_id: transaction.agent_id },
     revokeExistingGrants: false,
   });
   return finish(await service.completeConsent(id, binding, result.redirectTo));

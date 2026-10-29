@@ -9,7 +9,7 @@ import { providerGrantId, cleanEndedGrants } from './grants.ts';
 import { adminRoutes } from '../admin/routes.ts';
 import { assets } from '../http/assets.ts';
 import { failure, json } from '../http/responses.ts';
-const propsSchema = z.object({ agent_id: z.uuid(), round_id: z.uuid() });
+const propsSchema = z.object({ agent_id: z.uuid() });
 const defaultHandler: ExportedHandler<Env> = {
   async fetch(request, env, ctx) {
     try {
@@ -60,10 +60,13 @@ export async function serveOAuth(request: Request, env: Env, ctx: ExecutionConte
         identity: { ...parsed.data, grant_id: options.grantId, client_id: options.clientId },
         expires_at: Date.now() + 2592000_000,
       });
+      // Token issuance/renewal is infrequent. Drain failed revocations here,
+      // rather than adding a cleanup query to every authenticated MCP request.
+      ctx.waitUntil(cleanEndedGrants(options.env));
       if (!valid)
         throw new OAuthError('invalid_grant', {
           description:
-            'This authorization was revoked or replaced. Reissue the existing connection’s access code.',
+            'This authorization was revoked or expired. Restart authorization from the client and approve its request.',
         });
     },
     apiHandler: {
@@ -96,13 +99,11 @@ export async function serveOAuth(request: Request, env: Env, ctx: ExecutionConte
               'WWW-Authenticate': `Bearer error="invalid_token", resource_metadata="${env.PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/mcp"`,
             },
           );
-        context.waitUntil(cleanEndedGrants(env));
         return handleMcp(request, env, {
           principal: JSON.stringify([auth.userId, auth.clientId, grantId]),
           user_id: auth.userId,
           client_id: auth.clientId,
           grant_id: grantId,
-          round_id: props.round_id,
         });
       },
     },

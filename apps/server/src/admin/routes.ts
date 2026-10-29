@@ -10,9 +10,11 @@ import {
   setCookie,
   SESSION_COOKIE,
 } from './sessions.ts';
-import { sessionSeconds, type BrowserSession } from './credentials.ts';
+import type { BrowserSession } from './credentials.ts';
 import { HttpError, json, failure } from '../http/responses.ts';
 import { cleanEndedGrants } from '../oauth/grants.ts';
+import { nameInput } from '@dotx/shared/http/admin';
+import { readJson } from '../http/body.ts';
 export async function adminRoutes(
   request: Request,
   env: Env,
@@ -49,7 +51,7 @@ export async function adminRoutes(
         env,
         SESSION_COOKIE,
         cookie(request, SESSION_COOKIE)!,
-        sessionSeconds,
+        Math.max(0, Math.ceil((actor.expires_at! - Date.now()) / 1000)),
       );
     if (path === '/admin/api/setup' && request.method === 'GET')
       return respond(json(await control(env, 'admin/status', {})));
@@ -67,6 +69,17 @@ export async function adminRoutes(
       );
     if (path === '/admin/api/security' && request.method === 'GET')
       return respond(json(await control(env, 'admin/security', {})));
+    const renaming = /^\/admin\/api\/passkeys\/([^/]+)$/.exec(path);
+    if (renaming && request.method === 'PATCH') {
+      const input = nameInput.safeParse(await readJson(request));
+      if (!input.success) throw new HttpError(400, 'PASSKEY_NAME_REQUIRED');
+      const passkeys = await control(env, 'admin/passkey-rename', {
+        auth: await browserAuthority(request),
+        passkeyId: renaming[1],
+        name: input.data.name,
+      });
+      return respond(json({ passkeys }));
+    }
     const removal = /^\/admin\/api\/(password|passkeys\/([^/]+))$/.exec(path);
     if (removal && request.method === 'DELETE') {
       const session = await control<BrowserSession & { secret: string }>(env, 'admin/remove', {
@@ -83,7 +96,11 @@ export async function adminRoutes(
           body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
         }),
       );
-      if (response.ok && !['GET', 'HEAD'].includes(request.method))
+      if (
+        response.ok &&
+        request.method === 'POST' &&
+        /^\/admin\/api\/agents\/[^/]+\/revoke$/.test(path)
+      )
         ctx.waitUntil(cleanEndedGrants(env));
       return respond(response);
     }

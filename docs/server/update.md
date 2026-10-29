@@ -20,7 +20,7 @@ Use for an existing 0.1.0 service. Need: target Server and release. For 0.0.1, u
 
 Read `/health` and check management/public endpoints. Report Server component completion once the target version is running. Separately check devices for authenticated, wire-compatible links and required native interfaces. Temporary Desktop incompatibility does not undo Server completion or justify automatic rollback.
 
-For `changes.remote_catalog=true`, use each client's [dot](../personal-agents/dot/index.md#tools-missing-or-catalog-changed) or [Cue](../personal-agents/cue/index.md#refresh-after-an-update) refresh steps. Preserve their connections. Return to [update coordination](../maintenance/update.md) for remaining components, then [report completion](../common/handoff.md).
+For `changes.remote_catalog=true`, [refresh each Personal Agent's tools](../personal-agents/index.md#refresh-tools) using its client controls or recipe. Preserve existing connections. Return to [update coordination](../maintenance/update.md) for remaining components, then [report completion](../common/handoff.md).
 
 If the target notes require replacing an old development release's CF browser login, follow [browser setup](browser-login.md). Old CF sessions do not become password/passkey sessions. Remove an old CF client only after verifying exclusive use by the retired login and successful replacement; preserve PA OAuth data and unrelated clients.
 

@@ -8,7 +8,8 @@ Start with the actual failure, not a full installation checklist. Use evidence a
 | Device pending, offline, incompatible or missing an interface | [Resolve an unavailable Codex](device.md) |
 | Browser management cannot sign in | [Browser login/recovery](../server/browser-login.md) |
 | Wrangler management request fails | [Find management access](../common/access.md#if-you-cannot-perform-it) |
-| PA access code, OAuth callback or renewal fails | [OAuth recovery](../personal-agents/authorization.md#recover-an-interruption) |
+| PA approval, OAuth callback or renewal fails | [OAuth recovery](../personal-agents/authorization.md#recover-an-interruption) |
+| PA tools are absent or stale | [Find the client's refresh route](../personal-agents/index.md#refresh-tools) |
 | dot has authorized but tools are absent/stale | [Refresh the current dot](../personal-agents/dot/index.md#tools-missing-or-catalog-changed) |
 | Cue uses the wrong endpoint or cannot finish adding it | [Cue's observed-state branches](../personal-agents/cue/index.md#if-blocked) |
 | Send/answer timed out or result is uncertain | [Reconcile the operation](../usage/results.md#recover-without-duplicating-work) |

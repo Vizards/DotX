@@ -80,7 +80,7 @@ test('MCP serves the standard initialize handshake and modern discovery with the
   assert(authorization.instructions.includes('expires_in'));
   assert(
     authorization.instructions.includes(
-      `https://github.com/Vizards/DotX/blob/v${authorization.version}/docs/personal-agents/cue/index.md`,
+      `https://github.com/Vizards/DotX/blob/v${authorization.version}/docs/personal-agents/index.md`,
     ),
   );
   // Every advertised guide is readable through MCP, including linked task nodes.

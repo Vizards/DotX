@@ -1,98 +1,12 @@
-:root {
-  font:
-    16px/1.5 system-ui,
-    sans-serif;
-  color: #202020;
-  background: #fff;
-}
-body {
-  margin: 0;
-}
-main {
-  max-width: 960px;
-  margin: 40px auto;
-  padding: 0 24px;
-}
-header,
-nav,
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-header {
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 16px;
-}
-nav {
-  margin: 24px 0;
-}
-a {
-  color: #2459a6;
-}
-button,
-input {
-  font: inherit;
-  padding: 7px 10px;
-}
-button,
-.button {
-  cursor: pointer;
-}
-button:disabled {
-  cursor: default;
-}
-form,
-section {
-  margin: 20px 0;
-}
-label {
-  display: block;
-  margin-bottom: 8px;
-}
-input[type='text'],
-input:not([type]) {
-  min-width: 260px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  text-align: left;
-  padding: 12px 8px;
-  border-bottom: 1px solid #ddd;
-}
-th button {
-  border: 0;
-  background: none;
-  padding: 0;
-  font-weight: 600;
-}
-td button {
-  margin: 3px;
-}
-code,
-pre {
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-.panel {
-  border: 1px solid #bbb;
-  padding: 16px;
-}
-[role='alert'] {
-  color: #942c24;
-}
-footer {
-  margin-top: 48px;
-  border-top: 1px solid #ddd;
-  padding-top: 12px;
-}
-small {
-  color: #555;
-}
-details {
-  margin: 16px 0;
-}
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/layout.css';
+@import './styles/controls.css';
+@import './components/ui/data-table.css';
+@import './styles/feedback.css';
+@import './routes/admin/-components/overview.css';
+@import './components/auth/auth.css';
+@import './routes/authorize/-components/consent.css';
+@import './components/ui/dialog.css';
+@import './styles/responsive.css';
+@import './styles/composites.css';

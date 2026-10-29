@@ -27,7 +27,7 @@ test('MCP preserves device display names including empty, whitespace and large s
   }
 });
 
-test('MCP activates only the latest pending authorization and keeps refresh receipt ownership', async (t) => {
+test('MCP keeps connections independent and preserves receipt ownership through token refresh', async (t) => {
   const api = await startServer(t, 'detail'),
     device = await api.enroll(),
     first = await api.authorizeSession(scopes);
@@ -57,19 +57,8 @@ test('MCP activates only the latest pending authorization and keeps refresh rece
     request_id: randomUUID(),
   };
   assert.equal(toolData((await api.tool(first.token, 'call', call)).result).rpc_status, 'returned');
-  const abandoned = await api.authorizeSession(scopes, first.agent_id);
-  assert.equal(
-    toolData((await api.tool(first.token, 'get_request', { request_id: call.request_id })).result)
-      .rpc_status,
-    'returned',
-  );
-  const latest = await api.authorizeSession(scopes, first.agent_id);
-  const denied = await api.request('/mcp', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${abandoned.token}` },
-  });
-  assert.equal(denied.status, 401);
-  await denied.text();
+  const latest = await api.authorizeSession(scopes);
+  assert.notEqual(latest.agent_id, first.agent_id);
   // Token issuance/refresh alone does not activate the pending grant.
   const refreshed = await latest.refresh();
   assert.equal(typeof refreshed, 'string');
@@ -84,12 +73,11 @@ test('MCP activates only the latest pending authorization and keeps refresh rece
     ).error.code,
     'REQUEST_NOT_FOUND',
   );
-  const old = await api.request('/mcp', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${first.token}` },
-  });
-  assert.equal(old.status, 401);
-  await old.text();
+  assert.equal(
+    toolData((await api.tool(first.token, 'get_request', { request_id: call.request_id })).result)
+      .rpc_status,
+    'returned',
+  );
   const next = { ...call, request_id: randomUUID() };
   assert.equal(
     toolData((await api.tool(refreshed as string, 'call', next)).result).rpc_status,
@@ -105,12 +93,22 @@ test('MCP activates only the latest pending authorization and keeps refresh rece
   );
   assert.equal(commands, 2, 'reauthorization must not replay native work');
   await api.admin(`/agents/${first.agent_id}/revoke`, 'POST');
+  assert.equal(
+    toolData(
+      (await api.tool(again as string, 'get_request', { request_id: next.request_id })).result,
+    ).rpc_status,
+    'returned',
+  );
+  await api.admin(`/agents/${latest.agent_id}/revoke`, 'POST');
   const revoked = await api.request('/mcp', {
     method: 'POST',
     headers: { Authorization: `Bearer ${again}` },
   });
   assert.equal(revoked.status, 401);
   await revoked.text();
+  const renewal = await latest.refresh();
+  assert.notEqual(typeof renewal, 'string');
+  assert.equal((renewal as any).body.error, 'invalid_grant');
 });
 
 test('MCP exposes wire incompatibility without allowing incompatible or stale candidates to take over', async (t) => {
