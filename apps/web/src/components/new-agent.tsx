@@ -31,7 +31,7 @@ function ConnectionInstructions({ service }: { service: ServiceInfo }) {
         value={mode}
         onChange={setMode}
         items={[
-          { value: 'agent', label: t.agents.copyPrompt },
+          { value: 'agent', label: t.common.copyPrompt },
           { value: 'manual', label: t.agents.manual },
         ]}
       />
@@ -43,13 +43,12 @@ function ConnectionInstructions({ service }: { service: ServiceInfo }) {
               address: service.mcp_url,
               guide: new URL('personal-agents/index.md', service.guides_url).href,
             })}
-            label={t.agents.copyPrompt}
           />
         </>
       ) : (
         <>
           <p>{t.agents.manualHint}</p>
-          <Prompt value={service.mcp_url} label={t.common.copy} />
+          <Prompt value={service.mcp_url} label={t.common.copyAddress} />
         </>
       )}
     </>

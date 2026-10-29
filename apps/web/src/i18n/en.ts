@@ -5,6 +5,8 @@
 export const en = {
   common: {
     copy: 'Copy',
+    copyPrompt: 'Copy prompt',
+    copyAddress: 'Copy address',
     copied: 'Copied',
     cancel: 'Cancel',
     close: 'Close',
@@ -52,15 +54,12 @@ export const en = {
 
     macSheetBody:
       'Send this to the Codex on that Mac. It installs DotX Desktop and connects to this Server.',
-    macPrompt:
-      'Connect this Mac to my DotX Server: {origin}\nhttps://github.com/Vizards/DotX\nTell me which device request it submitted when it is done.',
+    macPrompt: "Connect this Mac's Codex to my DotX: {origin}\nGuide: {guide}",
     macSheetTail: 'Once installed, approve its request on the Codex devices page.',
 
     wireSheetTitle: 'Update this Mac',
     wireSheetBody:
       '{name} runs DotX Desktop on wire {wire}; this Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything.',
-    wirePrompt:
-      'Update DotX Desktop on {name} to a version compatible with this Server (wire {server}): {origin}\nhttps://github.com/Vizards/DotX\nKeep the existing device identity; do not enroll again.',
     wireSheetTail:
       'After the update the device reconnects with its original identity; no new request is needed.',
   },
@@ -109,13 +108,12 @@ export const en = {
     fixWireBody:
       'This Mac runs wire {wire}; the Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything, so the prompt has to be carried over by hand.',
     fixWirePrompt:
-      'Update DotX Desktop on {name} to a version compatible with this Server (wire {server}): {origin}\nhttps://github.com/Vizards/DotX\nKeep the existing device identity; do not enroll again.',
+      'Update DotX Desktop on {name} to a version compatible with this Server: {origin}\nGuide: {guide}',
     fixOfflineBody:
       'This Mac is not connected to the Server right now. Send this to the Codex on it so it can check plugin loading and the connection.',
     fixInterfaceBody:
       'This Mac is connected, but its Codex interfaces are unavailable. Send this to Codex on that Mac to investigate.',
-    fixPrompt:
-      'Check DotX Desktop on {name}: {origin}\nhttps://github.com/Vizards/DotX\nUse device_status and the bundled troubleshooting guide to check the connection and native interfaces. Keep the existing device identity.',
+    fixPrompt: 'Check and fix DotX on {name}: {origin}\nGuide: {guide}',
     fixTail: 'After fixing it, refresh this page to check the status.',
     wireMismatch: 'wire {wire} · this Server speaks wire {server}',
   },
@@ -125,9 +123,8 @@ export const en = {
     newTitle: 'Add Personal Agent',
     add: 'Add',
     nameLabel: 'Agent name',
-    copyPrompt: 'Copy prompt',
     sendPromptHint: 'Send the following to the Personal Agent you want to connect.',
-    connectPrompt: 'Help me connect to this DotX: {address}\nFollow this guide: {guide}',
+    connectPrompt: 'Connect yourself to my DotX: {address}\nGuide: {guide}',
     manual: 'Manual setup',
     manualHint: 'Add an MCP server in your client with this URL and choose OAuth authentication.',
     listTitle: 'Connections',
@@ -204,11 +201,8 @@ export const en = {
     unconfiguredAgent: 'Send this request to the Agent that installed this Server',
     unconfiguredAgentBody: 'It issues you a one-time setup link.',
     setupManual: 'Verify with Cloudflare',
-    copyRequest: 'Copy the request',
-    recoverPrompt:
-      'Reset browser login for my DotX Server: {origin}\nhttps://github.com/Vizards/DotX',
-    setupPrompt:
-      'Set up browser login for my DotX Server: {origin}\nhttps://github.com/Vizards/DotX',
+    recoverPrompt: 'Give me a link to reset browser login for this DotX: {origin}\nGuide: {guide}',
+    setupPrompt: 'Give me a link to set up browser login for this DotX: {origin}\nGuide: {guide}',
   },
 
   claim: {
@@ -302,8 +296,7 @@ export const en = {
     agentHint: 'Send the request to your installation Agent. This page continues after approval.',
     browserHint: 'Sign in to DotX to approve this connection.',
     setupHint: 'No browser login is set up yet. Set one up to approve this connection yourself.',
-    copyRequest: 'Copy request',
-    requestPrompt: 'Please approve this DotX connection request: {url}',
+    requestPrompt: 'Approve this Personal Agent connection request: {url}',
     approved: 'Approved. Returning to your client…',
     deniedReturning: 'Not approved. Returning to your client…',
     continue: 'Continue to client',
@@ -317,8 +310,7 @@ export const en = {
     review: 'Review and approve',
     reviewTitle: 'Approve Personal Agent',
     expiredRequest: 'This request expired. Send this to your Personal Agent to start again.',
-    restartPrompt:
-      'Help me start a new authorization request for this DotX: {address}\nFollow this guide: {guide}',
+    restartPrompt: 'Start a new connection request for this DotX: {address}\nGuide: {guide}',
   },
 
   errors: {

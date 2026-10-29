@@ -8,6 +8,7 @@ import { PasswordForm, PasskeyForm } from './login-methods.tsx';
 import { useClaimFlow } from '../../hooks/use-claim-flow.ts';
 import { useNow } from '../../hooks/use-now.ts';
 import { fill, t } from '../../i18n/index.ts';
+import { guideUrl } from '../../lib/guides.ts';
 import { Claim } from './claim.tsx';
 
 export function Login({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
@@ -146,7 +147,12 @@ function Setup({
       <div className="next-step">
         <h3>{t.login.unconfiguredAgent}</h3>
         <p>{t.login.unconfiguredAgentBody}</p>
-        <Prompt value={fill(t.login.setupPrompt, { origin: window.location.origin })} />
+        <Prompt
+          value={fill(t.login.setupPrompt, {
+            origin: window.location.origin,
+            guide: guideUrl('server/browser-login.md'),
+          })}
+        />
       </div>
 
       <p className="claim-manual">

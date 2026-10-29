@@ -13,6 +13,7 @@ import { Dialog } from '../../components/ui/dialog.tsx';
 import { Prompt } from '../../components/prompt.tsx';
 import { NewDeviceDialog } from '../../components/new-device.tsx';
 import { NewAgentDialog } from '../../components/new-agent.tsx';
+import { guideUrl } from '../../lib/guides.ts';
 
 export const Route = createFileRoute('/admin/')({ component: Overview });
 
@@ -192,11 +193,10 @@ function Overview() {
           })}
         </p>
         <Prompt
-          value={fill(t.overview.wirePrompt, {
+          value={fill(t.devices.fixWirePrompt, {
             origin,
             name: sheet?.kind === 'wire' ? sheet.name : '',
-            wire: sheet?.kind === 'wire' ? sheet.wire : 0,
-            server: sheet?.kind === 'wire' ? sheet.server : 0,
+            guide: guideUrl('codex/update.md'),
           })}
         />
         <p className="caption">{t.overview.wireSheetTail}</p>

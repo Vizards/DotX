@@ -4,6 +4,8 @@
 
 <h1 align="center">DotX</h1>
 
+<p align="center">Let any personal agent use your Codex — including computer use.</p>
+
 <p align="center">
   <a href="https://github.com/Vizards/DotX/releases/latest">
     <img src="https://img.shields.io/github/v/release/Vizards/DotX?sort=date&amp;label=Desktop" alt="Latest stable Desktop release">
@@ -13,9 +15,9 @@
   </a>
 </p>
 
-DotX connects your Personal Agent to native Codex on your Macs. Start new tasks, continue existing conversations, handle approval requests, and bring results back to your conversation.
-
 ![DotX workflow: resume a Codex task on your Mac and relay questions back to the same Personal Agent conversation.](.github/assets/how-it-works.png)
+
+Connect your MCP-compatible agent to Codex on your Macs. Start tasks, continue conversations, and let Codex work with your local files, apps, and browser.
 
 ## Get started
 
@@ -34,7 +36,7 @@ Help me install DotX: https://github.com/Vizards/DotX
 Send to the Personal Agent you want to add.
 
 ```text
-Connect yourself to my existing DotX network: https://github.com/Vizards/DotX
+Connect yourself to my DotX: https://github.com/Vizards/DotX
 ```
 
 ### Connect another Mac's Codex
@@ -42,34 +44,42 @@ Connect yourself to my existing DotX network: https://github.com/Vizards/DotX
 Send to Codex on that Mac.
 
 ```text
-Connect this Mac's Codex to my existing DotX network: https://github.com/Vizards/DotX
+Connect this Mac's Codex to my DotX: https://github.com/Vizards/DotX
 ```
 
 ## What you can do
 
-Any Personal Agent with MCP support is welcome to try DotX. Start with the [Personal Agent guide](docs/personal-agents/index.md), with ready-to-use recipes for [dot](docs/personal-agents/dot/index.md) and [Cue](docs/personal-agents/cue/index.md). Connected a new client? We welcome a PR sharing the steps that worked for you.
+DotX exposes Codex's native App Server and App Tools through MCP, so your Personal Agent can operate Codex directly on your Macs, using its native conversations, tools, and capabilities.
 
-### Start tasks and continue conversations
+### Work with apps and browsers on your Mac
 
-Your Personal Agent can create a new Codex conversation directly or send follow-up work to an existing one. Codex uses the projects, files, and tools on that Mac.
+Ask your Personal Agent to have Codex work with local apps, browsers, and files. With computer use enabled in Codex, it can check a page, interact with an app, and bring the results back to your conversation.
 
-![Scripted demo: start a Codex task on a MacBook to investigate a bug, then continue the same conversation to fix it and add a regression test.](.github/assets/start-and-continue.webp)
+![dot asks Codex to use Calculator on Mac mini and receives the verified result.](.github/assets/dot-computer-use.webp)
+
+### Pick up where you left off
+
+Continue a Codex conversation already running on your Mac, check its progress, or send it the next task. Your Personal Agent can also start a new conversation in the right project.
+
+![Cue continues the same Codex task on Mac mini to check memory usage.](.github/assets/cue-continue-task.webp)
 
 ### Work across your Macs
 
 Your Personal Agent can coordinate Codex tasks on several Macs at once and bring their progress and results into one conversation.
 
-![Scripted demo: coordinate API and frontend reviews on two Macs and check their progress in one chat.](.github/assets/work-across-macs.webp)
+![Cue asks Codex on both Macs to check free disk space and brings their results into one conversation.](.github/assets/cue-across-macs.webp)
 
-### Answer Codex from the same chat
+### Keep the conversation in one place
 
 When Codex needs a decision, your Personal Agent can bring the question or approval request back to you and pass your answer along. Ask to be notified when the task finishes, or check its progress whenever you need to.
 
-![Scripted demo: answer a Codex question, approve dependency installation, and receive the result in the same chat.](.github/assets/questions-and-results.webp)
+![dot relays Codex's questions and sends the answer back to the same task.](.github/assets/dot-questions-and-results.webp)
 
-### Let your Personal Agent handle updates
+### Stay in control
 
-Your Personal Agent can spot new releases as you use DotX and let you know when an update is available. When you're ready, you can ask it to coordinate updates across your Macs and the Cloudflare service.
+Manage your Personal Agents and Codex devices from a web dashboard hosted in your own Cloudflare account. Review connection requests and revoke access whenever you need to.
+
+![DotX dashboard showing connected Personal Agents and controls to add, rename, or remove access.](.github/assets/admin-dashboard.webp)
 
 ## Help
 

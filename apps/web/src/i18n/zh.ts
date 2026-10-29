@@ -3,6 +3,8 @@ import type { Messages } from './en.ts';
 export const zh: Messages = {
   common: {
     copy: '复制',
+    copyPrompt: '复制提示词',
+    copyAddress: '复制地址',
     copied: '已复制',
     cancel: '取消',
     close: '关闭',
@@ -48,15 +50,12 @@ export const zh: Messages = {
     addAgentAction: '去接入',
 
     macSheetBody: '把下面这段发给那台 Mac 上的 Codex。它会安装 DotX Desktop 并接入这台 Server。',
-    macPrompt:
-      '帮我在这台 Mac 上接入 DotX Server：{origin}\nhttps://github.com/Vizards/DotX\n完成后告诉我它提交了什么设备申请。',
+    macPrompt: '把这台 Mac 的 Codex 接入我的 DotX：{origin}\n指南：{guide}',
     macSheetTail: '安装完成后，在 Codex 设备页批准它的接入申请。',
 
     wireSheetTitle: '升级此 Mac',
     wireSheetBody:
       '这台 Mac（{name}）的 DotX Desktop 是 wire {wire}，本 Server 是 wire {server}，两者无法通信，Server 也不能再向它发送指令。',
-    wirePrompt:
-      '帮我把 {name} 上的 DotX Desktop 升级到与本 Server（wire {server}）兼容的版本：{origin}\nhttps://github.com/Vizards/DotX\n保留原来的设备身份，不要重新注册。',
     wireSheetTail: '升级后设备会用原身份自动重连，不需要重新申请。',
   },
 
@@ -102,14 +101,12 @@ export const zh: Messages = {
     fixTitle: '修复 {name}',
     fixWireBody:
       '这台 Mac 是 wire {wire}，本 Server 是 wire {server}，两者无法通信。Server 现在发不出任何指令，只能由人把下面这段带过去。',
-    fixWirePrompt:
-      '帮我把 {name} 上的 DotX Desktop 升级到与本 Server（wire {server}）兼容的版本：{origin}\nhttps://github.com/Vizards/DotX\n保留原来的设备身份，不要重新注册。',
+    fixWirePrompt: '把 {name} 上的 DotX Desktop 更新到与这个 Server 兼容：{origin}\n指南：{guide}',
     fixOfflineBody:
       '这台 Mac 现在没有连接到本 Server。把下面这段发给它上面的 Codex，让它检查插件加载和连接状态。',
     fixInterfaceBody:
       '这台 Mac 已连接，但 Codex 原生接口不可用。把下面这段发给该 Mac 上的 Codex 排查。',
-    fixPrompt:
-      '帮我检查 {name} 上的 DotX Desktop：{origin}\nhttps://github.com/Vizards/DotX\n用 device_status 和插件自带的排障指南检查连接与原生接口，保留现有设备身份。',
+    fixPrompt: '检查并修复 {name} 上的 DotX：{origin}\n指南：{guide}',
     fixTail: '修好后回到本页刷新，检查状态。',
     wireMismatch: 'wire {wire} · 本 Server 使用 wire {server}',
   },
@@ -119,9 +116,8 @@ export const zh: Messages = {
     newTitle: '添加 Personal Agent',
     add: '添加',
     nameLabel: 'Agent 名称',
-    copyPrompt: '复制提示词',
     sendPromptHint: '把下面的内容发送给你要接入的 Personal Agent。',
-    connectPrompt: '帮我连接这个 DotX：{address}\n请按这份指南完成：{guide}',
+    connectPrompt: '请接入我的 DotX：{address}\n指南：{guide}',
     manual: '手动配置',
     manualHint: '在客户端添加 MCP Server，填入以下地址，认证方式选择 OAuth。',
     listTitle: '连接',
@@ -197,10 +193,8 @@ export const zh: Messages = {
     unconfiguredAgent: '把下面的请求发给安装这台 Server 的 Agent',
     unconfiguredAgentBody: '它将为你签发一次性设置链接。',
     setupManual: '通过 Cloudflare 验证',
-    copyRequest: '复制请求',
-    recoverPrompt: '帮我在 DotX 里重置浏览器登录：{origin}\nhttps://github.com/Vizards/DotX',
-    setupPrompt:
-      '帮我在这台 DotX Server 上设置浏览器登录：{origin}\nhttps://github.com/Vizards/DotX',
+    recoverPrompt: '给我这个 DotX 的后台登录重设链接：{origin}\n指南：{guide}',
+    setupPrompt: '给我这个 DotX 的后台登录设置链接：{origin}\n指南：{guide}',
   },
 
   claim: {
@@ -288,8 +282,7 @@ export const zh: Messages = {
     agentHint: '把申请发给安装 Agent，批准后此页会自动继续。',
     browserHint: '登录 DotX 后批准这次接入。',
     setupHint: '这台 DotX 尚未设置后台登录，设置后即可自行批准。',
-    copyRequest: '复制申请',
-    requestPrompt: '请帮我批准这次 DotX 接入申请：{url}',
+    requestPrompt: '批准这个 Personal Agent 的接入申请：{url}',
     approved: '已批准，正在返回…',
     deniedReturning: '未批准，正在返回…',
     continue: '继续返回',
@@ -303,7 +296,7 @@ export const zh: Messages = {
     review: '查看并批准',
     reviewTitle: '批准 Personal Agent',
     expiredRequest: '申请已过期。把下面这段发给 Personal Agent，重新发起申请。',
-    restartPrompt: '请帮我重新发起这个 DotX 的接入授权：{address}\n请按这份指南完成：{guide}',
+    restartPrompt: '重新发起这个 DotX 的接入申请：{address}\n指南：{guide}',
   },
 
   errors: {

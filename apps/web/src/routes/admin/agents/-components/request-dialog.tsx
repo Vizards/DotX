@@ -58,7 +58,6 @@ function RequestReview({
             address: service.mcp_url,
             guide: new URL('personal-agents/index.md', service.guides_url).href,
           })}
-          label={t.agents.copyPrompt}
         />
       </>
     );

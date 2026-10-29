@@ -5,6 +5,7 @@ import { Dialog } from '../ui/dialog.tsx';
 import { Prompt } from '../prompt.tsx';
 import { useNow } from '../../hooks/use-now.ts';
 import { fill, since, t } from '../../i18n/index.ts';
+import { guideUrl } from '../../lib/guides.ts';
 
 /**
  * The way back in without a working login: Cloudflare proof, or the Agent that
@@ -83,7 +84,12 @@ export function RecoverDialog({
       <section className="recover-part">
         <h3>{t.login.recoverAgent}</h3>
         <p>{copy.hint}</p>
-        <Prompt value={fill(copy.prompt, { origin: window.location.origin })} />
+        <Prompt
+          value={fill(copy.prompt, {
+            origin: window.location.origin,
+            guide: guideUrl('server/browser-login.md'),
+          })}
+        />
       </section>
     </Dialog>
   );

@@ -2,6 +2,7 @@ import type { AdminDevice } from '@dotx/shared/http/admin';
 import { Dialog } from '../../../../components/ui/dialog.tsx';
 import { Prompt } from '../../../../components/prompt.tsx';
 import { fill, t } from '../../../../i18n/index.ts';
+import { guideUrl } from '../../../../lib/guides.ts';
 export function FixDeviceDialog({
   device,
   origin,
@@ -33,10 +34,14 @@ export function FixDeviceDialog({
           device.compatible === false
             ? fill(t.devices.fixWirePrompt, {
                 name: device.name,
-                server: device.server_wire_protocol,
                 origin,
+                guide: guideUrl('codex/update.md'),
               })
-            : fill(t.devices.fixPrompt, { name: device.name ?? '', origin })
+            : fill(t.devices.fixPrompt, {
+                name: device.name ?? '',
+                origin,
+                guide: guideUrl('troubleshooting/device.md'),
+              })
         }
       />
       <p className="caption">{t.devices.fixTail}</p>

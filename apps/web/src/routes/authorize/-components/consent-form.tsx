@@ -108,7 +108,6 @@ export function ConsentForm({
                   value={fill(t.authorize.requestPrompt, {
                     url: `${window.location.origin}/admin/agents?request=${context.transaction}`,
                   })}
-                  label={t.authorize.copyRequest}
                 />
               </>
             ) : (

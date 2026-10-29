@@ -6,7 +6,7 @@ import { t } from '../i18n/index.ts';
 /** The prompt box doubles as the instruction: what is copied is what is shown. */
 export function Prompt({
   value,
-  label = t.login.copyRequest,
+  label = t.common.copyPrompt,
   variant = 'solid',
 }: {
   value: string;
