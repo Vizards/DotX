@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "dotx_desktop": {
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${PLUGIN_ROOT}/launch.ps1",
+        "${PLUGIN_ROOT}"
+      ],
+      "command": "powershell.exe",
+      "cwd": "${PLUGIN_DATA}",
+      "env": { "DOTX_PLUGIN_DATA": "${PLUGIN_DATA}", "DOTX_PLUGIN_ROOT": "${PLUGIN_ROOT}" },
+      "type": "stdio"
+    }
+  }
+}
