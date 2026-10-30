@@ -10,6 +10,7 @@ import {
 } from '@simplewebauthn/server';
 import type { Env } from '../env.ts';
 import type { Store } from '../hub/storage.ts';
+import { attemptKeys, consumeAttempt } from '../hub/attempts.ts';
 import type { AdminClaim as Claim } from '@dotx/shared/http/admin';
 import { randomSecret, sha256, sameSecret } from '../http/crypto.ts';
 import { HttpError } from '../http/responses.ts';
@@ -19,8 +20,6 @@ const credentialsKey = 'admin:credentials';
 const temporary = 'admin:browser:';
 const setupKey = temporary + 'setup';
 const claimKey = (id: string) => temporary + 'claim:' + id;
-const attemptKey = temporary + 'attempts';
-const claimAttemptKey = temporary + 'claim-attempts';
 const sessionKey = (id: string) => temporary + 'session:' + id;
 const ceremonyKey = (id: string) => temporary + 'ceremony:' + id;
 export const sessionSeconds = 30 * 24 * 60 * 60;
@@ -135,7 +134,7 @@ export class AdminCredentials {
       const previous = id ? await tx.get<Claim>(claimKey(id)) : undefined;
       if (previous && previous.expires_at > Date.now() && !restart)
         return { claim: previous, created: false };
-      await this.consumeAttempt(tx, 'claim');
+      await consumeAttempt(tx, 'claim');
       if (id) await tx.delete(claimKey(id));
       const credentials = await this.credentials(tx);
       const claim: Claim = {
@@ -213,7 +212,7 @@ export class AdminCredentials {
     // It never changes devices, Personal Agent grants, or Wrangler authority.
     const records = await tx.list({ prefix: temporary });
     for (const key of records.keys())
-      if (key !== attemptKey && key !== claimAttemptKey) await tx.delete(key);
+      if (key !== attemptKeys.login && key !== attemptKeys.claim) await tx.delete(key);
     return this.createSession(tx);
   }
   async setPassword(auth: BrowserAuthority, password: unknown) {
@@ -255,27 +254,7 @@ export class AdminCredentials {
   }
   private async attempt() {
     // Commit the budget before verification; failures must not roll it back.
-    await this.store.transaction((tx) => this.consumeAttempt(tx, 'login'));
-  }
-  private async consumeAttempt(tx: Store, kind: 'login' | 'claim') {
-    const key = kind === 'claim' ? claimAttemptKey : attemptKey;
-    const now = Date.now();
-    let budget = await tx.get<Expiring & { count: number }>(key);
-    if (!budget || budget.expires_at <= now) budget = { count: 0, expires_at: now + 60_000 };
-    if (budget.count >= 10) {
-      const seconds = Math.ceil((budget.expires_at - now) / 1000);
-      throw new HttpError(
-        429,
-        kind === 'claim' ? 'CLAIM_ATTEMPTS_EXHAUSTED' : 'LOGIN_ATTEMPTS_EXHAUSTED',
-        kind === 'claim'
-          ? `Too many new setup or recovery requests on this Server. Try again in ${seconds} seconds. Existing requests can still continue.`
-          : 'Too many login attempts. Try again after this one-minute window.',
-        { retry_after_seconds: seconds },
-      );
-    }
-    budget.count++;
-    // These two fixed counters reset on use; they do not need their own alarms.
-    await tx.put(key, budget);
+    await this.store.transaction((tx) => consumeAttempt(tx, 'login'));
   }
   async loginPassword(password: unknown) {
     await this.attempt();

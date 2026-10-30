@@ -4,6 +4,7 @@ import { canonical } from '@dotx/shared/wire/commands';
 import { HttpError } from '../http/responses.ts';
 import { keyId } from '../devices/proof.ts';
 import type { AtomicStore, Store } from './storage.ts';
+import { consumeAttempt } from './attempts.ts';
 export interface DeviceRecord extends DeviceRequest {
   approved_at: number | null;
   // Keep the enrollment name unchanged so replaying its operation stays idempotent.
@@ -17,6 +18,7 @@ function current<T extends DeviceRequest>(record: T): T {
     ? { ...record, status: 'expired' }
     : record;
 }
+const disposable = (record: DeviceRecord) => !record.approved_at && record.expires_at <= Date.now();
 export class Devices {
   readonly store: AtomicStore;
   readonly origin: string;
@@ -58,6 +60,9 @@ export class Devices {
       const device = await this.get(input.device_id, tx);
       if (device && device.key_id !== fingerprint) throw new HttpError(409, 'DEVICE_KEY_CONFLICT');
       if (device && ['pending', 'approved'].includes(device.status)) return this.result(device);
+      // Replays and already-pending devices do not consume the new-application budget.
+      await consumeAttempt(tx, 'enrollment');
+      await this.pruneRequests(tx);
       const record: DeviceRecord = {
         ...input,
         ...(device?.display_name !== undefined ? { display_name: device.display_name } : {}),
@@ -73,12 +78,33 @@ export class Devices {
     });
   }
   async list() {
-    return [...(await this.store.list<DeviceRecord>({ prefix: 'device:' })).values()].map(current);
+    return this.store.transaction(async (tx) => {
+      const records = await tx.list<DeviceRecord>({ prefix: 'device:' });
+      for (const [entry, record] of records) {
+        if (!disposable(record)) continue;
+        await tx.delete(entry);
+        await tx.delete(operationKey(record.operation_id));
+        records.delete(entry);
+      }
+      return [...records.values()].map(current);
+    });
   }
   async requests() {
-    return [...(await this.store.list<DeviceRequest>({ prefix: 'device-request:' })).values()].map(
-      current,
-    );
+    return this.store.transaction((tx) => this.pruneRequests(tx));
+  }
+  // Prune on new enrollment and listing, including records created before this cleanup existed.
+  // Approved/revoked identities stay durable. An old request must not remove a newer application.
+  private async pruneRequests(tx: Store) {
+    const records = await tx.list<DeviceRecord>({ prefix: 'device-request:' });
+    for (const [entry, record] of records) {
+      if (!disposable(record)) continue;
+      await tx.delete(entry);
+      records.delete(entry);
+      const device = await tx.get<DeviceRecord>(key(record.device_id));
+      if (device?.operation_id === record.operation_id && disposable(device))
+        await tx.delete(key(record.device_id));
+    }
+    return [...records.values()].map(current);
   }
   async decide(operation: string, decision: 'approve' | 'reject') {
     return this.store.transaction(async (tx) => {

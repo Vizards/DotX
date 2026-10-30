@@ -10,6 +10,7 @@ Use when discovery or setup reports an unusable device. Read `device_status` on 
 | Local tool missing | [Recover plugin loading](plugin-loading.md) |
 | `SETUP_REQUIRED`, `DEVICE_SETUP_IN_PROGRESS`, `DEVICE_SETUP_INCOMPLETE` | Finish/resume `connect` with the same data directory and Server, then check automatic startup |
 | Application pending | [Approve the device](../codex/approve.md), then check again |
+| `ENROLLMENT_ATTEMPTS_EXHAUSTED` | Wait `retry_after_seconds`, then retry the same connection setup. The Server allows 10 new applications per 60 seconds; existing applications can still be read and approved |
 | Device offline | Inspect the target Mac's Codex host/plugin and current diagnostic; cloud approval alone cannot make it run |
 | `DEVICE_PROTOCOL_MISMATCH` | [Coordinate updates](../maintenance/update.md). The owner retains its lock and retries with backoff; do not re-enroll |
 | Required native interface unavailable (including **Online · no interface**) | Inspect `device_status` on the affected Mac and preserve the native error before following the relevant recovery below. The browser's **Fix** action provides a prompt to send to that Mac's Codex |
@@ -27,7 +28,7 @@ If setup stopped before saving the native caller ID, rerun the same connect comm
 
 ## Reapply with the existing identity
 
-Pending applications expire after seven days. When the user requests reconnection after expiry, rejection or revocation, run the same `connect` command. It keeps the keys/device ID and creates a fresh application requiring approval. If the configured owner stopped after rejection/revocation, refresh its host MCP configuration and verify the new request. There is no automatic reapplication. Reset only for intentional lost/compromised identity replacement or a Server change.
+Pending applications expire after seven days. Expired unapproved applications and their matching device records are pruned on new enrollment or list reads; approved and revoked devices are retained. When the user requests reconnection after expiry, rejection or revocation, run the same `connect` command. It keeps the keys/device ID and creates a fresh application requiring approval. If the configured owner stopped after rejection/revocation, refresh its host MCP configuration and verify the new request. There is no automatic reapplication. Reset only for intentional lost/compromised identity replacement or a Server change.
 
 ## Missing desktop transport
 
