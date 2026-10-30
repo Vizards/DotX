@@ -54,6 +54,7 @@ test(
     assert.equal(login.status, 401, 'enrollment does not consume login attempts');
     await delay(Math.max(0, retryAt - Date.now()) + 50);
     assert.equal((await enroll()).status, 200, 'new applications resume after the original window');
+    assert.equal((await api.admin('/device-requests')).requests.length, 11);
   },
 );
 

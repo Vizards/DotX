@@ -160,10 +160,9 @@ test('MCP exposes wire incompatibility without allowing incompatible or stale ca
   assert.equal(result.opaque, 'current-session');
 });
 
-test('MCP requires fresh approval after device revocation with more than 100 pending applications', async (t) => {
+test('MCP requires fresh approval after device revocation and keeps other pending devices hidden', async (t) => {
   const api = await startServer(t);
-  // Public enrollment only prepares fixtures; assertions cover MCP visibility and authority.
-  for (let i = 0; i < 100; i++) await api.enroll(false);
+  await api.enroll(false, 'Other pending Mac');
   const device = await api.enroll(false),
     token = await api.authorize();
   const { socket } = await api.connect(device);
