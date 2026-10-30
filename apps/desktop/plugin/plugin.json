@@ -1,0 +1,23 @@
+{
+  "name": "dotx-desktop",
+  "version": "0.0.1",
+  "description": "Connect this Mac’s Codex to your Personal Agent through DotX.",
+  "author": {
+    "name": "Vizards"
+  },
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/dotx/SKILL.md",
+      "interface": {
+        "displayName": "DotX Desktop",
+        "shortDescription": "Connect your Mac’s Codex",
+        "developerName": "Vizards",
+        "category": "Productivity",
+        "capabilities": [],
+        "logo": "./assets/logo.png",
+        "composerIcon": "./assets/composer-icon.png"
+      }
+    }
+  },
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+}

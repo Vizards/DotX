@@ -1,0 +1,15 @@
+# Load an installed Codex plugin
+
+Use when DotX Desktop is installed but the actual local conversation cannot call `device_status`, or a normal update refresh did not expose the new entry. Complete: this host can call the tool; return to the installation/update step that requested it.
+
+1. Verify the intended plugin is installed and enabled. Select it through the normal plugin picker when needed, then rediscover tools.
+2. If the tool is still missing, offer an optional restart while continuing the recovery below: “Would it be convenient to restart Codex now? If so, reopen this conversation afterward and say ‘continue’. If not, I’ll keep trying to load the plugin without restarting.” Do not wait idly for the answer or interrupt other tasks. The user performs the restart when convenient; never kill the app yourself.
+3. Use the actual host's normal loading/refresh capability if available. The documented App Server `config/mcpServer/reload` queues a refresh for loaded threads; inspect the exposed schema and ensure it reaches this host, not an independent CLI App Server. Rediscover and try `device_status` in this conversation. If it works, return to the requesting task without requiring a restart or new conversation.
+4. If still missing and the user is not restarting, open a new ordinary Codex Desktop conversation on this same Mac, visible as a task in the desktop app. Use the host's exposed task-creation tool when available and authorized. If it requires an explicit request, ask once whether you may open that desktop conversation to finish installation and verification; after agreement, create it yourself. A subagent (`spawn_agent`) does not resolve this loading problem; neither a subagent nor a separately launched App Server is a substitute for the desktop conversation.
+5. Give the continuation the Server, selected version, guide, actual installation location, completed work and missing tool. Reuse the installation, identity and any submitted application. Link the new conversation for the user, follow its result when supported, and report its actual verification. Ask the user to open a conversation and forward [a short handoff](../common/handoff.md#hand-off-a-task) only when you cannot create it. Do not make “open a new conversation” the user's default chore.
+
+After a user restart, rediscover tools and inspect existing state before continuing. Complete the remaining setup and verification where the tool becomes available; avoid duplicate installation work across conversations. Do not modify binaries, signatures, startup behavior or other plugin processes.
+
+A new conversation has worked in real Desktop installations, but verify this host rather than promising universal behavior. Mentioning a Skill or sending another message does not prove its MCP loaded.
+
+If `device_status` is callable but reports setup/connection failure, use [device diagnosis](device.md) instead. `Transport closed` on an old entry after update means rediscover the current entry; it does not establish that the actual owner is offline.

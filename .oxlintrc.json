@@ -4,6 +4,44 @@
     "correctness": "error"
   },
   "rules": {
-    "no-unused-vars": ["error", { "ignoreRestSiblings": true }]
-  }
+    "no-unused-vars": [
+      "error",
+      {
+        "ignoreRestSiblings": true
+      }
+    ],
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": "error"
+  },
+  "ignorePatterns": ["**/dist/**", "**/routeTree.gen.ts"],
+  "plugins": ["typescript", "react"],
+  "overrides": [
+    {
+      "files": ["apps/server/src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              "node:child_process",
+              "node:fs",
+              "node:fs/promises",
+              "node:cluster",
+              "node:worker_threads"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/routes/**/index.tsx",
+        "apps/web/src/routes/**/route.tsx",
+        "apps/web/src/routes/__root.tsx"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ]
 }

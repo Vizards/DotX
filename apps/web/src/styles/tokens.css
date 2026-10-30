@@ -1,0 +1,170 @@
+/* DotX tokens. Names follow the UI objects and the device/connection lifecycle:
+   paper, text, line, accent, live/attn/risk, type, corner, lift, motion.
+   Method and measured values: Notion "DotX Web 设计系统" §14. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Paper */
+  --bg: #fdfdfd;
+  --surface: #ffffff;
+  --glass: rgba(255, 255, 255, 0.93);
+  --well: #f2f2f7;
+
+  /* Text: larger number recedes */
+  --text: #161517;
+  --text-2: rgba(60, 60, 67, 0.8);
+  --text-3: rgba(60, 60, 67, 0.74);
+  --text-4: rgba(60, 60, 67, 0.56);
+
+  /* Lines */
+  --line: rgba(22, 21, 23, 0.05);
+  --line-2: rgba(116, 116, 128, 0.08);
+  --line-3: rgba(120, 120, 128, 0.16);
+  --line-4: rgba(60, 60, 67, 0.18);
+
+  /* Accent: indigo, provisional (§17). Changing a theme touches only this group. */
+  --accent: #4f46e5;
+  --accent-glow: rgba(79, 70, 229, 0.35);
+  --accent-bg: #eeeefe;
+  --accent-bg-strong: rgba(79, 70, 229, 0.1);
+  --accent-bg-soft: rgba(79, 70, 229, 0.05);
+  --accent-muted: #c7c4f5;
+  --accent-line: rgba(79, 70, 229, 0.2);
+  --accent-fg: #ffffff;
+
+  /* Status. Offline and removed use --text-3 plus shape, not a colour. */
+  --live: #7ab587;
+  --live-text: #3f7a4e;
+  --live-bg: rgba(122, 181, 135, 0.12);
+  --live-glow: rgba(122, 181, 135, 0.18);
+  --attn: #f2c877;
+  --attn-text: #8a5a0a;
+  --attn-bg: rgba(242, 200, 119, 0.12);
+  --attn-glow: rgba(242, 200, 119, 0.2);
+  --risk: #e78787;
+  --risk-text: #b03a3a;
+  --risk-bg: rgba(231, 135, 135, 0.08);
+  --risk-on: #ffffff;
+
+  /* Scrim behind dialogs: frosted white, never black (§7.4) */
+  --scrim: rgba(255, 255, 255, 0.93);
+  --hover-tint: rgba(0, 0, 0, 0.04);
+  --row-tint: rgba(22, 21, 23, 0.03);
+
+  /* Type */
+  --font:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', system-ui, sans-serif;
+  --font-num: 'DIN Alternate', 'Barlow Semi Condensed', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-code: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fs-display: 38px;
+  --fs-h1: 26px;
+  --fs-h2: 19px;
+  --fs-h3: 16px;
+  --fs-body: 16px;
+  --fs-table: 15px;
+  --fs-caption: 14px;
+  --fs-micro: 13px;
+  --fs-num-sm: 25px;
+  --fs-num-lg: 32px;
+
+  /* Space */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* Corner: named by object, not by size */
+  --r-tag: 4px;
+  --r-control: 8px;
+  --r-note: 12px;
+  --r-row: 14px;
+  --r-card: 21px;
+  --r-pill: 999px;
+
+  /* Lift */
+  --lift-control: 0 4px 11px rgba(0, 0, 0, 0.02);
+  --lift-card: 0 4px 54px rgba(0, 0, 0, 0.04);
+  --lift-row: 0 4px 6px rgba(0, 0, 0, 0.02);
+  --lift-float: 0 4px 114px rgba(0, 0, 0, 0.1);
+  --lift-dialog: 0 8px 40px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  --blur-glass: blur(22px);
+  --blur-scrim: blur(12px);
+
+  /* Motion: enter slower than exit */
+  --ease: cubic-bezier(0.7, 0.07, 0.15, 1);
+  --ease-spring: cubic-bezier(0.17, 0.59, 0.4, 0.77);
+  --t-out: 100ms;
+  --t-in: 200ms;
+  --t-move: 140ms;
+  --t-slow: 500ms;
+
+  /* Layer */
+  --z-nav: 1000;
+  --z-dialog: 2000;
+  --z-popover: 2500;
+  --z-prompt: 3000;
+
+  /* Step guidance */
+  --step-active: var(--accent);
+  --step-done: var(--live);
+  --step-pending: var(--line-3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0b0d;
+    --surface: #141416;
+    --glass: rgba(255, 255, 255, 0.06);
+    --well: rgba(255, 255, 255, 0.03);
+
+    --text: #f5f5f7;
+    --text-2: rgba(235, 235, 245, 0.6);
+    --text-3: rgba(235, 235, 245, 0.5);
+    --text-4: rgba(235, 235, 245, 0.4);
+
+    --line: rgba(255, 255, 255, 0.08);
+    --line-2: rgba(255, 255, 255, 0.1);
+    --line-3: rgba(255, 255, 255, 0.16);
+    --line-4: rgba(255, 255, 255, 0.22);
+
+    --accent: #8b87f0;
+    --accent-glow: rgba(139, 135, 240, 0.45);
+    --accent-bg: rgba(139, 135, 240, 0.12);
+    --accent-bg-strong: rgba(139, 135, 240, 0.16);
+    --accent-bg-soft: rgba(139, 135, 240, 0.08);
+    --accent-muted: rgba(139, 135, 240, 0.25);
+    --accent-line: rgba(139, 135, 240, 0.35);
+    --accent-fg: #0a0918;
+
+    --live: #4ade80;
+    --live-text: #86efac;
+    --live-bg: rgba(74, 222, 128, 0.12);
+    --live-glow: rgba(74, 222, 128, 0.2);
+    --attn: #fbbf24;
+    --attn-text: #fcd34d;
+    --attn-bg: rgba(251, 191, 36, 0.12);
+    --attn-glow: rgba(251, 191, 36, 0.22);
+    --risk: #f87171;
+    --risk-text: #fca5a5;
+    --risk-bg: rgba(248, 113, 113, 0.1);
+    --risk-on: #2a0b0b;
+
+    --scrim: rgba(0, 0, 0, 0.6);
+    --hover-tint: rgba(255, 255, 255, 0.08);
+    --row-tint: rgba(255, 255, 255, 0.04);
+
+    --lift-control: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --lift-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+    --lift-row: none;
+    --lift-float: 0 4px 114px rgba(0, 0, 0, 0.5);
+    --lift-dialog: 0 24px 64px rgba(0, 0, 0, 0.6);
+  }
+}

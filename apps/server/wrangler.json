@@ -34,7 +34,12 @@
   "vars": {
     "PUBLIC_ORIGIN": "http://localhost:8787",
     "RELEASE_REPOSITORY": "",
-    "RELEASE_CHANNEL": "stable"
+    "RELEASE_CHANNEL": "stable",
+    "RECORD_RETENTION_DAYS": "30",
+    "SERVICE_ID": "00000000-0000-4000-8000-000000000002",
+    "CF_ACCOUNT_ID": "",
+    "CF_WORKER_ID": "",
+    "CF_WORKER_NAME": "dotx-server"
   },
   "observability": {
     "enabled": true,
@@ -50,6 +55,10 @@
     }
   },
   "assets": {
-    "directory": "./public"
+    "directory": "./dist/public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/*", "!/assets/*", "!/branding/*"],
+    "html_handling": "none",
+    "not_found_handling": "none"
   }
 }

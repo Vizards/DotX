@@ -1,0 +1,343 @@
+/* ── Tables ──────────────────────────────────────── */
+.table-card {
+  position: relative;
+  margin-top: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-card);
+  padding: 4px 0 6px;
+  /* Not hidden: the action menu opens outside the row, and clipping it would
+     cut the menu off at the card edge. */
+}
+
+.table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px 20px 10px;
+}
+
+.table-head h2 {
+  font-size: var(--fs-h3);
+  font-weight: 600;
+}
+
+/* One inset for the whole card: the heading, the column labels and the cell
+   text all start 20px in. The row highlight lives in the 9px gutter outside
+   that text, so it frames a row without moving it. */
+.table-wrap {
+  position: relative;
+  padding: 0 9px;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap thead th {
+  padding: 9px 11px;
+  text-align: left;
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.table-wrap thead th button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.table-wrap thead th button:hover {
+  color: var(--text-2);
+}
+
+.table-wrap tbody td {
+  padding: 11px;
+  font-size: var(--fs-table);
+  font-weight: 500;
+  color: var(--text-2);
+  /* Cells hold one to three lines. Centring them puts each column's first
+     line at a different height; aligning tops keeps the name, status and
+     values on one reading line, with sub-lines hanging below. */
+  vertical-align: top;
+}
+
+/* A pill is taller than a text line; lift it so its label shares that line.
+   An inline box ignores vertical margin, so shift it instead. */
+.table-wrap tbody td .pill {
+  position: relative;
+  top: -3px;
+}
+
+/* The action column and its heading share one right edge. */
+.table-wrap thead th.cell-actions,
+.table-wrap tbody td.cell-actions {
+  text-align: right;
+}
+
+/* Header and body share the outer insets, so each label sits over its values,
+   and the first and last columns line up with the card heading above. */
+.table-wrap tr > :first-child {
+  padding-left: 11px;
+}
+
+.table-wrap tr > :last-child {
+  padding-right: 11px;
+}
+
+.cell-name {
+  display: block;
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Long Agent names wrap without splitting timestamps or hiding row actions. */
+.agent-name {
+  max-width: 18rem;
+  overflow-wrap: anywhere;
+}
+
+.agent-time {
+  white-space: nowrap;
+}
+
+/* Sub-lines are prose; IDs opt into the code face with .mono. */
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+
+.cell-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cell-actions .btn + .btn {
+  margin-left: 6px;
+}
+
+/* The next step sits under its status, not in a separate column. 原则 2 */
+.next {
+  display: block;
+  margin-top: 5px;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.next:hover {
+  text-decoration: underline;
+}
+
+.next::after {
+  content: ' →';
+}
+
+/* Same affordance, but it opens a dialog instead of navigating. */
+.next--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Actions are text: the row is the object, not a wall of buttons. */
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  white-space: nowrap;
+}
+
+.act {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.act:hover {
+  text-decoration: underline;
+}
+
+.act--danger {
+  color: var(--risk-text);
+}
+
+/* Rare actions stay out of sight until asked for. */
+.more-toggle {
+  color: var(--text-3);
+}
+
+.more-toggle[aria-expanded='true'] {
+  color: var(--text);
+}
+
+/* Portalled to the body: position is set inline from the trigger's rect. */
+.more-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-note);
+  background: var(--surface);
+  box-shadow: var(--lift-dialog);
+  text-align: left;
+}
+
+.more-menu .act {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--r-control);
+  font-size: var(--fs-table);
+  font-weight: 500;
+  text-align: left;
+}
+
+.more-menu .act:hover {
+  background: var(--well);
+  text-decoration: none;
+}
+
+/* A phone action sheet: one full-width row per action, reachable by thumb.
+   The row-level "more" button is the only thing in the actions cell. */
+.row-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: -8px -8px -8px 0;
+  border: 0;
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--text-3);
+}
+
+.row-more:hover,
+.row-more[aria-expanded='true'] {
+  background: var(--well);
+  color: var(--text);
+}
+
+.sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  align-items: flex-end;
+  padding: 12px;
+  background: var(--scrim);
+  animation: fade-in var(--t-out) var(--ease);
+}
+
+.action-sheet {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-note);
+  background: var(--surface);
+  box-shadow: var(--lift-dialog);
+  animation: sheet-in var(--t-out) var(--ease);
+}
+
+.action-sheet-title {
+  margin: 4px 12px 6px;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.act--sheet {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 12px;
+  border-radius: var(--r-control);
+  font-size: var(--fs-table);
+  font-weight: 500;
+  text-align: left;
+}
+
+.act--sheet:hover {
+  background: var(--well);
+  text-decoration: none;
+}
+
+.act--sheet.act--danger {
+  color: var(--risk-text);
+}
+
+.action-sheet-cancel {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 4px;
+  border: 0;
+  border-top: 1px solid var(--line-2);
+  border-radius: 0 0 var(--r-control) var(--r-control);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-table);
+  font-weight: 600;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+/* A pending approval stops being calm in its last hour, which is when the
+   person can still act on it. */
+.countdown--soon .dot {
+  animation: pulse 1.6s var(--ease) infinite;
+}
+
+/* Row highlight slides between rows instead of painting each row. §7.5 */
+.row-highlight {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  z-index: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-row);
+  background: var(--row-tint);
+  box-shadow: var(--lift-row);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    top var(--t-move) var(--ease),
+    height var(--t-move) var(--ease),
+    opacity var(--t-move) var(--ease);
+}
+
+.table-wrap tbody {
+  position: relative;
+  z-index: 1;
+}

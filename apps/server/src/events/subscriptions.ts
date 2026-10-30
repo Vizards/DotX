@@ -1,21 +1,21 @@
-import { canonical } from '@dotx/shared/gateway';
-import { matchesEvent, parseFilter, subscribeSchema, unsubscribeSchema } from './schema.ts';
-import type { Notice } from '@dotx/shared/events';
-import type { SubscriptionInput } from './schema.ts';
+import { Buffer } from 'node:buffer';
+import { canonical } from '@dotx/shared/wire/commands';
+import { matchesEvent, parseFilter, subscribeSchema, unsubscribeSchema } from './catalog.ts';
+import type { Notice } from '@dotx/shared/wire/notices';
+import type { SubscriptionInput } from './catalog.ts';
 import type { AtomicStore, Store } from '../hub/storage.ts';
 import {
   callbackURL,
   secretBytes,
   postSigned,
   verifyCallback,
-  webhookFetch,
   responseDiagnostic,
   transportError,
   CallbackError,
-} from './webhook.ts';
-import type { WebhookFetch } from './webhook.ts';
+} from './delivery.ts';
 import { BridgeError } from '@dotx/shared/errors';
-import { terminal } from '@dotx/shared/state';
+import { terminal } from '@dotx/shared/requests';
+export type InternalNotice = Notice & { audience?: string };
 export interface EventAuthority {
   principal: string;
   devices: string[];
@@ -63,7 +63,6 @@ async function hash(value: unknown) {
 }
 export class Events {
   readonly store: AtomicStore;
-  readonly transport: WebhookFetch;
   readonly authorized: (auth: EventAuthority, connectionId: string) => Promise<boolean>;
   readonly waitUntil: (work: Promise<unknown>) => void;
   readonly resolveTurn: (
@@ -75,21 +74,21 @@ export class Events {
   constructor(
     store: AtomicStore,
     options: {
-      transport?: WebhookFetch;
       authorized: Events['authorized'];
       waitUntil: Events['waitUntil'];
       resolveTurn: Events['resolveTurn'];
     },
   ) {
     this.store = store;
-    this.transport = options.transport ?? webhookFetch;
     this.authorized = options.authorized;
     this.waitUntil = options.waitUntil;
     this.resolveTurn = options.resolveTurn;
   }
   async wake(at: number) {
-    const next = await this.store.getAlarm();
-    if (next === null || next > at) await this.store.setAlarm(at);
+    await this.store.transaction(async (tx) => {
+      const next = await tx.getAlarm();
+      if (next === null || next > at) await tx.setAlarm(at);
+    });
   }
   async identity(
     auth: EventAuthority,
@@ -129,7 +128,7 @@ export class Events {
       'events:verified:' + (await hash([auth.principal, url, input.delivery.secret]));
     if (((await this.store.get<number>(verifiedKey)) ?? 0) < Date.now()) {
       try {
-        await verifyCallback(this.transport, { id, url, secret: input.delivery.secret });
+        await verifyCallback({ id, url, secret: input.delivery.secret });
       } catch (error) {
         if (error instanceof CallbackError)
           console.warn({
@@ -154,7 +153,7 @@ export class Events {
       const previous = await tx.get<Subscription>(subKey(id));
       if (previous?.ending) throw new BridgeError('SUBSCRIPTION_TURN_ENDED');
       const active = previous && previous.expires > Date.now();
-      const lifetime = Math.max(60000, Math.min(input.ttlMs ?? 86400000, 86400000));
+      const lifetime = Math.min(input.ttlMs ?? 86400000, 86400000);
       const s: Subscription = {
         id,
         auth,
@@ -182,7 +181,7 @@ export class Events {
   }
   // Called only after domain state commits. Initial delivery is best effort: a
   // restart before a failed attempt is saved may lose the notification, not the task.
-  publish(events: Notice[]) {
+  publish(events: InternalNotice[]) {
     if (!events.length) return;
     this.waitUntil(
       this.deliver(events).catch((error) => {
@@ -190,69 +189,73 @@ export class Events {
       }),
     );
   }
-  async deliver(events: Notice[]) {
+  async deliver(events: InternalNotice[]) {
     const subscriptions = await this.store.list<Subscription>({ prefix: 'events:sub:' });
-    const unique = new Map(events.map((e) => [e.eventId, e]));
-    for (const s of subscriptions.values()) {
-      if (s.expires <= Date.now() || s.ending) continue;
-      let turn: EventTurn;
-      try {
-        turn = await this.resolveTurn(s.auth, s.arguments, false);
-      } catch (error) {
-        // A request later used for an ordinary RPC cannot own a turn subscription.
-        // Its invalid scope must not prevent delivery to other subscribers.
-        console.warn({ event: 'mcp_subscription_scope_failed', error: transportError(error) });
-        await this.stop(s);
+    const unique = [...new Map(events.map((e) => [e.eventId, e])).values()];
+    // A slow callback must not delay other subscribers; each keeps its own retry budget.
+    await Promise.all([...subscriptions.values()].map((s) => this.deliverTo(s, unique)));
+  }
+  private async deliverTo(s: Subscription, events: InternalNotice[]) {
+    if (s.expires <= Date.now() || s.ending) return;
+    let turn: EventTurn;
+    try {
+      turn = await this.resolveTurn(s.auth, s.arguments, false);
+    } catch (error) {
+      // A request later used for an ordinary RPC cannot own a turn subscription.
+      // Its invalid scope must not prevent delivery to other subscribers.
+      console.warn({ event: 'mcp_subscription_scope_failed', error: transportError(error) });
+      await this.stop(s);
+      return;
+    }
+    for (const incoming of events) {
+      const { audience, ...event } = incoming;
+      if (audience && audience !== s.auth.principal) continue;
+      if (!s.auth.devices.includes(event.data.connection_id)) continue;
+      const requestMatch =
+        typeof s.arguments.request_id === 'string' &&
+        event.name === 'gateway.request.updated' &&
+        event.data.connection_id === s.arguments.connection_id &&
+        event.data.request_id === s.arguments.request_id;
+      const nativeMatch =
+        event.name === 'gateway.native.event' &&
+        event.data.connection_id === turn.connection_id &&
+        !!turn.turn_id &&
+        event.data.thread_id === turn.thread_id &&
+        (event.data.host_id ?? 'local') === (turn.host_id ?? 'local') &&
+        (!event.data.turn_id || event.data.turn_id === turn.turn_id);
+      const final =
+        terminal(event.data.status ?? '') &&
+        (requestMatch ||
+          (s.name === 'gateway.native.event' &&
+            nativeMatch &&
+            event.data.turn_id === turn.turn_id &&
+            ['thread-stream-state-changed', 'turn/completed', 'turn/failed'].includes(
+              event.data.method ?? '',
+            )));
+      // Scope is mandatory, but thread-level interactions can omit turn_id.
+      // Keep the existing method/kind defaults and explicit selectors inside it.
+      const { thread_id: _thread, turn_id: _turn, host_id: _host, ...filters } = s.arguments;
+      const selected =
+        (s.name === 'gateway.request.updated' ? requestMatch : nativeMatch) &&
+        matchesEvent(s.name, filters, event);
+      if (!selected) {
+        if (final) {
+          await this.stop(s);
+          break;
+        }
         continue;
       }
-      for (const event of unique.values()) {
-        if (!s.auth.devices.includes(event.data.connection_id)) continue;
-        const requestMatch =
-          typeof s.arguments.request_id === 'string' &&
-          event.name === 'gateway.request.updated' &&
-          event.data.connection_id === s.arguments.connection_id &&
-          event.data.request_id === s.arguments.request_id;
-        const nativeMatch =
-          event.name === 'gateway.native.event' &&
-          event.data.connection_id === turn.connection_id &&
-          !!turn.turn_id &&
-          event.data.thread_id === turn.thread_id &&
-          (event.data.host_id ?? 'local') === (turn.host_id ?? 'local') &&
-          (!event.data.turn_id || event.data.turn_id === turn.turn_id);
-        const final =
-          terminal(event.data.status ?? '') &&
-          (requestMatch ||
-            (s.name === 'gateway.native.event' &&
-              nativeMatch &&
-              event.data.turn_id === turn.turn_id &&
-              ['thread-stream-state-changed', 'turn/completed', 'turn/failed'].includes(
-                event.data.method ?? '',
-              )));
-        // Scope is mandatory, but thread-level interactions can omit turn_id.
-        // Keep the existing method/kind defaults and explicit selectors inside it.
-        const { thread_id: _thread, turn_id: _turn, host_id: _host, ...filters } = s.arguments;
-        const selected =
-          (s.name === 'gateway.request.updated' ? requestMatch : nativeMatch) &&
-          matchesEvent(s.name, filters, event);
-        if (!selected) {
-          if (final) {
-            await this.stop(s);
-            break;
-          }
-          continue;
-        }
-        const r: Retry = {
-          subscriptionId: s.id,
-          revision: s.revision,
-          event,
-          attempt: 0,
-          nextAt: 0,
-          ...(final ? { final: true } : {}),
-        };
-        // A retry already owns this event; do not reset its attempt budget.
-        if (!(await this.store.get(retryKey(r)))) await this.send(r);
-        if (final) break;
-      }
+      const r: Retry = {
+        subscriptionId: s.id,
+        revision: s.revision,
+        event,
+        attempt: 0,
+        nextAt: 0,
+        ...(final ? { final: true } : {}),
+      };
+      // A retry already owns this event; do not reset its attempt budget.
+      if (!(await this.store.get(retryKey(r)))) await this.send(r);
+      if (final) break;
     }
   }
   async status(auth: EventAuthority) {
@@ -313,7 +316,6 @@ export class Events {
           return;
         }
         const response = await postSigned(
-          this.transport,
           s,
           r.event.eventId,
           JSON.stringify({ ...r.event, cursor: null }),
@@ -385,8 +387,11 @@ export class Events {
       if (s.expires <= Date.now()) await this.stop(s, 'expired');
       else expiry = Math.min(expiry, s.expires);
     }
-    for (const r of (await this.store.list<Retry>({ prefix: 'events:retry:' })).values()) {
-      if (r.nextAt <= Date.now()) await this.send(r);
+    const retries = await this.store.list<Retry>({ prefix: 'events:retry:' });
+    for (const r of retries.values()) {
+      // Finish this alarm before waiting for callbacks: a later alarm may own
+      // another subscriber's retry. send() already prevents duplicate in-flight work.
+      if (r.nextAt <= Date.now()) this.waitUntil(this.send(r));
       else await this.wake(r.nextAt);
     }
     if (Number.isFinite(expiry)) await this.wake(expiry);

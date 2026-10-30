@@ -1,0 +1,181 @@
+@media (max-width: 760px) {
+  .motives {
+    grid-template-columns: 1fr;
+  }
+
+  .notice {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .notice .ops {
+    justify-content: flex-end;
+  }
+
+  .step-card,
+  .auth-card {
+    padding: 22px;
+  }
+
+  /* Keep the body aligned under its title but give the content its width back. */
+  .claim-step-body {
+    padding-left: 0;
+  }
+
+  .claim-step {
+    padding: 12px 14px;
+  }
+
+  /* Two rows, not three: the title keeps the chevron beside it, and the
+     expiry takes the line under it. Wrapping a full-width expiry into the
+     same flex row pushed the chevron onto a third row of its own. */
+  .claim-step-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .claim-toggle {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .claim-expand {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .claim-expiry {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    width: auto;
+    padding-left: calc(24px + var(--space-3));
+  }
+
+  .table-wrap {
+    padding: 0;
+  }
+
+  .table-wrap table,
+  .table-wrap thead,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap td {
+    display: block;
+  }
+
+  .table-wrap thead {
+    display: none;
+  }
+
+  .table-wrap tbody tr {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .table-wrap tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  /* A stack of label ……… value pairs pushed to opposite edges stops reading as
+     pairs on a wide phone. Two columns keep each label beside its value. */
+  .table-wrap tbody td,
+  .table-wrap tbody tr > :first-child,
+  .table-wrap tbody tr > :last-child {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--space-3);
+    padding: 4px 0;
+  }
+
+  /* Each stacked cell carries its column label. */
+  .table-wrap tbody td[data-label]::before {
+    content: attr(data-label);
+    grid-column: 1;
+    grid-row: 1;
+    font-size: var(--fs-micro);
+    font-weight: 500;
+    color: var(--text-3);
+  }
+
+  .table-wrap tbody td .pill {
+    top: 0;
+  }
+
+  /* Everything after the label stacks in the value column, at its own width:
+     a pill stretched across the column stops looking like a pill. */
+  .table-wrap tbody td[data-label] > * {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .table-wrap tbody td[data-label] > .cell-sub {
+    margin-top: 4px;
+  }
+
+  .table-wrap tbody td:first-child {
+    display: block;
+    padding-bottom: 8px;
+  }
+
+  .table-wrap tbody td:first-child::before {
+    display: none;
+  }
+
+  /* The cell is also the row's last child, so it must outrank the grid rule. */
+  .table-wrap tbody tr > td.cell-actions {
+    display: block;
+    padding: 2px 0 0;
+  }
+
+  .table-wrap td.cell-actions::before {
+    display: none;
+  }
+
+  .row-actions {
+    justify-content: flex-end;
+  }
+
+  /* Small text links sit side by side on a phone and are hard to hit; each
+     one grows to a 32px target without changing how it looks. */
+  .footer a,
+  .next,
+  .next--button,
+  .linkbtn,
+  .passkey-acts .act {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+  }
+
+  .footer {
+    gap: var(--space-2);
+  }
+
+  .row-highlight {
+    display: none;
+  }
+
+  .step-acts .spacer {
+    display: none;
+  }
+
+  .step-acts > .btn:first-child {
+    width: 100%;
+    height: 40px;
+    font-size: var(--fs-table);
+  }
+
+  .step-acts > .btn:not(:first-child) {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    padding-left: 0;
+  }
+
+  .copyline code {
+    padding: 10px 12px;
+    font-size: var(--fs-micro);
+  }
+}

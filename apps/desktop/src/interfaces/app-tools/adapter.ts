@@ -2,7 +2,8 @@ import { NativeError } from '@dotx/shared/errors';
 import { randomUUID } from 'node:crypto';
 import { Native } from './transport.ts';
 import type { Adapter, Method } from '../adapter.ts';
-import type { Call, InterfaceStatus, NativeResponse } from '@dotx/shared/gateway';
+import type { Call, NativeResponse } from '@dotx/shared/wire/commands';
+import type { InterfaceStatus } from '@dotx/shared/devices';
 export class AppToolsAdapter implements Adapter {
   readonly runtimeId = randomUUID();
   ready = false;

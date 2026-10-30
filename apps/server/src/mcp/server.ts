@@ -1,24 +1,22 @@
-import { subscribeSchema, unsubscribeSchema } from '../events/schema.ts';
+import { subscribeSchema, unsubscribeSchema } from '../events/catalog.ts';
 import { McpServer, createMcpHandler, ProtocolError } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { gatewaySchemas } from '@dotx/shared/gateway';
-import type { GatewayOperation } from '@dotx/shared/gateway';
+import { gatewaySchemas } from './schemas.ts';
+import type { GatewayOperation } from './schemas.ts';
 import { errorCode, errorValue } from '@dotx/shared/errors';
-import { MCP_PROTOCOL_VERSION } from '@dotx/shared/protocol';
 import packageInfo from '../../package.json' with { type: 'json' };
 import branding from '../../public/branding/metadata.json' with { type: 'json' };
-import { getInstructions, INSTRUCTION_GUIDES, INSTRUCTIONS_GUIDANCE } from './instructions.ts';
-import type { InstructionGoal } from './instructions.ts';
+import { getInstructions, INSTRUCTION_GUIDES, INSTRUCTIONS_GUIDANCE } from './guides.ts';
+import type { InstructionGoal } from './guides.ts';
 
 interface McpOptions {
   publicOrigin: string;
-  scopes: string[];
-  events?: (method: string, args: Record<string, unknown>) => Promise<object>;
+  events: (method: string, args: Record<string, unknown>) => Promise<object>;
   connections: () => Promise<object>;
   invoke: (operation: GatewayOperation, args: Record<string, unknown>) => Promise<object>;
 }
-function createServer({ invoke, connections, scopes, events, publicOrigin }: McpOptions) {
-  const capabilities = { tools: {}, ...(events ? { events: {} } : {}) };
+function createServer({ invoke, connections, events, publicOrigin }: McpOptions) {
+  const capabilities = { tools: {}, events: {} };
   const server = new McpServer(
     {
       ...branding,
@@ -34,31 +32,27 @@ function createServer({ invoke, connections, scopes, events, publicOrigin }: Mcp
     {
       instructions: INSTRUCTIONS_GUIDANCE,
       capabilities,
-      supportedProtocolVersions: [MCP_PROTOCOL_VERSION],
     },
   );
-  if (events) {
-    const schemas = {
-      'events/list': z.object({ cursor: z.string().optional() }),
-      'events/subscribe': subscribeSchema,
-      'events/unsubscribe': unsubscribeSchema,
-    };
-    for (const [name, params] of Object.entries(schemas))
-      server.server.setRequestHandler(name, { params }, async (args) => {
-        if (!scopes.includes('mcp:read')) throw new ProtocolError(-32602, 'INSUFFICIENT_SCOPE');
-        try {
-          return { ...(await events(name, args)) };
-        } catch (e) {
-          if (e && typeof e === 'object' && 'code' in e && e.code === -32015)
-            throw new ProtocolError(
-              -32015,
-              'CallbackEndpointError',
-              'data' in e ? e.data : undefined,
-            );
-          throw new ProtocolError(-32602, errorCode(e) ?? 'INVALID_EVENT_ARGUMENTS', errorValue(e));
-        }
-      });
-  }
+  const schemas = {
+    'events/list': z.object({ cursor: z.string().optional() }),
+    'events/subscribe': subscribeSchema,
+    'events/unsubscribe': unsubscribeSchema,
+  };
+  for (const [name, params] of Object.entries(schemas))
+    server.server.setRequestHandler(name, { params }, async (args) => {
+      try {
+        return { ...(await events(name, args)) };
+      } catch (e) {
+        if (e && typeof e === 'object' && 'code' in e && e.code === -32015)
+          throw new ProtocolError(
+            -32015,
+            'CallbackEndpointError',
+            'data' in e ? e.data : undefined,
+          );
+        throw new ProtocolError(-32602, errorCode(e) ?? 'INVALID_EVENT_ARGUMENTS', errorValue(e));
+      }
+    });
   function register<S extends z.ZodRawShape>(
     name: string,
     description: string,
@@ -83,10 +77,6 @@ function createServer({ invoke, connections, scopes, events, publicOrigin }: Mcp
       async (args) => {
         let value;
         try {
-          if (!scopes.includes('mcp:read') || (write && !scopes.includes('mcp:write')))
-            throw Object.assign(new Error('Authorization lacks required scope'), {
-              code: 'INSUFFICIENT_SCOPE',
-            });
           value = await handler(args);
           return {
             content: [{ type: 'text', text: JSON.stringify(value) }],
@@ -138,7 +128,7 @@ function createServer({ invoke, connections, scopes, events, publicOrigin }: Mcp
   );
   register(
     'get_request',
-    'Read execution state and any tracked-turn receipt for a call made with request_id, including after missing or interrupted notifications. Calls without request_id have no stored receipt. Ordinary RPC payloads are available only in the original call response. RPC returned is not task completion.',
+    'Read execution state and any tracked-turn receipt for a call made with request_id, including after missing or interrupted notifications. expires_at is its retention deadline; after cleanup REQUEST_NOT_FOUND does not prove the task failed or authorize resending it. Calls without request_id have no stored receipt. Ordinary RPC payloads are available only in the original call response. RPC returned is not task completion.',
     gatewaySchemas.get_request.shape,
     (args) => invoke('get_request', args),
   );
@@ -160,10 +150,7 @@ function createServer({ invoke, connections, scopes, events, publicOrigin }: Mcp
 
 export async function serveMcp(request: Request, options: McpOptions) {
   // Subscription storage and delivery belong to the host, beyond this MCP request.
-  const handler = createMcpHandler(() => createServer(options), {
-    legacy: 'reject',
-    maxRequestBodySize: 1024 * 1024,
-  });
+  const handler = createMcpHandler(() => createServer(options));
   try {
     return await handler.fetch(request);
   } finally {

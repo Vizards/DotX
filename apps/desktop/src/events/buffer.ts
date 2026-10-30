@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BridgeError } from '@dotx/shared/errors';
-import type { NativeEvent } from '@dotx/shared/gateway';
+import type { NativeEvent } from '@dotx/shared/wire/commands';
 
 // Native handles and replay are scoped to this process. Restart cannot recreate old handles.
 export class EventBuffer {

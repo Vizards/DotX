@@ -1,0 +1,58 @@
+/* ── Overview: grouped by what the user came to do. 原则 6 */
+.motives {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.motive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--lift-card);
+}
+
+.motive h2 {
+  font-size: var(--fs-h3);
+  font-weight: 600;
+}
+
+.motive p {
+  flex: 1;
+  font-size: var(--fs-caption);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.motive .btn {
+  align-self: flex-start;
+}
+
+.motive[data-tone='attn'] {
+  border-color: rgba(242, 200, 119, 0.4);
+  background: var(--attn-bg);
+}
+
+.motive[data-tone='live'] {
+  border-color: var(--line-2);
+}
+
+.motive .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  color: var(--attn-text);
+}
+
+.motive .facts {
+  display: flex;
+  gap: var(--space-1);
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+}

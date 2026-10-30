@@ -1,0 +1,295 @@
+/* Shell, navigation, page frame. */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.brandbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+  padding: 0 32px;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: var(--fs-body);
+  letter-spacing: -0.01em;
+}
+
+.brand img {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: block;
+}
+
+.brandbar .right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* Segmented navigation: sunken trough, floating knob. §16.3 */
+.segmented-row {
+  padding: 6px 32px 0;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--well);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.segmented::-webkit-scrollbar {
+  display: none;
+}
+
+.segmented-thumb {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: calc(100% - 6px);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 1px 1px rgba(0, 0, 0, 0.03);
+  transition:
+    transform var(--t-in) var(--ease),
+    width var(--t-in) var(--ease);
+  pointer-events: none;
+}
+
+.segmented a {
+  position: relative;
+  z-index: 1;
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-table);
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+  scroll-snap-align: start;
+  transition: color var(--t-in) var(--ease);
+}
+
+.segmented a:hover {
+  color: var(--text-2);
+}
+
+.segmented a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nav-short {
+  display: none;
+}
+
+.page {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 32px 96px;
+  flex: 1;
+}
+
+/* Page head: big light title, stats recede to the right, both on one axis. */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+  padding: 30px 0 22px;
+}
+
+.page-head h1 {
+  font-size: var(--fs-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+/* Equal columns, so the numbers sit on a rhythm instead of trailing their labels. */
+.stat-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(72px, 1fr);
+  gap: var(--space-6);
+  flex: none;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat b {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-num-sm);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat span {
+  margin-top: var(--space-1);
+  font-size: var(--fs-table);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.stat[data-tone='attn'] b {
+  color: var(--attn-text);
+}
+
+/* Focus shell: a guidance flow owns the whole viewport. §0.1 原则 5 */
+.focus-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+}
+
+/* One column wide enough for the guidance cards; narrow cards centre in it. */
+.auth-column {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.auth-column .step-card,
+.auth-column .auth-card {
+  width: 100%;
+}
+
+.auth-column .auth-card {
+  max-width: 430px;
+}
+
+/* The mark carries the product; the name next to it repeated the title. */
+.auth-mark {
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--space-5);
+  border-radius: 11px;
+}
+
+.footer {
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 32px 40px;
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.footer a {
+  color: inherit;
+  transition: color var(--t-in) var(--ease);
+}
+
+.footer a:hover {
+  color: var(--text);
+}
+
+.footer-repo {
+  display: inline-flex;
+}
+
+@media (max-width: 760px) {
+  .brandbar {
+    height: 52px;
+    padding: 0 16px;
+  }
+
+  .segmented-row {
+    padding: 0 16px;
+  }
+
+  .page {
+    padding: 0 16px 64px;
+  }
+
+  /* Title and stats share one row even at 390px: the stats are the answer to
+     "how much is there", and pushing them under the title costs a whole line. */
+  .page-head {
+    gap: var(--space-3);
+    padding: 18px 0 14px;
+  }
+
+  .page-head h1 {
+    min-width: 0;
+    font-size: 22px;
+  }
+
+  .stat-row {
+    grid-auto-columns: minmax(44px, auto);
+    gap: var(--space-3);
+  }
+
+  .stat b {
+    font-size: 21px;
+  }
+
+  .stat span {
+    font-size: var(--fs-micro);
+  }
+
+  /* Four labels must fit 390px in both languages: the full English names do
+     not at any legible size, so narrow screens use the short forms. */
+  .segmented {
+    gap: 0;
+    padding: 2px;
+  }
+
+  .segmented a {
+    padding: 6px 12px;
+    font-size: var(--fs-caption);
+  }
+
+  .nav-full {
+    display: none;
+  }
+
+  .nav-short {
+    display: inline;
+  }
+
+  .focus-shell {
+    padding: 20px 14px;
+    align-items: start;
+  }
+
+  .footer {
+    padding: 0 16px 28px;
+  }
+}

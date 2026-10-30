@@ -3,7 +3,7 @@ import net from 'node:net';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { BridgeError, NativeError, errorCode } from '@dotx/shared/errors';
-import type { Call } from '@dotx/shared/gateway';
+import type { Call } from '@dotx/shared/wire/commands';
 import { FrameDecoder } from '../framing.ts';
 const toolSchema = z
   .object({
@@ -24,7 +24,6 @@ const rpcReply = z.object({
 export interface NativeClient {
   call(tool: string, args: Call['params'], context?: { turnId: string }): Promise<unknown>;
 }
-type Rpc = typeof pipeRpc;
 // PRIVATE CODEX API: the desktop-injected App Tools pipe uses length-prefixed JSON-RPC.
 // Despite tools/list and tools/call names, its framing and envelopes are not public MCP.
 // A desktop update can change either independently of the discovered tool schemas.
@@ -33,7 +32,6 @@ export function pipeRpc(
   pipe: string | undefined,
   method: string,
   params: unknown,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<unknown> {
   if (!pipe) return Promise.reject(new BridgeError('DESKTOP_PIPE_MISSING'));
   return new Promise((resolve, reject) => {
@@ -55,7 +53,7 @@ export function pipeRpc(
         finish(
           new BridgeError('DESKTOP_TIMEOUT', `No response to ${method}; reconcile, do not resend`),
         ),
-      timeoutMs,
+      DEFAULT_TIMEOUT_MS,
     );
     socket.once('connect', () => {
       const body = Buffer.from(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
@@ -96,20 +94,10 @@ export function pipeRpc(
 export class Native {
   readonly pipe: string | undefined;
   readonly callerThreadId: string;
-  readonly rpc: Rpc;
   private discovery?: ReturnType<Native['discoverCapabilities']>;
-  constructor({
-    pipe,
-    callerThreadId,
-    rpc = pipeRpc,
-  }: {
-    pipe?: string;
-    callerThreadId: string;
-    rpc?: Rpc;
-  }) {
+  constructor({ pipe, callerThreadId }: { pipe?: string; callerThreadId: string }) {
     this.pipe = pipe;
     this.callerThreadId = callerThreadId;
-    this.rpc = rpc;
   }
   capabilities() {
     // Cache successful discovery; a failed lookup can be retried by the next caller.
@@ -121,7 +109,7 @@ export class Native {
   private async discoverCapabilities() {
     const parsed = z
       .object({ tools: z.array(toolSchema) })
-      .safeParse(await this.rpc(this.pipe, 'tools/list', { threadStartKind: 'all' }));
+      .safeParse(await pipeRpc(this.pipe, 'tools/list', { threadStartKind: 'all' }));
     if (!parsed.success)
       throw new BridgeError('UNSUPPORTED_CAPABILITY_SCHEMA', undefined, { cause: parsed.error });
     const entries = parsed.data.tools;
@@ -140,7 +128,7 @@ export class Native {
       tool = method.slice(split + 1);
     // Private caller envelope: threadId is our archived caller, not the target thread.
     // Target host/thread stay in arguments; changing this routing can execute in the wrong context.
-    return this.rpc(this.pipe, 'tools/call', {
+    return pipeRpc(this.pipe, 'tools/call', {
       arguments: args,
       callerSource: 'codex',
       callId: randomUUID(),

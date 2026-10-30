@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { BridgeError } from '@dotx/shared/errors';
-import type { NativeResponse } from '@dotx/shared/gateway';
+import type { NativeResponse } from '@dotx/shared/wire/commands';
 
 export type TurnIdentity = { id: string; threadId: string };
 export type ResolveTurn = (task: TurnIdentity) => Promise<string | null>;

@@ -1,24 +1,9 @@
 {
   "name": "dotx-desktop",
-  "version": "0.0.1",
-  "description": "Connect this Mac’s Codex to your Personal Agent through DotX.",
-  "author": {
-    "name": "Vizards"
-  },
-  "skills": "./skills",
-  "extensions": {
-    "com.openai": {
-      "onboardingSkill": "./skills/setup/SKILL.md"
+  "mcpServers": {
+    "dotx_desktop": {
+      "command": "sh",
+      "env_vars": ["CODEX_APP_TOOLS_PIPE_PATH", "DOTX_APP_PATH"]
     }
-  },
-  "mcpServers": "./.mcp.json",
-  "interface": {
-    "displayName": "DotX Desktop",
-    "shortDescription": "Connect this Mac’s Codex to your Personal Agent.",
-    "developerName": "Vizards",
-    "category": "Productivity",
-    "capabilities": [],
-    "logo": "./assets/logo.png",
-    "composerIcon": "./assets/composer-icon.png"
   }
 }

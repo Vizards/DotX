@@ -14,7 +14,6 @@ export type WireMessage = Record<string, any>;
 export class CoordinationWire {
   readonly options: {
     endpoint: string;
-    timeoutMs?: number;
     onMessage: (message: WireMessage) => void;
     onDisconnect: (error: Error) => void;
   };
@@ -59,7 +58,7 @@ export class CoordinationWire {
       const timer = setTimeout(() => {
         socket.destroy();
         reject(new BridgeError('COORDINATION_CONNECT_TIMEOUT'));
-      }, this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+      }, DEFAULT_TIMEOUT_MS);
       socket.once('connect', () => {
         clearTimeout(timer);
         resolve();
@@ -172,8 +171,8 @@ export class CoordinationWire {
     version: number,
     owner?: string,
     hostId?: string,
-    requestId: string = randomUUID(),
   ): Promise<WireMessage> {
+    const requestId = randomUUID();
     // version belongs to this native message method, not the desktop release or MCP protocol.
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -184,7 +183,7 @@ export class CoordinationWire {
             `No response to ${method}; reconcile, do not resend`,
           ),
         );
-      }, this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+      }, DEFAULT_TIMEOUT_MS);
       this.pending.set(requestId, { method, owner, resolve, reject, timer });
       try {
         this.write({
@@ -195,7 +194,7 @@ export class CoordinationWire {
           params,
           version,
           targetClientId: owner,
-          timeoutMs: this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+          timeoutMs: DEFAULT_TIMEOUT_MS,
           ...(hostId && hostId !== 'local' ? { hostId } : {}),
         });
       } catch (e) {

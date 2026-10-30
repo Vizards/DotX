@@ -9,7 +9,7 @@
   "scripts": {
     "test": "pnpm --filter @dotx/server test",
     "check": "pnpm -r check",
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @dotx/desktop build && pnpm --filter @dotx/server build",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings apps packages",

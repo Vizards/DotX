@@ -1,15 +1,31 @@
 import type { OAuthHelpers } from '@cloudflare/workers-oauth-provider';
 import type { DeviceHub } from './hub/device-hub.ts';
-// Secrets are explicit: `wrangler types` on a fresh checkout need not read local credentials.
+import { WIRE_VERSION } from '@dotx/shared/wire/version';
+import type { ServiceInfo } from '@dotx/shared/http/service';
+import packageInfo from '../package.json' with { type: 'json' };
 export interface Env {
   OAUTH_KV: KVNamespace;
-  PUBLIC_ORIGIN: string;
-  RELEASE_REPOSITORY?: string;
-  RELEASE_CHANNEL?: 'stable' | 'dev';
   DEVICES: DurableObjectNamespace<DeviceHub>;
-  OWNER_KEY_HASH: string;
+  ASSETS: Fetcher;
+  PUBLIC_ORIGIN: string;
+  SERVICE_ID: string;
+  CF_ACCOUNT_ID: string;
+  CF_WORKER_ID: string;
+  CF_WORKER_NAME: string;
   OAUTH_PROVIDER: OAuthHelpers;
+  RELEASE_REPOSITORY?: string;
+  RELEASE_CHANNEL?: string;
+  RECORD_RETENTION_DAYS?: string;
+  DOTX_ADMIN_CLAIM?: string;
 }
-export interface OAuthProps {
-  owner: true;
+export function serviceInfo(env: Env): ServiceInfo {
+  return {
+    product: 'dotx',
+    origin: env.PUBLIC_ORIGIN,
+    service_id: env.SERVICE_ID,
+    version: packageInfo.version,
+    wire_protocol: WIRE_VERSION,
+    mcp_url: env.PUBLIC_ORIGIN + '/mcp',
+    guides_url: `https://github.com/Vizards/DotX/blob/v${packageInfo.version}/docs/index.md`,
+  };
 }

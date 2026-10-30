@@ -1,23 +1,24 @@
-# DotX Server
+# DotX Server package
 
-This independent Release attachment contains the prebundled Worker, public branding assets and a Wrangler template. It hosts DotX Remote, OAuth, device enrollment and one DeviceHub Durable Object. No application dependencies or Desktop plugin are included.
+This independent attachment contains a bundled Worker, all web pages and branding in `public/`, an official Wrangler template, a local `admin.mjs` management tool and version-matched Agent guides. Desktop is a separate attachment.
 
-## Deploy with GPT
+Start at [the guide index](docs/index.md), [Server installation](docs/server/install.md) or [Server update](docs/server/update.md). `release.json` identifies the release, wire version and component changes; `toolchain.json` identifies the official Wrangler and Node requirements. The target GitHub Release notes describe version-specific installation and update requirements.
 
-Read `release.json` for the product/protocol version and source repository. `toolchain.json` records the official Wrangler version used for this Server release; it is a deployment tool requirement, not a Desktop version constraint. Use official Wrangler directly, for example `npx --yes wrangler@<version> whoami`, `login`, `deploy` and `secret put`.
+Keep the actual deployment configuration outside this attachment. Deploy `worker.mjs` and `public/` together as one Worker, with one SQLite DeviceHub DO and OAuth KV. Agent management uses Wrangler's direct permission to modify the target Worker. Browser management uses this service's password or passkey, stored in DeviceHub; no CF OAuth client is needed.
 
-Keep your real Wrangler configuration outside the downloaded attachment and plugin cache. Start from `wrangler.json`, select the account and Worker name, set `main` to this attachment's absolute `worker.mjs` path and `assets.directory` to its absolute `public` directory, and set the actual HTTPS `PUBLIC_ORIGIN`. Both paths must reference the same target release. Preserve `OAUTH_KV`, `DEVICES`, DeviceHub migrations and the single hub identity. Save any provisioned resource IDs in your deployment configuration. The template's `RELEASE_REPOSITORY` is populated by GitHub Actions and enables public stable-release discovery without a GitHub token.
+The management CLI uses the current official Wrangler OAuth login:
 
-Use DotX Desktop's `setup.mjs owner-key-hash` to create or reuse the administrator credential. Pipe its digest to `wrangler secret put OWNER_KEY_HASH --config <your-config>`. The original key stays on the administrator's Mac. Complete the Desktop setup skill to enroll devices and authorize ChatGPT/dot.
+```sh
+node admin.mjs --url https://YOUR_WORKER.workers.dev session
+node admin.mjs --help
+```
 
-The service exposes public `/branding/metadata.json` and `/branding/icon.png` through Cloudflare Static Assets before OAuth. The setup skill uses them to create the ChatGPT connection; MCP metadata uses the same brand configuration. Each authorized Personal Agent connects to `/mcp` with its own OAuth grant.
+Use `--profile NAME` when the intended login uses a named Wrangler profile. The CLI prints management results, never Cloudflare tokens. Desktop does not include this tool or Wrangler.
 
-`RELEASE_CHANNEL` defaults to `stable`. Set it to `dev` only on a deployment whose owner chooses development updates. The dev channel discovers published `-dev.*` Pre-releases; neither channel includes Drafts. Successful discovery is cached for six hours per repository and channel; failed lookups can retry after five minutes. Discovery never installs an update automatically.
+For installation, `worker-create --account ACCOUNT_ID --worker NAME` creates the empty Worker and returns its ID before code deployment. `worker-identity` with the same arguments reads an existing Worker by exact name. Set that ID in the deployment configuration and follow the installation guide for one normal Wrangler deployment.
 
-## Update
+After deployment, `node admin.mjs --url HTTPS_ORIGIN setup` returns a private link where the user chooses a password or passkey. `setup-status` returns non-secret readiness. Browser setup can be deferred while the Agent continues through Wrangler. `reset-login` explicitly creates a recovery link; successful completion replaces browser credentials and sessions without changing connected Codex or Personal Agents. See the installation and access guides for the complete handoff.
 
-ChatGPT/dot coordinates updates through DotX Remote's `get_instructions(goal="update")`; a local Codex executor uses the installed Desktop update skill. Read the target Release's notes for version-specific requirements and `release.json` for component changes. Deploy through the existing configuration and resources; update both `main` and `assets.directory` to the target Server attachment, without replacing credentials or clearing DO data. Preserve the service origin and OAuth association; the transport may briefly disconnect during deployment and reconnect afterwards.
+The public MCP endpoint is `/mcp`. Service discovery is `/setup/info`; client metadata and icon are `/branding/metadata.json` and `/branding/icon.png`. Each Personal Agent starts standard OAuth. A browser administrator or a Wrangler-authorized installation Agent approves its pending request; the original authorization page then continues to the client callback.
 
-Deployment updates Remote's running code. A changed tool catalog, schema or model instructions also requires Refresh in ChatGPT's normal plugin management. Read `/health` and authenticated `list_connections` to verify the running Server, protocol and connections. Installation/update does not run project tests or dispatch synthetic tasks.
-
-Normal ChatGPT Refresh preserves the name, description and uploaded icon set at creation. Updated Server branding does not automatically replace those platform records; arrange a separate edit only when needed.
+The template serves `/assets/*` and `/branding/*` through Cloudflare Static Assets without executing the Worker. Keep `public/_headers` with the assets to preserve their response headers. Other paths enter the Worker; only declared page routes return the HTML shell. Keep `html_handling` and `not_found_handling` set to `none` so unknown API paths never fall back to the web page.

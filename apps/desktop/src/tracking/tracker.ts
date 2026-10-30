@@ -1,10 +1,10 @@
 import { BridgeError, errorValue } from '@dotx/shared/errors';
-import { readSchema } from '@dotx/shared/protocol';
-import type { NativeRead } from '@dotx/shared/protocol';
-import type { Call } from '@dotx/shared/gateway';
-import type { FollowTarget, TrackedTask, TurnObservation } from '@dotx/shared/state';
+import { readSchema } from '../interfaces/app-tools/schema.ts';
+import type { NativeRead } from '../interfaces/app-tools/schema.ts';
+import type { Call } from '@dotx/shared/wire/commands';
+import type { FollowTarget, TrackedTask, TurnObservation } from '@dotx/shared/requests';
 import type { ResolveTurn } from './attribution.ts';
-import { terminal } from '@dotx/shared/state';
+import { terminal } from '@dotx/shared/requests';
 import type { NativeClient } from '../interfaces/app-tools/transport.ts';
 import type { CoordinationAdapter } from '../interfaces/coordination/adapter.ts';
 

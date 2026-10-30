@@ -1,29 +1,31 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
-import { createDeviceMcp } from './mcp/server.ts';
-import { stateDir } from './runtime/state.ts';
-import { startDevice } from './runtime/runtime.ts';
-import { tryConnectorLock } from './runtime/connector-lock.ts';
+import { createDeviceMcp } from './mcp.ts';
+import { Runtime } from './runtime.ts';
+import { dataDir, pluginRoot } from './local/paths.ts';
 import { errorValue } from '@dotx/shared/errors';
-
+import packageInfo from '../package.json' with { type: 'json' };
 process.umask(0o077);
-const dir = stateDir(),
-  parent = process.ppid,
+const parent = process.ppid,
   pipe = process.env.CODEX_APP_TOOLS_PIPE_PATH;
-let runtime: ReturnType<typeof startDevice> | undefined;
-let diagnostic = 'SETUP_REQUIRED';
+let runtime: Runtime | undefined, initialError: unknown;
+try {
+  const dir = dataDir(),
+    root = pluginRoot();
+  process.chdir(dir);
+  runtime = new Runtime(dir, root);
+} catch (error) {
+  initialError = errorValue(error);
+}
 const stdio = serveStdio(
   () =>
     createDeviceMcp(
-      () =>
+      async () =>
         runtime?.status() ?? {
-          availability: diagnostic === 'CONNECTOR_ACTIVE_ELSEWHERE' ? 'standby' : 'unavailable',
-          diagnostic: { code: diagnostic },
-          setup:
-            diagnostic === 'CONNECTOR_ACTIVE_ELSEWHERE'
-              ? 'Another DotX process owns this installation. Check its health through Remote list_connections. This MCP process waits without starting another connector.'
-              : 'Run the DotX setup skill. This process will load the connector after local initialization.',
+          entry: { role: 'unavailable', version: packageInfo.version, pid: process.pid },
+          data_dir: null,
+          owner: null,
+          diagnostic: initialError,
         },
     ),
   {
@@ -33,29 +35,29 @@ const stdio = serveStdio(
       ),
   },
 );
-function load() {
-  if (runtime) return;
-  if (!fs.existsSync(path.join(dir, 'config.json'))) return;
-  try {
-    diagnostic = 'CONNECTOR_LOCK_FAILED';
-    if (!tryConnectorLock(dir)) {
-      diagnostic = 'CONNECTOR_ACTIVE_ELSEWHERE';
-      return;
-    }
-    diagnostic = 'CONNECTOR_START_FAILED';
-    runtime = startDevice(() => stdio.close());
-    clearInterval(timer);
-  } catch (error) {
-    process.stderr.write(JSON.stringify({ code: diagnostic, cause: errorValue(error) }) + '\n');
-    // Fatal startup errors must not leave a nonfunctional process holding the lock.
-    process.exit(1);
-  }
+let stopping = false;
+async function stop() {
+  if (stopping) return;
+  stopping = true;
+  clearInterval(timer);
+  await runtime?.stop();
+  await stdio.close();
+  process.exit(0);
 }
 const timer = setInterval(() => {
-  if (process.ppid !== parent || (pipe && !fs.existsSync(pipe))) process.exit(0);
-  load();
+  if (process.ppid !== parent || (pipe && !fs.existsSync(pipe))) {
+    void stop();
+    return;
+  }
+  void runtime?.start();
 }, 1000);
 process.stdin.once('end', () => {
-  if (!runtime && !pipe) process.exit(0);
+  if (!pipe) void stop();
 });
-load();
+process.once('SIGTERM', () => {
+  void stop();
+});
+process.once('SIGINT', () => {
+  void stop();
+});
+void runtime?.start();
