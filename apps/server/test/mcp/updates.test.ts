@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { inc } from 'semver';
+import packageInfo from '../../package.json' with { type: 'json' };
 import { startServer, toolData } from '../support/server.ts';
 
 test('list_connections discovers the highest SemVer in any chosen channel and isolates caches', async (t) => {
   const outgoing = globalThis.fetch;
   const queries: URL[] = [];
+  // Candidate releases stay newer than the package under test, including Release PRs.
+  const nextVersion = inc(packageInfo.version, 'patch')!;
+  const laterVersion = inc(nextVersion, 'patch')!;
   const release = (tag_name: string, draft = false, prerelease = true) => ({
     tag_name,
     draft,
@@ -18,17 +23,17 @@ test('list_connections discovers the highest SemVer in any chosen channel and is
     return Promise.resolve(
       Response.json(
         url.pathname.endsWith('/latest')
-          ? release('v0.0.4', false, false)
+          ? release(`v${laterVersion}`, false, false)
           : [
-              release('v0.0.3-rc.2'),
-              release('v0.0.4-dev.1'),
-              release('v0.0.3-rc.10'),
-              release('v0.0.3-rc.9'),
-              release('v0.0.3-beta.2'),
-              release('v0.0.3-dev.99'),
-              release('v0.0.4-rc.1', true),
-              release('v0.0.4-rc.2', false, false),
-              release('v0.0.4', false, false),
+              release(`v${nextVersion}-rc.2`),
+              release(`v${laterVersion}-dev.1`),
+              release(`v${nextVersion}-rc.10`),
+              release(`v${nextVersion}-rc.9`),
+              release(`v${nextVersion}-beta.2`),
+              release(`v${nextVersion}-dev.99`),
+              release(`v${laterVersion}-rc.1`, true),
+              release(`v${laterVersion}-rc.2`, false, false),
+              release(`v${laterVersion}`, false, false),
               release('invalid-rc'),
             ],
       ),
@@ -41,10 +46,10 @@ test('list_connections discovers the highest SemVer in any chosen channel and is
   const token = await api.authorize();
   const read = async () => toolData((await api.tool(token, 'list_connections')).result).updates;
   for (const [channel, version] of [
-    ['rc', '0.0.3-rc.10'],
-    ['dev', '0.0.4-dev.1'],
-    ['beta', '0.0.3-beta.2'],
-    ['stable', '0.0.4'],
+    ['rc', `${nextVersion}-rc.10`],
+    ['dev', `${laterVersion}-dev.1`],
+    ['beta', `${nextVersion}-beta.2`],
+    ['stable', laterVersion],
   ]) {
     await api.reload({ releaseChannel: channel });
     const found = await read();
