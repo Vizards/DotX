@@ -45,7 +45,9 @@ async function stop() {
   process.exit(0);
 }
 const timer = setInterval(() => {
-  if (process.ppid !== parent || (pipe && !fs.existsSync(pipe))) {
+  // A Windows named pipe has no filesystem entry to stat; its disappearance is
+  // observed through the parent-process check and failed native calls instead.
+  if (process.ppid !== parent || (pipe && process.platform !== 'win32' && !fs.existsSync(pipe))) {
     void stop();
     return;
   }
