@@ -5,13 +5,11 @@ import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 // Both entry points fix cwd to PLUGIN_DATA before using IPC. Passing a relative
 // address avoids the Unix socket path limit even when the data directory is long.
 const endpoint = 'owner.sock';
-// POSIX callers listen on the bare endpoint with cwd fixed to the data
-// directory, which keeps the address under the Unix socket path limit.
-// Windows named the same file through an absolute path; its Unix-domain
-// sockets are filesystem entries, and POSIX uid/mode checks do not apply —
-// the directory is guarded by its ACL instead.
-const endpointPath = (dir: string) =>
-  process.platform === 'win32' ? path.join(dir, endpoint) : endpoint;
+// Both entry points fix cwd to the data directory before using IPC, on every
+// platform: the bare relative address stays under the Unix socket path limit
+// even when the data directory is long (an absolute Windows plugin-data path
+// exceeds it and listen fails with EACCES). Windows has no POSIX uid/mode to
+// check; the data directory is guarded by its ACL instead.
 function validateDirectory(dir: string) {
   const stat = fs.lstatSync(dir);
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('OWNER_IPC_DIRECTORY_INVALID');
@@ -34,7 +32,7 @@ export async function serveStatus(dir: string, status: () => unknown) {
   });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(endpointPath(dir), () => {
+    server.listen(endpoint, () => {
       server.off('error', reject);
       resolve();
     });
@@ -53,7 +51,7 @@ export async function serveStatus(dir: string, status: () => unknown) {
 export async function readOwner(dir: string): Promise<unknown> {
   validateDirectory(dir);
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection(endpointPath(dir));
+    const socket = net.createConnection(endpoint);
     let body = '';
     socket.setTimeout(DEFAULT_TIMEOUT_MS, () => socket.destroy(new Error('OWNER_STATUS_TIMEOUT')));
     socket.on('data', (chunk) => {
