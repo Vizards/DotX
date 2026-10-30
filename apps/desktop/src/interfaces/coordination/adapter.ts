@@ -104,7 +104,7 @@ export class CoordinationAdapter implements Adapter {
           definitions: nativeSettings?.definitions ?? {},
         },
         description:
-          'Update settings at the actual desktop owner. Permissions apply to subsequent turns. Use only the user-selected scope. Tested permission profiles: :workspace with on-request; :danger-full-access with never. Inspect a fresh following snapshot before sending real work. Raw native applied=true is not task completion.',
+          'Update settings at the actual desktop owner. Permissions apply to subsequent turns. Use only the user-selected scope. Tested permission profiles: :workspace with on-request; :danger-full-access with never. For permission changes, inspect a fresh following snapshot before sending real work. Fast is best effort; a tier mismatch alone must not interrupt or restart work. Raw native applied=true is not task completion.',
       },
       ...this.options.nativeCatalog
         .filter((m) => m.kind === 'server_request' && responseMethods[m.name])
