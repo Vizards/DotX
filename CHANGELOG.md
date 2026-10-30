@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0](https://github.com/Vizards/DotX/compare/v0.0.1...v0.1.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* upgrading from 0.0.1 requires a fresh DotX Server installation, Desktop enrollment and Personal Agent authorization. The wire protocol changes from 4 to 5. Native Codex accounts, projects and conversations are preserved.
+
+### Features
+
+* redesign DotX authentication and client enrollment ([#3](https://github.com/Vizards/DotX/issues/3)) ([d60dac5](https://github.com/Vizards/DotX/commit/d60dac59522eff1e875f8a0f8e49468c46233599))
+
 ## 0.0.1 (2026-10-22)
 
 
