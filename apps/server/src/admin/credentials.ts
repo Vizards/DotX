@@ -182,7 +182,7 @@ export class AdminCredentials {
         ? await this.setup(tx, auth.setup)
         : await this.live<Claim>(tx, claimKey(auth.claim!), 'CLAIM_EXPIRED');
       if ('verified' in ticket && !ticket.verified)
-        throw new HttpError(403, 'CLAIM_NOT_VERIFIED', 'Verify the Cloudflare Secret first.');
+        throw new HttpError(403, 'CLAIM_NOT_VERIFIED', 'Verify Worker ownership first.');
       if (ticket.reset) return { user_id: randomSecret(), passkeys: [] };
     } else {
       const session = await this.live<BrowserSession>(

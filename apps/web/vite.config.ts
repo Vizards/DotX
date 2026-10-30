@@ -7,10 +7,13 @@ const target = 'http://127.0.0.1:8787';
 
 const proxy: Record<string, ProxyOptions> = Object.fromEntries(
   [
+    '^/(?:\\?|$)',
     '/admin/api',
     '/admin/auth',
     '/admin/logout',
     '/oauth',
+    '/.well-known',
+    '/mcp',
     '/health',
     '/setup/info',
     '/setup/enroll',
@@ -19,17 +22,23 @@ const proxy: Record<string, ProxyOptions> = Object.fromEntries(
   ].map((path) => [path, { target, changeOrigin: false }]),
 );
 
-// Consent POSTs go to Server; the GET form of /authorize stays an SPA route.
+proxy['/device/connect'] = { target, changeOrigin: false, ws: true };
+
+// Server creates the OAuth transaction before Vite renders its approval page.
 proxy['/authorize'] = {
   target,
   changeOrigin: false,
-  bypass: (request) => (request.method === 'POST' ? undefined : '/index.html'),
+  bypass: (request) =>
+    ['GET', 'HEAD'].includes(request.method ?? '') &&
+    new URL(request.url ?? '/', 'http://localhost').searchParams.has('transaction')
+      ? '/index.html'
+      : undefined,
 };
 
 export default defineConfig({
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react()],
   server: {
-    host: '127.0.0.1',
+    host: 'localhost',
     proxy,
   },
 });
