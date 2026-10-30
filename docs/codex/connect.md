@@ -1,6 +1,6 @@
 # Connect this Mac's Codex
 
-Run in local Codex on the Mac being added. Need: the target Server and selected Desktop release. If there is no Server, [install it](../server/install.md) first. Complete: the actual owner is connected to that Server, approved, and exposes the required native interfaces.
+Run in local Codex on the Mac being added. Need: the target Server URL and selected Desktop release; ask for missing inputs. Server deployment or upgrade is a separate user request. Complete: the actual owner is connected to that Server, approved, and exposes the required native interfaces.
 
 ## Connect
 
@@ -22,6 +22,6 @@ Check `target_server`, `device_id`, actual `owner.version`, `owner.connection.au
 
 This local check needs no Personal Agent. If remote MCP is already connected, also inspect `list_connections`; otherwise leave that check to PA connection. If approval/loading is still pending, say exactly what remains.
 
-[Continue or hand off](../common/handoff.md): connect the chosen Personal Agent, or return to the Agent waiting for this Mac. Preserve native Codex accounts, conversations, application files and normal plugin loading.
+[Continue or hand off](../common/handoff.md): if no Personal Agent is connected, offer to help connect one and ask which client the user wants, unless already chosen. Continue with that client or return to the Agent waiting for this Mac. Preserve native Codex accounts, conversations, application files and normal plugin loading.
 
 For later display-name changes, use `device-rename` in [management commands](../common/commands.md) or `/admin/devices`. Re-running `connect --name` does not rename an existing installation.

@@ -1,6 +1,6 @@
 # Connect or update dot
 
-Use for a dot instance in ChatGPT. Need: an existing Server URL; otherwise [install Server](../../server/install.md) first. Complete: the actual dot can call `list_connections` and identify a usable Codex.
+Use for a dot instance in ChatGPT. Need: an existing Server URL; ask the user if missing. Server deployment or upgrade is a separate user request. Complete: the actual dot can call `list_connections` and identify a usable Codex.
 
 ## Configure and authorize
 

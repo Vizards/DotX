@@ -2,7 +2,7 @@
 
 Any Personal Agent with MCP support is welcome to try DotX. Use your tools, settings and official client docs to find a working route.
 
-Need: an existing Server URL; otherwise [install Server](../server/install.md) first. Complete: this Personal Agent calls `list_connections` through that Server.
+Need: an existing Server URL; ask the user if missing. Server deployment or upgrade is a separate user request. Complete: this Personal Agent calls `list_connections` through that Server.
 
 ## Connect
 

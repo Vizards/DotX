@@ -31,4 +31,4 @@ Read `/health` and `/setup/info`; verify version, wire, public origin and servic
 
 Retain the service URL and non-secret deployment configuration. Offer [password/passkey setup](browser-login.md) for independent browser management; it can be completed now or later. Record deferred setup and continue through Wrangler.
 
-Follow [the next action](../common/handoff.md#choose-the-next-action): normally connect the first Codex, then the intended Personal Agent. Hand off only the part you cannot execute.
+Follow [the next action](../common/handoff.md#choose-the-next-action): normally connect the first Codex, then the intended Personal Agent. If no PA is connected and none is chosen, offer to help connect one and ask which client the user wants. Hand off only the part you cannot execute.

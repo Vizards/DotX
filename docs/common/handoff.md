@@ -48,7 +48,7 @@ Use the table below for the corresponding guide and cases where the nominal inst
 | --- | --- |
 | Server ready, no Codex | [Connect Codex](../codex/connect.md), locally or by handoff |
 | Device awaiting approval | [Approve that application](../codex/approve.md) |
-| Codex ready, PA not connected | [Connect a Personal Agent](../personal-agents/index.md) |
+| Codex ready, PA not connected | [Connect the chosen PA](../personal-agents/index.md). If none is chosen, ask: “Would you like help connecting a Personal Agent? Which one?” |
 | User reports the Mac was connected elsewhere | Inspect management `devices` or remote `list_connections`. If needed, connect the current PA first, then query |
 | MCP works, no usable Codex | [Resolve the device state](../troubleshooting/device.md) |
 | PA sees usable Codex | For full installation, verify the complete link below; for a single-stage request, report that stage |

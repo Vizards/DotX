@@ -1,6 +1,6 @@
 # Connect or update Cue
 
-Use for one Cue instance. Need: an existing Server URL; otherwise [install Server](../../server/install.md) first. Complete: Cue calls `list_connections` through the intended connection and identifies a usable Codex.
+Use for one Cue instance. Need: an existing Server URL; ask the user if missing. Server deployment or upgrade is a separate user request. Complete: Cue calls `list_connections` through the intended connection and identifies a usable Codex.
 
 ## Configure and authorize
 

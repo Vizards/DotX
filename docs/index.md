@@ -16,7 +16,7 @@ flowchart LR
 
 - **Fresh installation:** start with Server and continue through delivery. Verify each stage before reporting it complete.
 - **Resume installation:** inspect existing results and continue the first unfinished stage. Unknown does not mean missing; preserve completed work and identities.
-- **One specific task:** use the table below and complete that scope without restarting the whole installation.
+- **One specific task:** use the table below and complete that scope. When connecting to an existing Server, ask for its URL if missing; deploy or upgrade the Server only when the user requests it.
 
 Use the [state and capability decision diagram](common/handoff.md#choose-the-next-action) to choose what to do here and what to hand off. Missing Mac access does not prevent Server deployment. Preparations can overlap; full delivery still requires all stages and [end-to-end verification](common/handoff.md#verify-the-complete-link).
 
