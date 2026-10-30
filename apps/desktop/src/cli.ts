@@ -106,6 +106,7 @@ try {
       error: {
         code: errorCode(error) ?? (error instanceof Error ? error.message : 'LOCAL_SETUP_FAILED'),
         message: error instanceof Error ? error.message : 'Local setup failed',
+        ...(error instanceof Error && 'details' in error ? { details: error.details } : {}),
       },
     }),
   );
