@@ -6,7 +6,7 @@ Need: an existing Server URL; ask the user if missing. Server deployment or upgr
 
 ## Connect
 
-1. Find your client's MCP configuration tools or settings. [dot](dot/index.md) and [Cue](cue/index.md) have ready-to-use recipes; for another client, explore its equivalent setup options. Reuse an existing connection when it already targets this Server.
+1. Find your client's MCP configuration tools or settings. [dot](dot/index.md), [Cue](cue/index.md) and [Muse](muse/index.md) have ready-to-use recipes; for another client, explore its equivalent setup options. Reuse an existing connection when it already targets this Server.
 2. Configure `HTTPS_ORIGIN/mcp` as a remote MCP server using Streamable HTTP and OAuth. Let the client discover authentication metadata and register itself. Leave business scopes empty; `offline_access` may be requested for renewal. Branding is available at `/branding/metadata.json` if needed.
 3. Start the client's authorization flow and [approve its request](approval.md). Keep the original authorization page open so it can return to the client after approval. The client handles token exchange and renewal. If a step needs the user's browser or another environment, do the available work and hand off that step, then continue.
 4. Enable the connection's tools in the Personal Agent that will use it and call `list_connections`. If tools are missing, [refresh the catalog](#refresh-tools). For an interrupted authorization, [recover that step](authorization.md#recover-an-interruption), then repeat the call.

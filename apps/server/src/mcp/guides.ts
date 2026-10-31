@@ -7,6 +7,7 @@ import codex_update from '../../../../docs/codex/update.md';
 import personal_agent from '../../../../docs/personal-agents/index.md';
 import dot from '../../../../docs/personal-agents/dot/index.md';
 import cue from '../../../../docs/personal-agents/cue/index.md';
+import muse from '../../../../docs/personal-agents/muse/index.md';
 import authorization from '../../../../docs/personal-agents/authorization.md';
 import access from '../../../../docs/common/access.md';
 import handoff from '../../../../docs/common/handoff.md';
@@ -58,6 +59,7 @@ export const INSTRUCTION_GUIDES = {
   personal_agent: guide('Connect a Personal Agent', 'personal-agents/index.md', personal_agent),
   dot: guide('Connect, configure or update dot', 'personal-agents/dot/index.md', dot),
   cue: guide('Connect, configure or update Cue', 'personal-agents/cue/index.md', cue),
+  muse: guide('Connect, configure or update Muse', 'personal-agents/muse/index.md', muse),
   authorization: guide(
     'Recover OAuth or check authorization lifetimes',
     'personal-agents/authorization.md',
