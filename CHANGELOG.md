@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/Vizards/DotX/compare/v0.1.0...v0.1.1) (2026-10-31)
+
+
+### Features
+
+* add Muse personal agent connection guide ([#6](https://github.com/Vizards/DotX/issues/6)) ([0f66818](https://github.com/Vizards/DotX/commit/0f66818a2eac5e42154de212bf68dbd71cbc2124))
+
 ## [0.1.0](https://github.com/Vizards/DotX/compare/v0.0.1...v0.1.0) (2026-10-30)
 
 

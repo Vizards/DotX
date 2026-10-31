@@ -21,6 +21,6 @@
     "oxlint": "1.88.0",
     "typescript": "7.0.2"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT"
 }
