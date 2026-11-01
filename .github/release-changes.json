@@ -1,5 +1,5 @@
 {
-  "base_release": "0.0.1",
+  "base_release": "0.1.0",
   "changes": {
     "server": true,
     "desktop": true,
