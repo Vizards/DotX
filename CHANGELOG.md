@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Vizards/DotX/compare/v0.1.1...v0.1.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **oauth:** return retryable errors for transient client metadata failures ([#9](https://github.com/Vizards/DotX/issues/9)) ([459535f](https://github.com/Vizards/DotX/commit/459535f3585990ab5bcd4ebc11f07b4200544a7d))
+
 ## [0.1.1](https://github.com/Vizards/DotX/compare/v0.1.0...v0.1.1) (2026-10-31)
 
 
