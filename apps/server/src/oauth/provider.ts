@@ -46,6 +46,34 @@ export async function serveOAuth(request: Request, env: Env, ctx: ExecutionConte
     clientRegistrationTTL: 7776000,
     scopesSupported: ['offline_access'],
     clientIdMetadataDocumentEnabled: true,
+    onError(error) {
+      // workers-oauth-provider 1.2.3 exposes CIMD transport and validation failures
+      // under one reason, with only a message to distinguish them. This adapter
+      // uses its public hook without patching the SDK. Match known transient
+      // messages only; unknown/validation failures retain the provider's behavior.
+      // Recheck these messages and OAuth regressions on SDK upgrades; replace this
+      // matching when upstream exposes a stable transient-failure classification.
+      const detail = z.object({ message: z.string() }).safeParse(error.internal.detail);
+      const unavailable =
+        error.internal.category === 'client-id-metadata-document' &&
+        error.internal.reason === 'metadata_resolution_failed' &&
+        detail.success &&
+        (/^Client metadata fetch timed out after \d+ms$/.test(detail.data.message) ||
+          /^Failed to fetch client metadata: HTTP (?:408|429|5\d{2})$/.test(detail.data.message));
+      const status = unavailable ? 503 : error.status;
+      const code = unavailable ? 'temporarily_unavailable' : error.code;
+      const description = unavailable
+        ? 'Client metadata is temporarily unavailable. Retry this request later.'
+        : error.description;
+      // Preserve the provider's default error logging, with the corrected status.
+      console.warn(`OAuth error response: ${status} ${code} - ${description}`);
+      if (unavailable)
+        return json({ error: code, error_description: description }, status, {
+          // Match the provider's existing temporary-failure retry interval.
+          'Retry-After': '30',
+          Pragma: 'no-cache',
+        });
+    },
     resourceMetadata: {
       resource: env.PUBLIC_ORIGIN + '/mcp',
       authorization_servers: [env.PUBLIC_ORIGIN],
