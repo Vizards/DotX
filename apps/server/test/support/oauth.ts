@@ -8,20 +8,24 @@ type Fetch = ReturnType<typeof createTestHarness>['fetch'];
 export async function beginAuthorization(
   request: (path: string, init?: Parameters<Fetch>[1]) => Promise<Response>,
   scopes?: string[],
+  metadataClientId?: string,
 ) {
-  const registration = await request('/oauth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_name: 'DotX API test',
-      redirect_uris: ['https://client.example/callback'],
-      token_endpoint_auth_method: 'none',
-      grant_types: ['authorization_code', 'refresh_token'],
-      response_types: ['code'],
-    }),
-  });
-  assert.equal(registration.status, 201);
-  const { client_id } = (await registration.json()) as { client_id: string };
+  let client_id = metadataClientId;
+  if (!client_id) {
+    const registration = await request('/oauth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_name: 'DotX API test',
+        redirect_uris: ['https://client.example/callback'],
+        token_endpoint_auth_method: 'none',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+      }),
+    });
+    assert.equal(registration.status, 201);
+    client_id = ((await registration.json()) as { client_id: string }).client_id;
+  }
   const verifier = randomUUID() + randomUUID();
   const query = new URLSearchParams({
     client_id,
