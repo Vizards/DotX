@@ -25,6 +25,9 @@ export function writePrivate(file: string, value: string) {
     fs.closeSync(fd);
   }
   fs.renameSync(temporary, file);
+  // Windows cannot open or fsync a directory handle; the rename above is the
+  // durability boundary there.
+  if (process.platform === 'win32') return;
   const parent = fs.openSync(directory, 'r');
   try {
     fs.fsyncSync(parent);
