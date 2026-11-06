@@ -44,7 +44,7 @@ function Devices() {
   const [connecting, setConnecting] = useState(false);
   const [editing, setEditing] = useState<AdminDevice | null>(null);
   const [removing, setRemoving] = useState<AdminDevice | null>(null);
-  // The fix for a broken device has to be carried to that Mac by hand, so each
+  // The fix for a broken device has to be carried to that computer by hand, so each
   // one opens a prompt instead of a document.
   const [fixing, setFixing] = useState<AdminDevice | null>(null);
   const confirm = useConfirm();
@@ -55,7 +55,7 @@ function Devices() {
 
   const approved = (devices.data?.devices ?? []).filter((d) => d.status === 'approved');
   // An expired request is not a decision the user can still make, so it is not
-  // shown at all; the Mac simply submits a new one.
+  // shown at all; the computer simply submits a new one.
   const now = useNow();
   const pending = (requests.error ? [] : (requests.data?.requests ?? []))
     .filter((r) => r.status === 'pending' && r.expires_at > now)

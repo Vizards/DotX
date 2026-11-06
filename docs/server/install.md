@@ -1,6 +1,6 @@
 # Install a DotX Server
 
-Use for a new service. Need: a suitable execution environment, target CF account, Worker name and release. Browser automation and access to the user's Mac are not required. Complete: the intended Server is running and management access works.
+Use for a new service. Need: a suitable execution environment, target CF account, Worker name and release. Browser automation and access to the user's computer are not required. Complete: the intended Server is running and management access works.
 
 If this is an interrupted installation, inspect and reuse its resources. For an existing 0.1.0 service, use [Server update](update.md). 0.0.1 requires a fresh installation; preserve native Codex accounts, projects and conversations.
 

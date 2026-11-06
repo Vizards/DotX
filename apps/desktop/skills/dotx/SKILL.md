@@ -1,6 +1,6 @@
 ---
 name: dotx
-description: Install, connect, configure, update or troubleshoot DotX on this Mac; continue the user’s task using the bundled versioned agent guides.
+description: Install, connect, configure, update or troubleshoot DotX on this computer; continue the user’s task using the bundled versioned agent guides.
 ---
 
 # DotX

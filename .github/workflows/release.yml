@@ -166,6 +166,7 @@ jobs:
           for (const dir of [plugin, server, `${desktop}/.agents/plugins`, 'dist/release/assets'])
             fs.mkdirSync(dir, { recursive: true });
           fs.cpSync('apps/desktop/plugin', plugin, { recursive: true });
+          fs.cpSync('apps/desktop/dist/node_modules', `${plugin}/node_modules`, { recursive: true });
           fs.cpSync('apps/desktop/skills', `${plugin}/skills`, { recursive: true });
           fs.cpSync('apps/server/dist/public', `${server}/public`, { recursive: true });
           fs.cpSync('docs', `${plugin}/docs`, { recursive: true });

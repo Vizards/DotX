@@ -90,7 +90,7 @@ export class TurnTracker {
   async inspect(task: TrackedTask): Promise<{ observation: TurnObservation }> {
     let turnId = task.turnId;
     try {
-      // Cross-host attribution is resolved by the DO at the target Mac's connector.
+      // Cross-host attribution is resolved by the DO at the target computer's connector.
       turnId ??= task.hostId === 'local' ? await this.resolveTurn(task) : null;
       if (!turnId) throw new BridgeError('TURN_ATTRIBUTION_PENDING');
       await this.coordination.read(target(task));

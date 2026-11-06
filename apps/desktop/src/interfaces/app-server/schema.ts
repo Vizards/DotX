@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { BridgeError } from '@dotx/shared/errors';
 import { loadCatalog } from './catalog.ts';
+import { appServerEnvironment } from '../../platform/environment.ts';
 
 // Ask the executable that will run the RPCs for its current schema. Each instance
 // uses its own temporary directory; no version whitelist or shared stale cache.
@@ -15,7 +16,12 @@ export function readNativeCatalog(cli: string) {
       cli,
       ['app-server', 'generate-json-schema', '--experimental', '--out', directory],
       // The schema is written to files; command output is not consumed.
-      { timeout: DEFAULT_TIMEOUT_MS, stdio: 'ignore' },
+      {
+        timeout: DEFAULT_TIMEOUT_MS,
+        stdio: 'ignore',
+        windowsHide: true,
+        env: appServerEnvironment(),
+      },
     );
     return loadCatalog(directory);
   } catch (cause) {

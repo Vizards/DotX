@@ -18,14 +18,14 @@ flowchart LR
 - **Resume installation:** inspect existing results and continue the first unfinished stage. Unknown does not mean missing; preserve completed work and identities.
 - **One specific task:** use the table below and complete that scope. When connecting to an existing Server, ask for its URL if missing; deploy or upgrade the Server only when the user requests it.
 
-Use the [state and capability decision diagram](common/handoff.md#choose-the-next-action) to choose what to do here and what to hand off. Missing Mac access does not prevent Server deployment. Preparations can overlap; full delivery still requires all stages and [end-to-end verification](common/handoff.md#verify-the-complete-link).
+Use the [state and capability decision diagram](common/handoff.md#choose-the-next-action) to choose what to do here and what to hand off. Missing desktop access does not prevent Server deployment. Preparations can overlap; full delivery still requires all stages and [end-to-end verification](common/handoff.md#verify-the-complete-link).
 
 ## Choose a task
 
 | User's goal | Guide | MCP goal |
 | --- | --- | --- |
 | Install a Server | [Install Server](server/install.md) | `server_install` |
-| Connect this Mac's Codex | [Connect Codex](codex/connect.md) | `codex_connect` |
+| Connect this computer's Codex | [Connect Codex](codex/connect.md) | `codex_connect` |
 | Connect any Personal Agent | [Connect a Personal Agent](personal-agents/index.md) | `personal_agent` |
 | Use an existing network | [Find a Codex](usage/connections.md) | `connections` |
 | Update components | [Coordinate an update](maintenance/update.md) | `update` |

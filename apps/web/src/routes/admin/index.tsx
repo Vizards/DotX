@@ -71,7 +71,7 @@ function Overview() {
         to: '/admin/agents',
       });
 
-  // The Server cannot send anything to an incompatible Mac, so the only channel
+  // The Server cannot send anything to an incompatible computer, so the only channel
   // left is a prompt the user carries over by hand.
   for (const device of approved)
     if (device.compatible === false)

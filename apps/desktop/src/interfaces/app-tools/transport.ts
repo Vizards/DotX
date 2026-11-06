@@ -1,5 +1,5 @@
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import net from 'node:net';
+import { connectDesktop } from '../../platform/pipes.ts';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { BridgeError, NativeError, errorCode } from '@dotx/shared/errors';
@@ -36,7 +36,7 @@ export function pipeRpc(
   if (!pipe) return Promise.reject(new BridgeError('DESKTOP_PIPE_MISSING'));
   return new Promise((resolve, reject) => {
     const id = randomUUID(),
-      socket = net.createConnection(pipe);
+      socket = connectDesktop(pipe);
     const decoder = new FrameDecoder();
     let done = false;
     const finish = (error: unknown, result?: unknown) => {

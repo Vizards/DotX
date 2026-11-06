@@ -41,11 +41,11 @@ export const en = {
     okBody: 'No device or agent connection needs your attention.',
     pendingRequest: '{name} is asking to connect',
     incompatible: '{name} speaks wire {wire}; this Server speaks wire {server}',
-    incompatibleNext: 'Update this Mac',
+    incompatibleNext: 'Update this computer',
     review: 'Review',
-    addMacTitle: 'Connect a new Mac',
+    addMacTitle: 'Connect a new computer',
     addMacBody:
-      'Paste one request into the Codex on that Mac and it handles the install. Its request then arrives here for approval.',
+      'Paste one request into the Codex on that computer and it handles the install. Its request then arrives here for approval.',
     addMacAction: 'Connect',
     addAgentTitle: 'Connect a Personal Agent',
     addAgentBody:
@@ -53,11 +53,11 @@ export const en = {
     addAgentAction: 'Connect',
 
     macSheetBody:
-      'Send this to the Codex on that Mac. It installs DotX Desktop and connects to this Server.',
-    macPrompt: "Connect this Mac's Codex to my DotX: {origin}\nGuide: {guide}",
+      'Send this to the Codex on that computer. It installs DotX Desktop and connects to this Server.',
+    macPrompt: "Connect this computer's Codex to my DotX: {origin}\nGuide: {guide}",
     macSheetTail: 'Once installed, approve its request on the Codex devices page.',
 
-    wireSheetTitle: 'Update this Mac',
+    wireSheetTitle: 'Update this computer',
     wireSheetBody:
       '{name} runs DotX Desktop on wire {wire}; this Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything.',
     wireSheetTail:
@@ -67,18 +67,19 @@ export const en = {
   devices: {
     title: 'Codex devices',
     emptyTitle: 'No Codex devices yet',
-    emptyBody: 'Install DotX Desktop on a Mac to send its first request.',
+    emptyBody: 'Install DotX Desktop on a computer to send its first request.',
     add: 'Add',
     rejectTitle: 'Reject request?',
     rejectBody: '“{name}” ({label}) will need a new request to connect.',
     verificationLabel: 'Verification label',
     requestStatus: {
       approved: 'Already approved.',
-      rejected: 'Rejected. Ask Codex on that Mac to reapply if needed.',
-      expired: 'Expired. Ask Codex on that Mac to reapply.',
-      revoked: 'Access removed. Ask Codex on that Mac to reapply if needed.',
+      rejected: 'Rejected. Ask Codex on that computer to reapply if needed.',
+      expired: 'Expired. Ask Codex on that computer to reapply.',
+      revoked: 'Access removed. Ask Codex on that computer to reapply if needed.',
     },
-    requestUnavailable: 'This request is no longer available. Ask Codex on that Mac to check it.',
+    requestUnavailable:
+      'This request is no longer available. Ask Codex on that computer to check it.',
     pendingExpires: 'Expires {time}',
     statAwaiting: 'to approve',
     approve: 'Approve',
@@ -106,13 +107,13 @@ export const en = {
     upgrade: 'Upgrade',
     fixTitle: 'Fix {name}',
     fixWireBody:
-      'This Mac runs wire {wire}; the Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything, so the prompt has to be carried over by hand.',
+      'This computer runs wire {wire}; the Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything, so the prompt has to be carried over by hand.',
     fixWirePrompt:
       'Update DotX Desktop on {name} to a version compatible with this Server: {origin}\nGuide: {guide}',
     fixOfflineBody:
-      'This Mac is not connected to the Server right now. Send this to the Codex on it so it can check plugin loading and the connection.',
+      'This computer is not connected to the Server right now. Send this to the Codex on it so it can check plugin loading and the connection.',
     fixInterfaceBody:
-      'This Mac is connected, but its Codex interfaces are unavailable. Send this to Codex on that Mac to investigate.',
+      'This computer is connected, but its Codex interfaces are unavailable. Send this to Codex on that computer to investigate.',
     fixPrompt: 'Check and fix DotX on {name}: {origin}\nGuide: {guide}',
     fixTail: 'After fixing it, refresh this page to check the status.',
     wireMismatch: 'wire {wire} · this Server speaks wire {server}',
