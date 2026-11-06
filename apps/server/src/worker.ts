@@ -2,13 +2,16 @@ import { browserRoutes } from './admin/browser.ts';
 import type { Env } from './env.ts';
 import { deviceRoute } from './devices/routes.ts';
 import { serveOAuth } from './oauth/provider.ts';
-import { HttpError, failure } from './http/responses.ts';
+import { control } from './hub/namespace.ts';
+import { HttpError, failure, json } from './http/responses.ts';
 export { DeviceHub } from './hub/device-hub.ts';
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     try {
       const url = new URL(request.url);
       if (url.origin !== env.PUBLIC_ORIGIN) throw new HttpError(421, 'ORIGIN_NOT_CONFIGURED');
+      if (url.pathname === '/.well-known/dotx-oauth' && request.method === 'GET')
+        return json(await control(env, 'admin/oauth-discovery', {}));
       if (url.pathname === '/device/connect' || url.pathname === '/setup/enroll')
         return await deviceRoute(request, env);
       const setup = await browserRoutes(request, env);

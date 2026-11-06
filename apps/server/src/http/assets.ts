@@ -1,5 +1,7 @@
 import type { Env } from '../env.ts';
 const pages = new Set([
+  '/login/cloudflare',
+  '/login/cloudflare/',
   '/setup/admin',
   '/setup/admin/',
   '/admin',

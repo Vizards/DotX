@@ -6,6 +6,7 @@ import type { ServiceInfo } from './service.ts';
 export const agentApprovalInput = z.strictObject({ name: displayName.optional() });
 export const nameInput = z.strictObject({ name: displayName });
 export interface AdminSetupStatus {
+  initialized: boolean;
   configured: boolean;
   worker: string;
   password_enabled: boolean;
@@ -16,20 +17,6 @@ export interface AdminSetupStatus {
 export interface AdminSecurity {
   password_enabled: boolean;
   passkeys: { id: string; name: string; created_at: number }[];
-}
-export interface AdminClaim {
-  challenge: string;
-  reset: boolean;
-  verified: boolean;
-  expires_at: number;
-}
-export interface AdminClaimStatus {
-  claim: AdminClaim | null;
-  secret_name: string;
-  secret_present: boolean;
-  value_format_issue: 'name_in_value' | null;
-  settings_url: string;
-  worker: string;
 }
 export interface AdminSession {
   login_configured: boolean;

@@ -35,6 +35,8 @@ test('HTTP routes serve declared pages but never return the SPA for API or unkno
     '/admin',
     '/admin/agents',
     '/admin/devices/',
+    '/login/cloudflare',
+    '/login/cloudflare/',
     '/authorize?transaction=synthetic',
   ]) {
     const page = await api.fetch('http://localhost' + path);

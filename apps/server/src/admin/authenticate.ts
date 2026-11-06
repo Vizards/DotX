@@ -19,15 +19,15 @@ export async function authenticate(request: Request, env: Env) {
   }
   const session = await authenticateSession(request, env);
   return {
-    subject: 'administrator',
+    subject: session.subject ?? 'administrator',
     qualification: 'browser',
     csrf_token: session.csrf,
     expires_at: session.expires_at,
   };
 }
 
-// Browser administration is independent of Cloudflare account membership.
-export async function authenticateSession(request: Request, env: Env) {
+// Local credentials work independently; provider sessions recheck their management permission.
+export async function authenticateSession(request: Request, env: Env, validateProvider = true) {
   if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
   const id = await sessionId(request);
   if (
@@ -37,6 +37,7 @@ export async function authenticateSession(request: Request, env: Env) {
     throw new HttpError(403, 'CSRF_REQUIRED', 'Refresh the management page before retrying.');
   return control<BrowserSession>(env, 'admin/session', {
     id,
+    validateProvider,
     csrf: ['GET', 'HEAD'].includes(request.method)
       ? undefined
       : (request.headers.get('X-CSRF-Token') ?? ''),

@@ -3,7 +3,7 @@ import type { Store } from './storage.ts';
 
 export const attemptKeys = {
   login: 'admin:browser:attempts',
-  claim: 'admin:browser:claim-attempts',
+  oauth: 'admin:browser:oauth-attempts',
   enrollment: 'device-enrollment:attempts',
 };
 const policies = {
@@ -11,10 +11,9 @@ const policies = {
     code: 'LOGIN_ATTEMPTS_EXHAUSTED',
     message: () => 'Too many login attempts. Try again after this one-minute window.',
   },
-  claim: {
-    code: 'CLAIM_ATTEMPTS_EXHAUSTED',
-    message: (seconds: number) =>
-      `Too many new setup or recovery requests on this Server. Try again in ${seconds} seconds. Existing requests can still continue.`,
+  oauth: {
+    code: 'LOGIN_ATTEMPTS_EXHAUSTED',
+    message: () => 'Too many sign-in requests. Try again in one minute.',
   },
   enrollment: {
     code: 'ENROLLMENT_ATTEMPTS_EXHAUSTED',

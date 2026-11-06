@@ -22,6 +22,6 @@ Read `/health` and check management/public endpoints. Report Server component co
 
 For `changes.remote_catalog=true`, [refresh each Personal Agent's tools](../personal-agents/index.md#refresh-tools) using its client controls or recipe. Preserve existing connections. Return to [update coordination](../maintenance/update.md) for remaining components, then [report completion](../common/handoff.md).
 
-If the target notes require replacing an old development release's CF browser login, follow [browser setup](browser-login.md). Old CF sessions do not become password/passkey sessions. Remove an old CF client only after verifying exclusive use by the retired login and successful replacement; preserve PA OAuth data and unrelated clients.
+Cloudflare browser login uses the public DotX relay; users do not create an OAuth client. Preserve existing passwords, passkeys and browser sessions when updating. Recommend [Cloudflare login](browser-login.md) for new browser access; `setup` and `reset-login` remain optional local-credential actions. Remove retired development OAuth clients only after verifying exclusive use by that retired deployment; preserve PA OAuth data and unrelated clients.
 
 For a retention-only request, use [adjust retention](retention.md) without treating it as a product update.

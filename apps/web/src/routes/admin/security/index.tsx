@@ -39,7 +39,6 @@ function Security() {
     );
 
   const info = security.data;
-  const onlyPasskey = !info.password_enabled && info.passkeys.length === 1;
   const reload = () => window.location.reload();
 
   const removePassword = async () => {
@@ -71,7 +70,10 @@ function Security() {
   return (
     <>
       <div className="page-head">
-        <h1>{t.security.title}</h1>
+        <div>
+          <h1>{t.security.title}</h1>
+          <p className="hint">{t.security.cloudflareHint}</p>
+        </div>
       </div>
 
       <div className="settings-grid">
@@ -87,8 +89,7 @@ function Security() {
             {info.password_enabled && (
               <Button
                 variant="danger"
-                disabled={remove.isPending || !info.passkeys.length}
-                title={!info.passkeys.length ? t.security.passwordKeepOne : undefined}
+                disabled={remove.isPending}
                 onClick={() => void removePassword()}
               >
                 {t.security.passwordRemove}
@@ -126,8 +127,7 @@ function Security() {
                     <button
                       type="button"
                       className="act act--danger"
-                      disabled={remove.isPending || onlyPasskey}
-                      title={onlyPasskey ? t.security.passkeyRemoveLast : undefined}
+                      disabled={remove.isPending}
                       onClick={() => void removePasskey(passkey.id)}
                     >
                       {t.security.passkeyRemove}

@@ -16,7 +16,6 @@ export interface Env {
   RELEASE_REPOSITORY?: string;
   RELEASE_CHANNEL?: string;
   RECORD_RETENTION_DAYS?: string;
-  DOTX_ADMIN_CLAIM?: string;
 }
 export function serviceInfo(env: Env): ServiceInfo {
   return {
