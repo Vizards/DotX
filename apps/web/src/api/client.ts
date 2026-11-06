@@ -20,7 +20,6 @@ export async function api<T>(
     body?: unknown;
     csrf?: string | null;
     setup?: string;
-    claim?: boolean;
     signal?: AbortSignal;
   } = {},
 ): Promise<T> {
@@ -43,7 +42,6 @@ export async function api<T>(
           }),
       ...(options.csrf ? { 'X-CSRF-Token': options.csrf } : {}),
       ...(options.setup ? { 'X-DotX-Setup': options.setup } : {}),
-      ...(options.claim ? { 'X-DotX-Claim': '1' } : {}),
     },
     body:
       options.body === undefined

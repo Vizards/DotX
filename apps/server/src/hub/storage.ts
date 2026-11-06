@@ -13,3 +13,9 @@ export interface Store {
 export interface AtomicStore extends Store {
   transaction<T>(callback: (txn: Store) => Promise<T>): Promise<T>;
 }
+
+export async function saveExpiring(tx: Store, key: string, value: { expires_at: number }) {
+  await tx.put(key, value);
+  const alarm = await tx.getAlarm();
+  if (alarm === null || alarm > value.expires_at) await tx.setAlarm(value.expires_at);
+}

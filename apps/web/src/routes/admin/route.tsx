@@ -11,7 +11,7 @@ function Admin() {
   const session = useQuery(sessionQuery());
 
   if (session.isPending) return <Loading />;
-  if (session.error)
+  if (session.error && !session.data?.authenticated)
     return (
       <div className="focus-shell">
         <div className="narrow">

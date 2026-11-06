@@ -14,8 +14,8 @@ Use after [management access](access.md) is verified. Run from the Server attach
 | Approve a PA request | `agent-approve --id REQUEST_ID [--name NAME]` |
 | Reject a pending PA request | `agent-reject --id REQUEST_ID` |
 | Rename / revoke PA connection | `agent-rename --id AGENT_ID --name NAME` / `agent-revoke --id AGENT_ID` |
-| Set up / inspect browser login | `setup` / `setup-status` |
-| Recover lost browser login | `reset-login` |
+| Set up / inspect local browser credentials | `setup` / `setup-status` |
+| Reset local browser credentials | `reset-login` |
 
 Device rename changes only the Server display name. Revocation stops access; it does not uninstall a plugin or cancel native Codex tasks.
 

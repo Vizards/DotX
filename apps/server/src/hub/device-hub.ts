@@ -1,3 +1,4 @@
+import { CloudflareLogin } from '../admin/cloudflare-login.ts';
 import { AdminCredentials } from '../admin/credentials.ts';
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env.ts';
@@ -29,10 +30,12 @@ export class DeviceHub extends DurableObject<Env> {
   readonly events: Events;
   readonly requests: Coordinator;
   readonly updates: ReleaseUpdates;
+  readonly cloudflareLogin: CloudflareLogin;
   readonly adminCredentials: AdminCredentials;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.adminCredentials = new AdminCredentials(ctx.storage, env);
+    this.cloudflareLogin = new CloudflareLogin(ctx.storage, env, this.adminCredentials);
     this.devices = new Devices(
       ctx.storage,
       env.PUBLIC_ORIGIN,
@@ -145,15 +148,21 @@ export class DeviceHub extends DurableObject<Env> {
   }
   async internal(path: string, input: unknown): Promise<unknown> {
     const value = input as Record<string, any>;
+    if (path === 'admin/oauth-discovery') return this.cloudflareLogin.discovery();
+    if (path === 'admin/oauth-start')
+      return this.cloudflareLogin.start(value.id, value.previous, value.returnTo);
+    if (path === 'admin/oauth-callback') {
+      await this.cloudflareLogin.callback(value.id, value.state, value.code, value.error);
+      return null;
+    }
+    if (path === 'admin/oauth-status') return this.cloudflareLogin.status(value.id);
+    if (path === 'admin/oauth-complete') return this.cloudflareLogin.complete(value.id);
     if (path === 'admin/status') return this.adminCredentials.status();
     if (path === 'admin/security') return this.adminCredentials.security();
     if (path === 'admin/issue') return this.adminCredentials.issue(value.reset === true);
     if (path === 'admin/context') return this.adminCredentials.context(value.hash);
-    if (path === 'admin/claim-start')
-      return this.adminCredentials.startClaim(value.id, value.nextId, value.restart === true);
-    if (path === 'admin/claim-verify')
-      return this.adminCredentials.verifyClaim(value.id, value.deployedChallenge);
-    if (path === 'admin/session') return this.adminCredentials.session(value.id, value.csrf);
+    if (path === 'admin/session')
+      return this.adminCredentials.session(value.id, value.csrf, value.validateProvider !== false);
     if (path === 'admin/logout') {
       await this.adminCredentials.logout(value.id);
       return null;

@@ -76,16 +76,6 @@
   text-decoration: underline;
 }
 
-.linkbtn-flag {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 1px;
-  border-radius: 50%;
-  background: var(--attn);
-  vertical-align: 6px;
-}
-
 .linkbtn:disabled {
   color: var(--text-4);
   cursor: default;
@@ -117,7 +107,7 @@
 }
 
 /* A sentence with a link inside it: one size, one line, centred. */
-.claim-manual {
+.login-switch {
   margin-top: var(--space-5);
   font-size: var(--fs-caption);
   line-height: 1.6;
@@ -125,7 +115,7 @@
   color: var(--text-3);
 }
 
-.claim-manual .linkbtn {
+.login-switch .linkbtn {
   font-size: inherit;
 }
 

@@ -4,7 +4,7 @@ import { control, hub } from '../hub/namespace.ts';
 import { authenticate, authenticateSession } from './authenticate.ts';
 import {
   clearSession,
-  browserAuthority,
+  readBrowserAuthority,
   sessionResponse,
   cookie,
   setCookie,
@@ -33,7 +33,7 @@ export async function adminRoutes(
   };
   try {
     if (path === '/admin/logout' && request.method === 'POST') {
-      await authenticateSession(request, env);
+      await authenticateSession(request, env, false);
       return json({ ok: true }, 200, { 'Set-Cookie': await clearSession(request, env) });
     }
     if (
@@ -74,7 +74,7 @@ export async function adminRoutes(
       const input = nameInput.safeParse(await readJson(request));
       if (!input.success) throw new HttpError(400, 'PASSKEY_NAME_REQUIRED');
       const passkeys = await control(env, 'admin/passkey-rename', {
-        auth: await browserAuthority(request),
+        auth: await readBrowserAuthority(request),
         passkeyId: renaming[1],
         name: input.data.name,
       });
@@ -83,7 +83,7 @@ export async function adminRoutes(
     const removal = /^\/admin\/api\/(password|passkeys\/([^/]+))$/.exec(path);
     if (removal && request.method === 'DELETE') {
       const session = await control<BrowserSession & { secret: string }>(env, 'admin/remove', {
-        auth: await browserAuthority(request),
+        auth: await readBrowserAuthority(request),
         passkeyId: removal[2],
       });
       return sessionResponse(env, session);
