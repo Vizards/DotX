@@ -1,7 +1,7 @@
 import type { Env } from '../env.ts';
 import { HttpError } from '../http/responses.ts';
 import { checkCloudflare } from './cloudflare.ts';
-import { cookie, sessionId, SESSION_COOKIE } from './sessions.ts';
+import { readBrowserAuthority, cookie, sessionId, SESSION_COOKIE } from './sessions.ts';
 import { control } from '../hub/namespace.ts';
 import type { BrowserSession } from './credentials.ts';
 export async function authenticate(request: Request, env: Env) {
@@ -42,4 +42,11 @@ export async function authenticateSession(request: Request, env: Env, validatePr
       ? undefined
       : (request.headers.get('X-CSRF-Token') ?? ''),
   });
+}
+
+// Login-setup routes accept a one-use setup link or an authenticated session.
+export async function authenticateBrowserAuthority(request: Request, env: Env) {
+  const auth = await readBrowserAuthority(request);
+  if (auth.session) await control(env, 'admin/session', { id: auth.session, csrf: auth.csrf });
+  return auth;
 }

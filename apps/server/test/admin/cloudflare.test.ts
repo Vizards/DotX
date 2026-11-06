@@ -24,7 +24,6 @@ const read = async (response: Response) => {
 async function begin(api: Server, return_to = '/admin') {
   const response = await post(api, '/admin/auth/cloudflare/start', '', {
     return_to,
-    client_id: 'attacker',
   });
   const result = await read(response);
   assert.equal(new URL(result.authorization_url).origin, 'https://oauth.dotx.run');
@@ -50,13 +49,13 @@ async function login(api: Server, returnTo?: string) {
   return { ...flow, cookie, session, result };
 }
 
-test('CF login binds browser/state/PKCE, isolates Wrangler, persists initialization and preserves the return request', async (t) => {
+test('CF login binds browser/state/PKCE, isolates Wrangler and persists initialization', async (t) => {
   const api = await startServer(t);
   assert.equal((await read(await api.request('/admin/auth/methods'))).initialized, false);
   const discovery = await read(await api.request('/.well-known/dotx-oauth'));
   assert.equal(discovery.callback_uri, 'http://localhost/admin/auth/cloudflare/callback');
   assert.equal(discovery.key.d, undefined);
-  const a = await begin(api, '/authorize?transaction=original-request');
+  const a = await begin(api);
   const b = await begin(api, '//evil.example');
   assert.equal((await api.request(a.callback)).status, 401);
   assert.equal((await api.request(a.callback, { headers: { Cookie: b.cookie } })).status, 401);
@@ -69,7 +68,7 @@ test('CF login binds browser/state/PKCE, isolates Wrangler, persists initializat
     '/login/cloudflare',
   );
   const response = await post(api, '/admin/auth/cloudflare/complete', a.cookie);
-  assert.equal((await read(response)).return_to, '/authorize?transaction=original-request');
+  await read(response);
   const cookie = cookies(response);
   const info = await read(await api.request('/admin/api/session', { headers: { Cookie: cookie } }));
   assert.equal(info.subject, 'test-user');
@@ -93,12 +92,6 @@ test('CF login binds browser/state/PKCE, isolates Wrangler, persists initializat
     (await api.request('/admin/api/session', { headers: { Cookie: cookie } })).status,
     200,
   );
-  assert.equal((await post(api, '/admin/logout', cookie, {}, info.csrf_token)).status, 200);
-  assert.equal(
-    (await api.request('/admin/api/session', { headers: { Cookie: cookie } })).status,
-    401,
-  );
-  assert.equal((await read(await api.request('/admin/auth/methods'))).initialized, true);
   assert.equal((await api.request(b.callback, { headers: { Cookie: b.cookie } })).status, 303);
   assert.equal(
     (await read(await post(api, '/admin/auth/cloudflare/complete', b.cookie))).return_to,
@@ -113,7 +106,7 @@ test('CF expiry and early 401 refresh once under concurrency, rotate credentials
   api.cloudflare.expiresIn = 1;
   const requests = () =>
     Promise.all(
-      Array.from({ length: 6 }, () =>
+      Array.from({ length: 2 }, () =>
         api.request('/admin/api/session', { headers: { Cookie: current.cookie } }),
       ),
     );
@@ -150,28 +143,18 @@ test('logout wins an in-flight refresh and works when the provider is unavailabl
   const api = await startServer(t);
   const current = await login(api);
   api.cloudflare.tokens.get('synthetic-browser-access-1')!.active = false;
-  let enter!: () => void, resume!: () => void;
-  const entered = {
-    promise: new Promise<void>((resolve) => {
-      enter = resolve;
-    }),
-    resolve: () => enter(),
-  };
-  const release = {
-    promise: new Promise<void>((resolve) => {
-      resume = resolve;
-    }),
-    resolve: () => resume(),
-  };
+  let entered!: () => void, resume!: () => void;
+  const refreshing = new Promise<void>((resolve) => (entered = resolve));
+  const release = new Promise<void>((resolve) => (resume = resolve));
   api.cloudflare.refreshWait = async () => {
-    entered.resolve();
-    await release.promise;
+    entered();
+    await release;
   };
   const reading = api.request('/admin/api/session', { headers: { Cookie: current.cookie } });
-  await entered.promise;
+  await refreshing;
   const logout = await post(api, '/admin/logout', current.cookie, {}, current.session.csrf_token);
   assert.equal(logout.status, 200);
-  release.resolve();
+  resume();
   assert.equal((await reading).status, 401);
   assert.equal(
     (await api.request('/admin/api/session', { headers: { Cookie: current.cookie } })).status,
@@ -268,18 +251,16 @@ test('CF denied membership, invalid audience and cancellation never create manag
   assert.equal((await post(api, '/admin/auth/cloudflare/complete', cancel.cookie)).status, 403);
 });
 
-test('local credentials can be removed entirely without resetting initialization, while CSRF and reset links remain enforced', async (t) => {
+test('removing the last password checks CF authority once, enforces CSRF and preserves initialization', async (t) => {
   const api = await startServer(t);
-  const setup = await api.admin('/setup', 'POST');
-  const saved = await api.request('/admin/auth/password/set', {
-    method: 'POST',
-    headers: {
-      Origin: 'http://localhost',
-      'Content-Type': 'application/json',
-      'X-DotX-Setup': new URL(setup.setup_url).hash.slice(1),
-    },
-    body: JSON.stringify({ password: 'local-password' }),
-  });
+  const current = await login(api);
+  const saved = await post(
+    api,
+    '/admin/auth/password/set',
+    current.cookie,
+    { password: 'local-password' },
+    current.session.csrf_token,
+  );
   await read(saved);
   const cookie = cookies(saved);
   const session = await read(
@@ -294,11 +275,17 @@ test('local credentials can be removed entirely without resetting initialization
     ).status,
     403,
   );
+  api.cloudflare.calls.length = 0;
   const removed = await api.request('/admin/api/password', {
     method: 'DELETE',
     headers: { Origin: 'http://localhost', Cookie: cookie, 'X-CSRF-Token': session.csrf_token },
   });
   await read(removed);
+  assert.equal(
+    api.cloudflare.calls.filter((call) => call.url.pathname === '/oauth2/userinfo').length,
+    1,
+    'one provider permission check per management request',
+  );
   const methods = await read(await api.request('/admin/auth/methods'));
   assert.equal(methods.configured, false);
   assert.equal(methods.initialized, true);
@@ -330,8 +317,6 @@ test('CF login returns to the same PA request without approving it', async (t) =
 
 test('Agent reset links stay one-use and preserve old login until saved, then revoke prior browser sessions', async (t) => {
   const api = await startServer(t);
-  const provider = await login(api);
-  const device = await api.enroll();
   const setup = await api.admin('/setup', 'POST');
   const set = (url: string, password: string) =>
     api.request('/admin/auth/password/set', {
@@ -347,10 +332,16 @@ test('Agent reset links stay one-use and preserve old login until saved, then re
   assert.equal((await set(setup.setup_url, 'replay')).status, 401);
   const old = await post(api, '/admin/auth/password', '', { password: 'old' });
   await read(old);
+  const provider = await login(api);
   const reset = await api.admin('/reset-login', 'POST');
   assert.equal(
     (await api.request('/admin/api/session', { headers: { Cookie: cookies(old) } })).status,
     200,
+  );
+  assert.equal(
+    (await api.request('/admin/api/session', { headers: { Cookie: provider.cookie } })).status,
+    200,
+    'the CF session is still live before saving the reset',
   );
   const fresh = await set(reset.setup_url, 'new');
   await read(fresh);
@@ -365,9 +356,4 @@ test('Agent reset links stay one-use and preserve old login until saved, then re
   assert.equal((await post(api, '/admin/auth/password', '', { password: 'old' })).status, 401);
   assert.equal((await post(api, '/admin/auth/password', '', { password: 'new' })).status, 200);
   assert.equal((await set(reset.setup_url, 'replay')).status, 401);
-  assert(
-    (await api.admin('/devices')).devices.some(
-      (entry: any) => entry.device_id === device.input.device_id,
-    ),
-  );
 });

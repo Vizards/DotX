@@ -60,7 +60,6 @@ export function cloudflareFixture(
       state: string;
       code_challenge: string;
       code: string;
-      assertion: string;
     }[],
     tokens: new Map<string, { refresh: string; active: boolean }>(),
     usedCodes: new Set<string>(),
@@ -68,11 +67,8 @@ export function cloudflareFixture(
     refreshStatus: 200,
     refreshWait: undefined as (() => Promise<void>) | undefined,
     browserAudience: undefined as string | undefined,
-    browserSubject: 'test-user',
-    browserIssuer: 'https://dash.cloudflare.com',
     refreshCount: 0,
     issuedCount: 0,
-    relayStatus: 200,
     status: 200,
     calls: [] as { url: URL; authorization: string | null; body: URLSearchParams }[],
   };
@@ -81,14 +77,13 @@ export function cloudflareFixture(
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.origin === 'https://oauth.dotx.run') {
-      if (fixture.relayStatus !== 200) return Response.json({}, { status: fixture.relayStatus });
       if (url.pathname === '/.well-known/oauth-relay')
         return Response.json({ version: 1, client_id: fixture.clientId });
       if (url.pathname === '/register') {
         const { assertion } = (await request.json()) as { assertion: string };
         const claim = JSON.parse(Buffer.from(assertion.split('.')[1]!, 'base64url').toString());
         const code = 'synthetic-code-' + fixture.authorizations.length;
-        fixture.authorizations.push({ ...claim, code, assertion });
+        fixture.authorizations.push({ ...claim, code });
         return Response.json({
           authorization_url: 'https://oauth.dotx.run/start?ticket=synthetic',
         });
@@ -153,11 +148,11 @@ export function cloudflareFixture(
       return Response.json({ success: false }, { status: 401 });
     if (url.pathname === '/oauth2/userinfo')
       return Response.json({
-        iss: cli ? 'https://dash.cloudflare.com' : fixture.browserIssuer,
+        iss: 'https://dash.cloudflare.com',
         aud: cli
           ? '54d11594-84e4-41aa-b438-e81b8fa78ee7'
           : (fixture.browserAudience ?? fixture.clientId),
-        sub: cli ? 'test-user' : fixture.browserSubject,
+        sub: 'test-user',
       });
     if (url.pathname === '/client/v4/user')
       return Response.json({ success: true, result: { email: 'synthetic@example.com' } });

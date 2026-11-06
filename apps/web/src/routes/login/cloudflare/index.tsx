@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { cloudflareStatusQuery } from '../../../queries/login.ts';
 import { cloudflareCompleteMutation } from '../../../mutations/login.ts';
@@ -19,35 +19,31 @@ function CloudflareResult() {
   const status = useQuery(cloudflareStatusQuery());
   const complete = useMutation(cloudflareCompleteMutation());
   const started = useRef(false);
-  const finish = complete.mutate;
+  const mutate = complete.mutate;
   const refreshStatus = status.refetch;
+  const finish = useCallback(
+    () =>
+      mutate(undefined, {
+        onSuccess: (result) => window.location.replace(result.return_to),
+        onError: () => void refreshStatus(),
+      }),
+    [mutate, refreshStatus],
+  );
   const phase = status.data?.phase;
   useEffect(() => {
     if (['callback', 'checking'].includes(phase ?? '') && !started.current) {
       started.current = true;
-      finish(undefined, {
-        onSuccess: (result) => window.location.replace(result.return_to),
-        onError: () => void refreshStatus(),
-      });
+      finish();
     }
-  }, [phase, finish, refreshStatus]);
+  }, [phase, finish]);
   const failure = status.data?.failure;
   const error = complete.error ?? status.error;
   const code = failure?.code ?? (error instanceof ApiError ? error.code : '');
-  const email =
-    failure?.email ??
-    (error instanceof ApiError &&
-    error.details &&
-    typeof error.details === 'object' &&
-    'email' in error.details &&
-    typeof error.details.email === 'string'
-      ? error.details.email
-      : null);
   const returnTo = status.data?.return_to ?? '/admin';
   if (deniedCodes.includes(code))
     return (
       <Login
-        denied={{ email }}
+        denied={{ email: failure?.email ?? null }}
         returnTo={returnTo}
         onDone={() => window.location.replace(returnTo)}
       />
@@ -75,11 +71,7 @@ function CloudflareResult() {
               }
               retry={
                 phase === 'checking' && error instanceof ApiError && error.status >= 500
-                  ? () =>
-                      finish(undefined, {
-                        onSuccess: (result) => window.location.replace(result.return_to),
-                        onError: () => void refreshStatus(),
-                      })
+                  ? () => finish()
                   : undefined
               }
             />
