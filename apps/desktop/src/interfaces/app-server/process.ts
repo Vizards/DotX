@@ -7,6 +7,7 @@ import type { ChildProcessByStdio } from 'node:child_process';
 import type { Writable, Readable } from 'node:stream';
 import { z } from 'zod';
 import packageInfo from '../../../package.json' with { type: 'json' };
+import { appServerEnvironment } from '../../platform/environment.ts';
 
 const bootstrapReply = z.object({
   id: z.union([z.string(), z.number()]).optional(),
@@ -26,13 +27,11 @@ export class AppServer {
   readonly process: ChildProcessByStdio<Writable, Readable, null>;
   readonly reader: readline.Interface;
   constructor(cli: string, home: string, cwd: string) {
-    const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !key.startsWith('CODEX_')),
-    );
-    env.CODEX_HOME = home;
+    const env = appServerEnvironment(home);
     this.process = spawn(cli, ['app-server', '--listen', 'stdio://'], {
       cwd,
       env,
+      windowsHide: true,
       stdio: ['pipe', 'pipe', 'inherit'],
     }) as ChildProcessByStdio<Writable, Readable, null>;
     this.reader = readline.createInterface({ input: this.process.stdout });

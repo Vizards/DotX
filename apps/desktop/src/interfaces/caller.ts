@@ -32,7 +32,9 @@ export async function bootstrap(
         await client.call('thread/read', { threadId: config.callerThreadId }),
       );
       if (r.thread?.id !== config.callerThreadId) throw new BridgeError('CALLER_INVALID');
-      if (config.codexHome && config.codexHome !== home)
+      const canonicalHome = (value: string) =>
+        process.platform === 'win32' ? fs.realpathSync.native(value).toLowerCase() : value;
+      if (config.codexHome && canonicalHome(config.codexHome) !== canonicalHome(home))
         throw new BridgeError('CALLER_HOME_MISMATCH');
     } else {
       // If setup lost the previous ID, another empty caller is acceptable.

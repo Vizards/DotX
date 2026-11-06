@@ -1,5 +1,5 @@
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import path from 'node:path';
+import { coordinationEndpoint } from '../../platform/pipes.ts';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { BridgeError, errorValue } from '@dotx/shared/errors';
@@ -62,7 +62,7 @@ export class Follows {
     this.options = options;
     options.events.registerRuntime(this.runtimeId);
     this.wire = new CoordinationWire({
-      endpoint: path.join(options.home, 'ipc', 'ipc.sock'),
+      endpoint: coordinationEndpoint(options.home),
       onMessage: (m) => this.receive(m),
       onDisconnect: (e) => this.disconnected(e),
     });

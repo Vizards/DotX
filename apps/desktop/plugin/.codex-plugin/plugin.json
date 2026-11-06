@@ -2,8 +2,16 @@
   "name": "dotx-desktop",
   "mcpServers": {
     "dotx_desktop": {
-      "command": "sh",
-      "env_vars": ["CODEX_APP_TOOLS_PIPE_PATH", "DOTX_APP_PATH"]
+      "command": "./launch",
+      "env_vars": [
+        "CODEX_APP_TOOLS_PIPE_PATH",
+        "DOTX_APP_PATH",
+        "CODEX_MCP_NODE_PATH",
+        "CODEX_APP_RUNTIME_CLI_PATH",
+        "CODEX_WINDOWS_REGISTERED_CORE",
+        "CODEX_WINDOWS_SANDBOX_PACKAGE_FAMILY",
+        "CODEX_HOME"
+      ]
     }
   }
 }

@@ -1,12 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { secureDirectory, verifyPrivate, replacePrivate } from '../platform/windows/files.ts';
 export function privateDir(dir: string) {
+  if (process.platform === 'win32') {
+    secureDirectory(dir);
+    return dir;
+  }
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.chmodSync(dir, 0o700);
   return dir;
 }
 export function readJson<T = unknown>(file: string): T {
+  if (process.platform === 'win32') verifyPrivate(file);
   return JSON.parse(fs.readFileSync(file, 'utf8')) as T;
 }
 export function writePrivate(file: string, value: string) {
@@ -14,22 +20,28 @@ export function writePrivate(file: string, value: string) {
     temporary = `${file}.${randomUUID()}.tmp`,
     fd = fs.openSync(temporary, 'wx', 0o600);
   try {
-    fs.writeFileSync(fd, value);
-    fs.fsyncSync(fd);
-  } catch (error) {
     try {
-      fs.unlinkSync(temporary);
+      fs.writeFileSync(fd, value);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (process.platform === 'win32') {
+      replacePrivate(temporary, file);
+      return;
+    }
+    fs.renameSync(temporary, file);
+    const parent = fs.openSync(directory, 'r');
+    try {
+      fs.fsyncSync(parent);
+    } finally {
+      fs.closeSync(parent);
+    }
+  } finally {
+    // Close the file before cleanup, including when the rename itself failed.
+    try {
+      fs.rmSync(temporary, { force: true });
     } catch {}
-    throw error;
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(temporary, file);
-  const parent = fs.openSync(directory, 'r');
-  try {
-    fs.fsyncSync(parent);
-  } finally {
-    fs.closeSync(parent);
   }
 }
 export const writeJson = (file: string, value: unknown) =>

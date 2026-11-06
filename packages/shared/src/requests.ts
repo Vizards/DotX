@@ -8,7 +8,7 @@ export const id = z
   .regex(/^[a-zA-Z0-9_.:-]+$/);
 export const nativeHost = z
   .string()
-  .refine((v) => v === 'local' || /^remote-control:.+/.test(v), 'Unsupported native Mac host');
+  .refine((v) => v === 'local' || /^remote-control:.+/.test(v), 'Unsupported native host');
 export type Outcome<T = unknown> = { ok: true; result: T } | { ok: false; error: Diagnostic };
 export type RequestState =
   | 'reserved'

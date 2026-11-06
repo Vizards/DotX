@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import { parentLifetime } from './platform/lifetime.ts';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { createDeviceMcp } from './mcp.ts';
 import { Runtime } from './runtime.ts';
@@ -6,10 +6,11 @@ import { dataDir, pluginRoot } from './local/paths.ts';
 import { errorValue } from '@dotx/shared/errors';
 import packageInfo from '../package.json' with { type: 'json' };
 process.umask(0o077);
-const parent = process.ppid,
-  pipe = process.env.CODEX_APP_TOOLS_PIPE_PATH;
+const pipe = process.env.CODEX_APP_TOOLS_PIPE_PATH;
+let lifetime: ReturnType<typeof parentLifetime> | undefined;
 let runtime: Runtime | undefined, initialError: unknown;
 try {
+  lifetime = parentLifetime(pipe);
   const dir = dataDir(),
     root = pluginRoot();
   process.chdir(dir);
@@ -42,10 +43,11 @@ async function stop() {
   clearInterval(timer);
   await runtime?.stop();
   await stdio.close();
+  lifetime?.close();
   process.exit(0);
 }
 const timer = setInterval(() => {
-  if (process.ppid !== parent || (pipe && !fs.existsSync(pipe))) {
+  if (lifetime && !lifetime.alive()) {
     void stop();
     return;
   }
