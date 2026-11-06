@@ -28,16 +28,14 @@ export async function clearSession(request: Request, env: Env) {
   if (value) await control(env, 'admin/logout', { id: await sha256(value) });
   return setCookie(env, SESSION_COOKIE, '', 0);
 }
-export async function browserAuthority(request: Request, env: Env): Promise<BrowserAuthority> {
+export async function readBrowserAuthority(request: Request): Promise<BrowserAuthority> {
   if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
   const setup = request.headers.get('X-DotX-Setup');
   if (setup) return { setup: await sha256(setup) };
-  const auth = {
+  return {
     session: await sessionId(request),
     csrf: request.headers.get('X-CSRF-Token') ?? '',
   };
-  await control(env, 'admin/session', { id: auth.session, csrf: auth.csrf });
-  return auth;
 }
 export function sessionResponse(
   env: Env,

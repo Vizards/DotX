@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import type { Store } from '../hub/storage.ts';
 
 // Each Server owns its encryption key. No central service receives this key,
 // PKCE verifiers or provider credentials. This protects stored payloads from
@@ -49,10 +48,4 @@ export class AdminVault {
       ),
     ) as T;
   }
-}
-
-export async function saveExpiring(tx: Store, key: string, value: { expires_at: number }) {
-  await tx.put(key, value);
-  const alarm = await tx.getAlarm();
-  if (alarm === null || alarm > value.expires_at) await tx.setAlarm(value.expires_at);
 }

@@ -9,7 +9,7 @@ import {
   type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
 import type { Env } from '../env.ts';
-import type { Store } from '../hub/storage.ts';
+import { saveExpiring, type Store } from '../hub/storage.ts';
 import { attemptKeys, consumeAttempt } from '../hub/attempts.ts';
 import { AdminVault } from './vault.ts';
 import {
@@ -79,11 +79,6 @@ export class AdminCredentials {
   private async credentials(tx: Store): Promise<Credentials> {
     return (await tx.get<Credentials>(credentialsKey)) ?? { user_id: randomSecret(), passkeys: [] };
   }
-  private async save(tx: Store, key: string, value: Expiring) {
-    await tx.put(key, value);
-    const alarm = await tx.getAlarm();
-    if (alarm === null || alarm > value.expires_at) await tx.setAlarm(value.expires_at);
-  }
   private async live<T extends Expiring>(tx: Store, key: string, code: string): Promise<T> {
     const value = await tx.get<T>(key);
     if (!value || value.expires_at <= Date.now()) throw new HttpError(401, code);
@@ -118,7 +113,7 @@ export class AdminCredentials {
         reset: configured,
         expires_at: Date.now() + setupMilliseconds,
       };
-      await this.save(tx, setupKey, ticket);
+      await saveExpiring(tx, setupKey, ticket);
       return {
         configured,
         setup_url: `${this.env.PUBLIC_ORIGIN}/setup/admin#${secret}`,
@@ -152,12 +147,10 @@ export class AdminCredentials {
     // Check and extend atomically; a late request cannot recreate a revoked session.
     return this.store.transaction(async (tx) => {
       const session = await this.live<StoredSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
-      if (csrf !== undefined && !sameSecret(session.csrf, csrf))
-        throw new HttpError(403, 'CSRF_REQUIRED', 'Refresh the management page before retrying.');
       const expiresAt = Date.now() + sessionSeconds * 1000;
       if (expiresAt - session.expires_at >= sessionRenewalInterval) {
         session.expires_at = expiresAt;
-        await this.save(tx, sessionKey(id), session);
+        await saveExpiring(tx, sessionKey(id), session);
       }
       return {
         csrf: session.csrf,
@@ -196,7 +189,7 @@ export class AdminCredentials {
       expires_at: Date.now() + sessionSeconds * 1000,
       ...(cloudflare ? { cloudflare } : {}),
     };
-    await this.save(tx, sessionKey(await sha256(secret)), record);
+    await saveExpiring(tx, sessionKey(await sha256(secret)), record);
     return { secret, csrf: record.csrf, expires_at: record.expires_at };
   }
   private async changed(tx: Store, credentials: Credentials, auth: BrowserAuthority) {
@@ -271,7 +264,7 @@ export class AdminCredentials {
         excludeCredentials: credentials.passkeys.map(({ id, transports }) => ({ id, transports })),
         authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
       });
-      await this.save(tx, ceremonyKey(id), {
+      await saveExpiring(tx, ceremonyKey(id), {
         challenge: options.challenge,
         purpose: 'register',
         authority: this.binding(auth),
@@ -341,7 +334,7 @@ export class AdminCredentials {
         rpID: new URL(this.env.PUBLIC_ORIGIN).hostname,
         userVerification: 'required',
       });
-      await this.save(tx, ceremonyKey(id), {
+      await saveExpiring(tx, ceremonyKey(id), {
         challenge: options.challenge,
         purpose: 'login',
         user_id: credentials.user_id,

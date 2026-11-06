@@ -1,12 +1,12 @@
 import type { Env } from '../env.ts';
 import type { BrowserSession } from './credentials.ts';
+import { authenticateBrowserAuthority } from './authenticate.ts';
 import { cloudflareCallback, cloudflareResult, loginSeconds } from './cloudflare-login.ts';
 import { control } from '../hub/namespace.ts';
 import { readJson } from '../http/body.ts';
 import { randomSecret, sha256 } from '../http/crypto.ts';
 import { HttpError, failure, json } from '../http/responses.ts';
 import {
-  browserAuthority,
   cookie,
   CEREMONY_COOKIE,
   ceremonyCookie,
@@ -97,7 +97,7 @@ export async function browserRoutes(request: Request, env: Env): Promise<Respons
       else if (path === '/admin/auth/passkey/register/options')
         options = await control(env, 'admin/register-options', {
           id,
-          auth: await browserAuthority(request, env),
+          auth: await authenticateBrowserAuthority(request, env),
         });
       else throw new HttpError(404, 'NOT_FOUND');
       return json(options, 200, { 'Set-Cookie': ceremonyCookie(env, raw) });
@@ -109,7 +109,7 @@ export async function browserRoutes(request: Request, env: Env): Promise<Respons
       input = { password: body.password };
     } else if (path === '/admin/auth/password/set') {
       operation = 'admin/set-password';
-      input = { auth: await browserAuthority(request, env), password: body.password };
+      input = { auth: await authenticateBrowserAuthority(request, env), password: body.password };
     } else if (
       ['/admin/auth/passkey/verify', '/admin/auth/passkey/register/verify'].includes(path)
     ) {
@@ -125,7 +125,7 @@ export async function browserRoutes(request: Request, env: Env): Promise<Respons
           id,
           response: body.response,
           name: body.name,
-          auth: await browserAuthority(request, env),
+          auth: await authenticateBrowserAuthority(request, env),
         };
       }
     } else throw new HttpError(404, 'NOT_FOUND');

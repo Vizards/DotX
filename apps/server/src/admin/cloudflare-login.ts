@@ -4,7 +4,7 @@ import { randomSecret, sha256, sameSecret } from '../http/crypto.ts';
 import { HttpError } from '../http/responses.ts';
 import { consumeAttempt } from '../hub/attempts.ts';
 import { AdminCredentials } from './credentials.ts';
-import { saveExpiring } from './vault.ts';
+import { saveExpiring } from '../hub/storage.ts';
 import {
   checkCloudflare,
   cloudflareEmail,
@@ -241,8 +241,7 @@ export class CloudflareLogin {
   }
   private async finish(id: string) {
     let record = await this.read(id);
-    if (record.failure)
-      throw new HttpError(403, record.failure.code, record.failure.code, record.failure);
+    if (record.failure) throw new HttpError(403, record.failure.code);
     if (!['callback', 'checking'].includes(record.phase))
       throw new HttpError(401, 'CF_LOGIN_EXPIRED');
     let secrets = await this.credentials.vault.open<LoginSecrets>(record.sealed);
@@ -305,7 +304,6 @@ export class CloudflareLogin {
             });
         });
         await revokeCloudflareToken(record.client_id, secrets.tokens!.refresh_token);
-        throw new HttpError(error.status, error.code, error.message, { email });
       }
       throw error;
     }
