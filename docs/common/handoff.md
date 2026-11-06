@@ -9,11 +9,11 @@ Judge actual tools and environment, not the Agent's product name.
 | Task | Required capability | If missing |
 | --- | --- | --- |
 | Deploy Server | Release toolchain and official Wrangler access to the target account | Request CF authorization or hand off deployment; browser automation is optional |
-| Connect Codex | Access to the intended computer's actual Codex host | Hand off to Codex on that computer; your own cloud shell is not that host |
+| Connect Codex | Access to the intended Mac's actual Codex host | Hand off to Codex on that Mac; your own cloud shell is not that host |
 | Approve a Codex or PA request | Verified Worker management access or authorized management browser | Hand off the actual request; a Wrangler-capable Agent needs no browser-login setup |
 | Configure a PA | Its real plugin/MCP tools or settings | Hand off the missing configuration or consent step; the user can operate the browser |
 
-Complete available work first. PA preparation can overlap Desktop installation; both still need their own completion checks.
+Complete available work first. PA preparation can overlap Mac installation; both still need their own completion checks.
 
 ## Choose the next action
 
@@ -49,7 +49,7 @@ Use the table below for the corresponding guide and cases where the nominal inst
 | Server ready, no Codex | [Connect Codex](../codex/connect.md), locally or by handoff |
 | Device awaiting approval | [Approve that application](../codex/approve.md) |
 | Codex ready, PA not connected | [Connect the chosen PA](../personal-agents/index.md). If none is chosen, ask: “Would you like help connecting a Personal Agent? Which one?” |
-| User reports the computer was connected elsewhere | Inspect management `devices` or remote `list_connections`. If needed, connect the current PA first, then query |
+| User reports the Mac was connected elsewhere | Inspect management `devices` or remote `list_connections`. If needed, connect the current PA first, then query |
 | MCP works, no usable Codex | [Resolve the device state](../troubleshooting/device.md) |
 | PA sees usable Codex | For full installation, verify the complete link below; for a single-stage request, report that stage |
 | Component updated, link unavailable | [Coordinate remaining updates](../maintenance/update.md) or diagnose the actual error |
@@ -70,10 +70,10 @@ OAuth and device discovery alone are not full native verification. This check do
 
 Give one copyable message, substituting real values and versioned links. The user forwards it; the receiving Agent resolves commands and local paths.
 
-**To Codex on the target computer:**
+**To Codex on the target Mac:**
 
 ```text
-Connect this computer's Codex to my existing DotX Server using this guide.
+Connect this Mac's Codex to my existing DotX Server using this guide.
 Server: HTTPS_ORIGIN
 Guide: VERSIONED_CODEX_CONNECTION_GUIDE_URL
 ```
@@ -102,7 +102,7 @@ Use actual names and URLs in a short completion message:
 
 - **Ready:** which PA reaches which Codex, checks passed, and any remaining verification. Do not claim full delivery from discovery alone.
 - **Use:** suggest one relevant request, such as “On Mac mini, read the progress of the Codex task I choose.” Do not send it unasked.
-- **Expand:** offer the handoffs above for another PA or computer using this Server; do not start extra installations unasked.
+- **Expand:** offer the handoffs above for another PA or Mac using this Server; do not start extra installations unasked.
 - **Manage:** give `/admin` and the configured password/passkey method, or state setup was deferred. Offer [browser setup](../server/browser-login.md) when wanted; it enables management without Wrangler.
 
 Lead with any incomplete action. Installation, approval, current conversation tool loading and actual remote use are separate results.

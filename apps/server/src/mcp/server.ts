@@ -99,7 +99,7 @@ function createServer({ invoke, connections, events, publicOrigin }: McpOptions)
   }
   register(
     'list_connections',
-    'List authorized connections, availability and interface runtime IDs. Includes service metadata for joining another computer, running versions and a cached latest-release hint.',
+    'List authorized connections, availability and interface runtime IDs. Includes service metadata for joining another Mac, running versions and a cached latest-release hint.',
     {},
     connections,
   );

@@ -3,7 +3,7 @@ import { Prompt } from './prompt.tsx';
 import { fill, t } from '../i18n/index.ts';
 import { guideUrl } from '../lib/guides.ts';
 
-/** The same computer handoff is reachable from Overview and the empty device list. */
+/** The same Mac handoff is reachable from Overview and the empty device list. */
 export function NewDeviceDialog({
   open,
   origin,

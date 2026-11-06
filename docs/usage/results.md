@@ -19,9 +19,9 @@ A retained request ID deduplicates the operation and enables `get_request` to re
 1. Read the dispatch response. Distinguish a native error, an accepted operation and a completed task.
 2. With an [active subscription](interactions.md), wait for notifications instead of continuous polling. Notifications are best effort and have no replay; a missing notification does not mean the task failed.
 3. To reconcile a tracked operation, call `get_request` with its retained ID. Match the receipt to the intended request and exact native turn before reporting completion.
-4. Read returned result content. It contains one native content page in descending order. If `nextCursor` is non-null, use `app_server/thread/items/list` on the target computer with the same `threadId`, `turnId`, `sortDirection="desc"` and the returned cursor, according to its current schema.
+4. Read returned result content. It contains one native content page in descending order. If `nextCursor` is non-null, use `app_server/thread/items/list` on the target Mac with the same `threadId`, `turnId`, `sortDirection="desc"` and the returned cursor, according to its current schema.
 
-`get_request` reads a fresh snapshot and observes the tracked turn if it is still running. Confirmed terminal status persists across connector restarts, but native observation stops on disconnect or state gaps and is not automatically restored. If the owner or exact turn is unavailable, the receipt stays unknown. DotX does not search historical pages or infer completion from output text. Cross-host result reading needs the target computer's registered connector.
+`get_request` reads a fresh snapshot and observes the tracked turn if it is still running. Confirmed terminal status persists across connector restarts, but native observation stops on disconnect or state gaps and is not automatically restored. If the owner or exact turn is unavailable, the receipt stays unknown. DotX does not search historical pages or infer completion from output text. Cross-host result reading needs the target Mac's registered connector.
 
 ## Recover without duplicating work
 

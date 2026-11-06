@@ -1,6 +1,6 @@
 # Update the local Codex plugin
 
-Read [update coordination](../maintenance/update.md). Run on the affected computer and use the target Desktop release plus its notes.
+Read [update coordination](../maintenance/update.md). Run on the affected Mac and use the target Desktop release plus its notes.
 
 1. Read device_status; save the actual owner version, device ID, target Server and host-provided data_dir. Keep the data directory, private key and connector generation. An update is not a reset or new enrollment.
 2. Update the existing `dotx` marketplace's persistent source to the target Desktop package, then install `dotx-desktop` from that source.

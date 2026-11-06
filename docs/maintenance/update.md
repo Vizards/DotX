@@ -15,12 +15,12 @@ A maintenance Agent with Wrangler access does not need a Personal Agent connecti
 ## Apply the selected release
 
 - changes.server: follow [Server update](../server/update.md). It includes web pages and bundled Server guides.
-- changes.desktop: follow [Codex update](../codex/update.md) locally on each affected computer. It includes the plugin's bundled guides.
+- changes.desktop: follow [Codex update](../codex/update.md) locally on each affected Mac. It includes the plugin's bundled guides.
 - changes.remote_catalog: [refresh each Personal Agent's tools](../personal-agents/index.md#refresh-tools).
 
 Follow the target release's required operation order. Product versions alone do not imply incompatibility; wire must match. It is acceptable for a link to be temporarily unavailable while updating components. Report component completion and link restoration separately, and do not automatically resend unknown in-flight calls after reconnection.
 
-An Agent without deployment or local desktop capability should perform available checks, then hand off the exact target artifact, guide, identities, completed work and remaining steps. A native task may continue after the remote connection drops; inspect its current state before further action.
+An Agent without deployment or local Mac capability should perform available checks, then hand off the exact target artifact, guide, identities, completed work and remaining steps. A native task may continue after the remote connection drops; inspect its current state before further action.
 
 No project test suite or synthetic task belongs in a user's ordinary update. Use read-only discovery/native checks. Finish with [handoff](../common/handoff.md).
 

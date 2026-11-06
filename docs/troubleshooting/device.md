@@ -1,6 +1,6 @@
 # Resolve an unavailable Codex
 
-Use when discovery or setup reports an unusable device. Read `device_status` on the affected computer, `list_connections` from a connected PA, or management `devices` as available; do not require all three. Complete: the required interface is usable, or the precise remaining action is handed off.
+Use when discovery or setup reports an unusable device. Read `device_status` on the affected Mac, `list_connections` from a connected PA, or management `devices` as available; do not require all three. Complete: the required interface is usable, or the precise remaining action is handed off.
 
 ## Choose by current evidence
 
@@ -11,9 +11,9 @@ Use when discovery or setup reports an unusable device. Read `device_status` on 
 | `SETUP_REQUIRED`, `DEVICE_SETUP_IN_PROGRESS`, `DEVICE_SETUP_INCOMPLETE` | Finish/resume `connect` with the same data directory and Server, then check automatic startup |
 | Application pending | [Approve the device](../codex/approve.md), then check again |
 | `ENROLLMENT_ATTEMPTS_EXHAUSTED` | Wait `retry_after_seconds`, then retry the same connection setup. The Server allows 10 new applications per 60 seconds; existing applications can still be read and approved |
-| Device offline | Inspect the target computer's Codex host/plugin and current diagnostic; cloud approval alone cannot make it run |
+| Device offline | Inspect the target Mac's Codex host/plugin and current diagnostic; cloud approval alone cannot make it run |
 | `DEVICE_PROTOCOL_MISMATCH` | [Coordinate updates](../maintenance/update.md). The owner retains its lock and retries with backoff; do not re-enroll |
-| Required native interface unavailable (including **Online · no interface**) | Inspect `device_status` on the affected computer and preserve the native error before following the relevant recovery below. The browser's **Fix** action provides a prompt to send to that computer's Codex |
+| Required native interface unavailable (including **Online · no interface**) | Inspect `device_status` on the affected Mac and preserve the native error before following the relevant recovery below. The browser's **Fix** action provides a prompt to send to that Mac's Codex |
 | Missing/corrupt existing private key or configuration | Report the error; use [explicit reset/replacement](../maintenance/remove.md) only when authorized |
 
 ## Interpret owner and setup state
@@ -29,14 +29,6 @@ If setup stopped before saving the native caller ID, rerun the same connect comm
 ## Reapply with the existing identity
 
 Pending applications expire after seven days. Expired unapproved applications and their matching device records are pruned on new enrollment or list reads; approved and revoked devices are retained. When the user requests reconnection after expiry, rejection or revocation, run the same `connect` command. It keeps the keys/device ID and creates a fresh application requiring approval. If the configured owner stopped after rejection/revocation, refresh its host MCP configuration and verify the new request. There is no automatic reapplication. Reset only for intentional lost/compromised identity replacement or a Server change.
-
-## Windows platform failures
-
-- `DESKTOP_NOT_FOUND`: open the official Codex desktop under the same Windows user, then reinstall/refresh the complete plugin package. `DOTX_APP_PATH`, when explicitly configured, is the MSIX installation directory containing `app`, not the executable path.
-- `PRIVATE_PATH_OWNER_MISMATCH` or `PRIVATE_PATH_ACL_INVALID`: use the actual host-provided data directory under the same user. Preserve existing keys and configuration; do not disable ACL checks or copy another user’s installation.
-- `WINDOWS_NATIVE_ERROR`: keep the operation and Win32 error number. Verify the complete package includes `node_modules/koffi` and its Windows x64 binary. Use local storage supporting Windows ACLs and file locks.
-- `PIPE_PEER_IDENTITY_MISMATCH`, `DESKTOP_PIPE_PROCESS_MISMATCH` or `DESKTOP_PIPE_PROCESS_CHANGED`: refresh the plugin in the intended desktop user/session. A different user’s or session’s desktop cannot be used. Do not substitute pipe paths.
-- A busy named pipe is not evidence of desktop exit. The connector uses process handles for liveness; ordinary native timeouts still require reconciling the original operation before any resend.
 
 ## Missing desktop transport
 

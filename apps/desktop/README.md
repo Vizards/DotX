@@ -1,8 +1,8 @@
 # DotX Desktop package
 
-This package connects a computer's Codex to an existing DotX Server. It includes the local plugin, one navigation Skill and the complete version-matched Agent guides.
+This package connects a Mac's Codex to an existing DotX Server. It includes the local plugin, one navigation Skill and the complete version-matched Agent guides.
 
-Start at [the bundled guide index](plugins/dotx-desktop/docs/index.md). For installation use [Connect this computer's Codex](plugins/dotx-desktop/docs/codex/connect.md); for updates use [Update Codex](plugins/dotx-desktop/docs/codex/update.md).
+Start at [the bundled guide index](plugins/dotx-desktop/docs/index.md). For installation use [Connect this Mac's Codex](plugins/dotx-desktop/docs/codex/connect.md); for updates use [Update Codex](plugins/dotx-desktop/docs/codex/update.md).
 
 Install the local marketplace at `.agents/plugins/marketplace.json` through Codex's normal plugin mechanism. Keep the extracted package in a persistent location. The plugin uses the host-provided `PLUGIN_DATA` directory for its identity and configuration; the package and plugin cache contain no credentials. `device_status` reports the resolved storage and actual connector owner.
 

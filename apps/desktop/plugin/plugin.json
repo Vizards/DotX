@@ -1,7 +1,7 @@
 {
   "name": "dotx-desktop",
   "version": "0.1.2",
-  "description": "Connect this computer’s Codex to your Personal Agent through DotX.",
+  "description": "Connect this Mac’s Codex to your Personal Agent through DotX.",
   "author": {
     "name": "Vizards"
   },
@@ -10,7 +10,7 @@
       "onboardingSkill": "./skills/dotx/SKILL.md",
       "interface": {
         "displayName": "DotX Desktop",
-        "shortDescription": "Connect your local Codex",
+        "shortDescription": "Connect your Mac’s Codex",
         "developerName": "Vizards",
         "category": "Productivity",
         "capabilities": [],
