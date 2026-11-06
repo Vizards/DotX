@@ -20,15 +20,6 @@ export type ErrorCode = keyof Messages['errors'];
 export function errorText(error: unknown): string {
   if (error instanceof Error) {
     const code = 'code' in error ? String((error as { code: unknown }).code) : '';
-    if (code === 'CLAIM_ATTEMPTS_EXHAUSTED' && 'details' in error) {
-      const details = error.details;
-      const seconds =
-        details && typeof details === 'object' && 'retry_after_seconds' in details
-          ? details.retry_after_seconds
-          : undefined;
-      if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0)
-        return fill(t.claim.rateLimited, { seconds: Math.ceil(seconds) });
-    }
     if (code in t.errors) return t.errors[code as ErrorCode];
     return error.message;
   }

@@ -29,6 +29,6 @@ If this is an interrupted installation, inspect and reuse its resources. For an 
 
 Read `/health` and `/setup/info`; verify version, wire, public origin and service identity. Check that `/admin` loads. Run `node admin.mjs --url HTTPS_ORIGIN session` with the selected profile. On failure, use [management access recovery](../common/access.md); do not recreate resources to fix upstream errors.
 
-Retain the service URL and non-secret deployment configuration. Offer [password/passkey setup](browser-login.md) for independent browser management; it can be completed now or later. Record deferred setup and continue through Wrangler.
+Retain the service URL and non-secret deployment configuration. Give the user `/admin` and recommend [Sign in with Cloudflare](browser-login.md) for browser management. Password/Passkey setup is optional when the user prefers another method. Agent management continues through Wrangler.
 
 Follow [the next action](../common/handoff.md#choose-the-next-action): normally connect the first Codex, then the intended Personal Agent. If no PA is connected and none is chosen, offer to help connect one and ask which client the user wants. Hand off only the part you cannot execute.

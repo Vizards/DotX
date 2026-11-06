@@ -11,7 +11,13 @@ import {
 import type { Env } from '../env.ts';
 import type { Store } from '../hub/storage.ts';
 import { attemptKeys, consumeAttempt } from '../hub/attempts.ts';
-import type { AdminClaim as Claim } from '@dotx/shared/http/admin';
+import { AdminVault } from './vault.ts';
+import {
+  CloudflareSessions,
+  browserSessionKey as sessionKey,
+  type ProviderSession,
+  type StoredSession,
+} from './cloudflare-session.ts';
 import { randomSecret, sha256, sameSecret } from '../http/crypto.ts';
 import { HttpError } from '../http/responses.ts';
 import { passwordHash, passwordMatches, type PasswordHash } from './password.ts';
@@ -19,8 +25,6 @@ import { passwordHash, passwordMatches, type PasswordHash } from './password.ts'
 const credentialsKey = 'admin:credentials';
 const temporary = 'admin:browser:';
 const setupKey = temporary + 'setup';
-const claimKey = (id: string) => temporary + 'claim:' + id;
-const sessionKey = (id: string) => temporary + 'session:' + id;
 const ceremonyKey = (id: string) => temporary + 'ceremony:' + id;
 export const sessionSeconds = 30 * 24 * 60 * 60;
 const sessionRenewalInterval = 60 * 60 * 1000;
@@ -32,6 +36,7 @@ interface Passkey extends WebAuthnCredential {
 }
 interface Credentials {
   user_id: string;
+  initialized?: boolean;
   password?: PasswordHash;
   passkeys: Passkey[];
 }
@@ -50,22 +55,26 @@ interface Ceremony extends Expiring {
 }
 export interface BrowserSession extends Expiring {
   csrf: string;
+  subject?: string;
 }
 export interface BrowserAuthority {
   setup?: string;
-  claim?: string;
   session?: string;
   csrf?: string;
 }
 
-// One administrator for this service. Passwords, passkeys and browser sessions
-// do not carry Cloudflare identities or affect Personal Agent OAuth grants.
+// All three browser login methods manage the same service. Provider sessions
+// retain their identity and permission checks; Personal Agent grants are separate.
 export class AdminCredentials {
   private readonly store: DurableObjectStorage;
   private readonly env: Env;
+  readonly vault: AdminVault;
+  private readonly cloudflareSessions: CloudflareSessions;
   constructor(store: DurableObjectStorage, env: Env) {
     this.store = store;
     this.env = env;
+    this.vault = new AdminVault(store);
+    this.cloudflareSessions = new CloudflareSessions(store, env, this.vault);
   }
   private async credentials(tx: Store): Promise<Credentials> {
     return (await tx.get<Credentials>(credentialsKey)) ?? { user_id: randomSecret(), passkeys: [] };
@@ -83,6 +92,8 @@ export class AdminCredentials {
   async status() {
     const credentials = await this.credentials(this.store);
     return {
+      initialized:
+        !!credentials.initialized || !!credentials.password || credentials.passkeys.length > 0,
       configured: !!credentials.password || credentials.passkeys.length > 0,
       password_enabled: !!credentials.password,
       passkey_enabled: credentials.passkeys.length > 0,
@@ -129,39 +140,18 @@ export class AdminCredentials {
       })),
     };
   }
-  async startClaim(id: string | undefined, nextId: string, restart: boolean) {
-    return this.store.transaction(async (tx) => {
-      const previous = id ? await tx.get<Claim>(claimKey(id)) : undefined;
-      if (previous && previous.expires_at > Date.now() && !restart)
-        return { claim: previous, created: false };
-      await consumeAttempt(tx, 'claim');
-      if (id) await tx.delete(claimKey(id));
-      const credentials = await this.credentials(tx);
-      const claim: Claim = {
-        challenge: randomSecret(),
-        reset: !!credentials.password || credentials.passkeys.length > 0,
-        verified: false,
-        expires_at: Date.now() + setupMilliseconds,
-      };
-      await this.save(tx, claimKey(nextId), claim);
-      return { claim, created: true };
-    });
-  }
-  async verifyClaim(id: string | undefined, deployedChallenge: string | undefined) {
-    return this.store.transaction(async (tx) => {
-      const claim = id ? await tx.get<Claim>(claimKey(id)) : undefined;
-      if (!claim || claim.expires_at <= Date.now()) return null;
-      if (!claim.verified && deployedChallenge && sameSecret(claim.challenge, deployedChallenge)) {
-        claim.verified = true;
-        await this.save(tx, claimKey(id!), claim);
-      }
-      return claim;
-    });
-  }
-  async session(id: string, csrf?: string) {
+  async session(id: string, csrf?: string, validateProvider = true) {
+    const before = await this.live<StoredSession>(
+      this.store,
+      sessionKey(id),
+      'ADMIN_LOGIN_REQUIRED',
+    );
+    if (csrf !== undefined && !sameSecret(before.csrf, csrf))
+      throw new HttpError(403, 'CSRF_REQUIRED');
+    if (validateProvider && before.cloudflare) await this.cloudflareSessions.validate(id);
     // Check and extend atomically; a late request cannot recreate a revoked session.
     return this.store.transaction(async (tx) => {
-      const session = await this.live<BrowserSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
+      const session = await this.live<StoredSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
       if (csrf !== undefined && !sameSecret(session.csrf, csrf))
         throw new HttpError(403, 'CSRF_REQUIRED', 'Refresh the management page before retrying.');
       const expiresAt = Date.now() + sessionSeconds * 1000;
@@ -169,19 +159,19 @@ export class AdminCredentials {
         session.expires_at = expiresAt;
         await this.save(tx, sessionKey(id), session);
       }
-      return session;
+      return {
+        csrf: session.csrf,
+        expires_at: session.expires_at,
+        subject: session.cloudflare?.subject ?? 'administrator',
+      };
     });
   }
   async logout(id: string) {
     await this.store.delete(sessionKey(id));
   }
   private async authority(tx: Store, auth: BrowserAuthority): Promise<Credentials> {
-    if (auth.setup || auth.claim) {
-      const ticket = auth.setup
-        ? await this.setup(tx, auth.setup)
-        : await this.live<Claim>(tx, claimKey(auth.claim!), 'CLAIM_EXPIRED');
-      if ('verified' in ticket && !ticket.verified)
-        throw new HttpError(403, 'CLAIM_NOT_VERIFIED', 'Verify Worker ownership first.');
+    if (auth.setup) {
+      const ticket = await this.setup(tx, auth.setup);
       if (ticket.reset) return { user_id: randomSecret(), passkeys: [] };
     } else {
       const session = await this.live<BrowserSession>(
@@ -194,32 +184,38 @@ export class AdminCredentials {
     return this.credentials(tx);
   }
   private binding(auth: BrowserAuthority) {
-    return auth.setup
-      ? 'setup:' + auth.setup
-      : auth.claim
-        ? 'claim:' + auth.claim
-        : 'session:' + auth.session;
+    return auth.setup ? 'setup:' + auth.setup : 'session:' + auth.session;
   }
-  private async createSession(tx: Store) {
+  async createSession(tx: Store, cloudflare?: ProviderSession) {
+    const credentials = await this.credentials(tx);
+    if (!credentials.initialized)
+      await tx.put(credentialsKey, { ...credentials, initialized: true });
     const secret = randomSecret();
-    const record = { csrf: randomSecret(), expires_at: Date.now() + sessionSeconds * 1000 };
+    const record: StoredSession = {
+      csrf: randomSecret(),
+      expires_at: Date.now() + sessionSeconds * 1000,
+      ...(cloudflare ? { cloudflare } : {}),
+    };
     await this.save(tx, sessionKey(await sha256(secret)), record);
-    return { secret, ...record };
+    return { secret, csrf: record.csrf, expires_at: record.expires_at };
   }
-  private async changed(tx: Store, credentials: Credentials) {
-    await tx.put(credentialsKey, credentials);
-    // A credential change revokes old browser sessions and unfinished ceremonies.
-    // It never changes devices, Personal Agent grants, or Wrangler authority.
+  private async changed(tx: Store, credentials: Credentials, auth: BrowserAuthority) {
+    const current = auth.session
+      ? await tx.get<StoredSession>(sessionKey(auth.session))
+      : undefined;
+    await tx.put(credentialsKey, { ...credentials, initialized: true });
+    // Revoke other sessions and unfinished ceremonies, retaining the current
+    // authentication method when issuing its replacement cookie.
     const records = await tx.list({ prefix: temporary });
     for (const key of records.keys())
-      if (key !== attemptKeys.login && key !== attemptKeys.claim) await tx.delete(key);
-    return this.createSession(tx);
+      if (key !== attemptKeys.login && key !== attemptKeys.oauth) await tx.delete(key);
+    return this.createSession(tx, current?.cloudflare);
   }
   async setPassword(auth: BrowserAuthority, password: unknown) {
     return this.store.transaction(async (tx) => {
       const credentials = await this.authority(tx, auth);
       credentials.password = passwordHash(password);
-      return this.changed(tx, credentials);
+      return this.changed(tx, credentials, auth);
     });
   }
   async renamePasskey(auth: BrowserAuthority, passkeyId: string, name: unknown) {
@@ -243,13 +239,7 @@ export class AdminCredentials {
       const credentials = await this.authority(tx, auth);
       if (passkeyId === undefined) delete credentials.password;
       else credentials.passkeys = credentials.passkeys.filter((key) => key.id !== passkeyId);
-      if (!credentials.password && !credentials.passkeys.length)
-        throw new HttpError(
-          409,
-          'LAST_LOGIN_METHOD',
-          'Add another password or passkey before removing the last login method.',
-        );
-      return this.changed(tx, credentials);
+      return this.changed(tx, credentials, auth);
     });
   }
   private async attempt() {
@@ -329,7 +319,7 @@ export class AdminCredentials {
       const credentials = await this.authority(tx, auth);
       // Setup has no persistent user yet. The server-generated handle belongs to
       // this consumed, authority-bound ceremony, never to a browser input.
-      if (auth.setup || auth.claim) credentials.user_id = ceremony.user_id;
+      if (auth.setup) credentials.user_id = ceremony.user_id;
       if (credentials.user_id !== ceremony.user_id)
         throw new HttpError(401, 'PASSKEY_REQUEST_EXPIRED');
       if (credentials.passkeys.some((key) => key.id === credential.id))
@@ -339,7 +329,7 @@ export class AdminCredentials {
         name: typeof name === 'string' && name.trim() ? name.trim() : 'Passkey',
         created_at: Date.now(),
       });
-      return this.changed(tx, credentials);
+      return this.changed(tx, credentials, auth);
     });
   }
   async authenticationOptions(id: string) {

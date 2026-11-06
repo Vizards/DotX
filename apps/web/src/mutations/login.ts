@@ -1,5 +1,7 @@
 import { mutationOptions } from '@tanstack/react-query';
 import {
+  startCloudflareLogin,
+  completeCloudflareLogin,
   loginPassword,
   loginPasskey,
   setPassword,
@@ -27,3 +29,8 @@ export const removeLoginMutation = (csrf: string) =>
   mutationOptions({
     mutationFn: (id?: string) => removeLogin(csrf, id),
   });
+
+export const cloudflareStartMutation = () =>
+  mutationOptions({ mutationFn: startCloudflareLogin, gcTime: 0 });
+export const cloudflareCompleteMutation = () =>
+  mutationOptions({ mutationFn: completeCloudflareLogin, gcTime: 0 });

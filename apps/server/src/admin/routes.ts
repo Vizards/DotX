@@ -33,7 +33,7 @@ export async function adminRoutes(
   };
   try {
     if (path === '/admin/logout' && request.method === 'POST') {
-      await authenticateSession(request, env);
+      await authenticateSession(request, env, false);
       return json({ ok: true }, 200, { 'Set-Cookie': await clearSession(request, env) });
     }
     if (
@@ -74,7 +74,7 @@ export async function adminRoutes(
       const input = nameInput.safeParse(await readJson(request));
       if (!input.success) throw new HttpError(400, 'PASSKEY_NAME_REQUIRED');
       const passkeys = await control(env, 'admin/passkey-rename', {
-        auth: await browserAuthority(request),
+        auth: await browserAuthority(request, env),
         passkeyId: renaming[1],
         name: input.data.name,
       });
@@ -83,7 +83,7 @@ export async function adminRoutes(
     const removal = /^\/admin\/api\/(password|passkeys\/([^/]+))$/.exec(path);
     if (removal && request.method === 'DELETE') {
       const session = await control<BrowserSession & { secret: string }>(env, 'admin/remove', {
-        auth: await browserAuthority(request),
+        auth: await browserAuthority(request, env),
         passkeyId: removal[2],
       });
       return sessionResponse(env, session);

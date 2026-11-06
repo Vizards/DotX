@@ -148,6 +148,7 @@ export const en = {
 
   security: {
     title: 'Sign-in methods',
+    cloudflareHint: 'DotX also supports one-click sign-in with Cloudflare',
     description:
       'A password and passkeys give the same management access. Changing either signs out other browsers; this one stays signed in.',
     passwordTitle: 'Password',
@@ -157,27 +158,49 @@ export const en = {
     passwordChangeAction: 'Change password',
     passwordRemove: 'Remove password',
     passwordDialogBody: 'The new password replaces the old one and signs other browsers out.',
-    passwordKeepOne: 'Add a passkey before removing the password.',
     passkeyTitle: 'Passkeys',
     passkeyEmpty: 'No passkeys yet.',
     passkeyAdded: 'Added {date}',
     passkeyRename: 'Rename',
     passkeyRenameTitle: 'Rename passkey',
     passkeyRemove: 'Remove',
-    passkeyRemoveLast: 'Keep at least one login method.',
     addPasskey: 'Add a passkey',
     passkeyNameLabel: 'Passkey name (optional)',
     passkeyNamePlaceholder: 'For example, iCloud Keychain',
     passkeyCreate: 'Create passkey',
     passkeyWaiting: 'Follow your browser’s prompt…',
     removePasswordTitle: 'Remove the password?',
-    removePasswordBody: 'Passkeys will be the only way to sign in to this Server.',
+    removePasswordBody: 'This password will no longer work for this Server.',
     removePasskeyTitle: 'Remove this passkey?',
     removePasskeyBody: 'That browser can no longer sign in with it.',
     removeConfirm: 'Remove',
   },
 
   login: {
+    cloudflareAction: 'Sign in with Cloudflare',
+    otherMethods: 'Other sign-in methods',
+    passkeyAlternative: 'Sign in with passkey',
+    learnPrivacy: 'Learn about ',
+    privacyTitle: 'Cloudflare login and privacy',
+    agentAlternative: 'Have concerns or need help? Ask your installation Agent to help you ',
+    setupAlternative: 'set up a sign-in method',
+    privacyPermissions:
+      'This Server reads your Cloudflare profile and account memberships to verify management permission. It does not request permission to modify Cloudflare resources.',
+    privacyCredentials:
+      'Cloudflare handles your Cloudflare password. This Server stores login credentials to keep you signed in automatically.',
+    privacyRelay:
+      'The public relay handles redirects and temporary authorization codes. It does not store access or refresh tokens; it can see the Server address, IP and other request information.',
+    privacyChoice:
+      'You can revoke authorization in Cloudflare, or ask your installation Agent to help set up a password or passkey.',
+    authorizedTitle: 'Authorization successful',
+    checkingBody: 'Checking this Cloudflare account’s management permission. Please wait.',
+    deniedTitle: 'No management permission',
+    deniedBody: 'Ask your installation Agent which Cloudflare account hosts this DotX Server.',
+    currentAccount: 'Current Cloudflare account',
+    switchCloudflare: 'Use another Cloudflare account',
+    failedTitle: 'Could not complete sign-in',
+    backToLogin: 'Back to sign-in',
+
     title: 'Manage DotX',
     passkeyAction: 'Sign in with passkey',
     usePassword: 'Sign in with password',
@@ -185,75 +208,16 @@ export const en = {
     passwordSignIn: 'Sign in',
     reset: 'Having trouble?',
     or: 'or',
-    recoverTitle: 'Reset how you sign in',
-    recoverCloudflare: 'Verify with Cloudflare',
-    recoverReset: 'Start verification',
-    unfinishedReset: 'An earlier reset is unfinished; its verification value expires {time}.',
-    unfinishedSetup: 'Setup is unfinished; its verification value expires {time}.',
-    continueReset: 'Continue resetting',
-    continueSetup: 'Continue Cloudflare verification',
-    unfinishedFlag: 'An unfinished reset is waiting',
-    recoverAgent: 'Ask the Agent that installed this Server to help',
+    recoverTitle: 'Reset browser login',
     recoverAgentBody:
-      'If you remember which Agent installed this DotX Server, send it this request. It issues a one-time reset link.',
+      'Send this request to your installation Agent to get a browser login reset link.',
     unconfiguredTitle: 'Set up browser login',
     unconfiguredLede: 'Set a password or passkey to manage DotX from a browser.',
     unconfiguredAgent: 'Send this request to the Agent that installed this Server',
     unconfiguredAgentBody: 'It issues you a one-time setup link.',
-    setupManual: 'Verify with Cloudflare',
+    setupManual: 'Sign in with Cloudflare',
     recoverPrompt: 'Give me a link to reset browser login for this DotX: {origin}\nGuide: {guide}',
     setupPrompt: 'Give me a link to set up browser login for this DotX: {origin}\nGuide: {guide}',
-  },
-
-  claim: {
-    setupTitle: 'Verify and set up login',
-    resetTitle: 'Reset how you sign in',
-    setupLede: 'Verify you manage this Server with Cloudflare, then choose how you sign in.',
-    resetLede: 'Your current way of signing in keeps working until you finish.',
-
-    step1Title: 'Write the verification value in Cloudflare',
-    step1Hint: 'Add this value to the Worker’s runtime variables.',
-    step1BodyNew:
-      'Select Add variable and paste the whole line below into Key. Cloudflare fills in the name and value.',
-    step1BodyPresent:
-      'In Runtime variables and secrets, edit {name} and replace its value with the one below.',
-    step1Copy: 'Copy and open Cloudflare',
-    step1Reopen: 'Open Cloudflare again',
-    step1DoneCopied: 'Verification value copied.',
-    step1DoneWritten: 'Value written to Cloudflare.',
-    step1BodyTail: 'Then save and deploy the Worker.',
-    restartTitle: 'Generate a new value?',
-    restartBody: 'The current value stops working, including the copy in Cloudflare.',
-
-    step2Title: 'Deploy the Worker',
-    step2Hint: 'It detects the deployment by itself, no refresh needed.',
-    step2Check: 'Check now',
-    step2Checking: 'Checking…',
-    step2Detected: 'Deployment detected.',
-    step2LastCheck: 'Last checked {time}',
-
-    step3Title: 'Choose how you sign in',
-    step3Hint: 'Pick a passkey or a password once verification passes.',
-    step3Body: 'Pick one. You can add the other under Sign-in methods later.',
-    step3Done: 'Sign-in method saved.',
-
-    nameInValue:
-      'Cloudflare’s Value contains {name}=. Keep only the part after the equals sign, then deploy again.',
-    mismatch:
-      'The deployed value differs from this page. Copy this page’s value again and update the same variable.',
-    missing: '{name} is not in the deployment yet. Add it and deploy.',
-    expires: 'Expires {time}.',
-    expired: 'Expired.',
-    restart: 'Verify again',
-    rateLimited:
-      'Too many new verification requests. Try again in about {seconds} seconds. Existing requests can still continue.',
-    expand: 'Expand',
-    collapse: 'Collapse',
-    details: 'Settings look different?',
-    detailsBody:
-      'When adding a variable, paste {pair} into Key. When editing one, put only {value} into Value. Variable and Secret both work.',
-    resetWarn:
-      'Saving replaces the old password and all passkeys and signs out other browsers. Codex devices and agents are kept.',
   },
 
   setup: {
@@ -314,6 +278,16 @@ export const en = {
   },
 
   errors: {
+    CF_LOGIN_EXPIRED: 'This sign-in request expired. Start again.',
+    CF_LOGIN_REQUIRED: 'Your Cloudflare sign-in expired. Sign in again.',
+    CF_AUTHORIZATION_CANCELLED: 'Cloudflare authorization was cancelled.',
+    CF_LOGIN_FAILED: 'Cloudflare could not complete authorization. Start again.',
+    CF_UNAVAILABLE: 'Cloudflare is temporarily unavailable. Try again later.',
+    CF_RELAY_UNAVAILABLE: 'The sign-in service is temporarily unavailable. Try again later.',
+    CF_REFRESH_UNAVAILABLE:
+      'The sign-in service did not provide a refresh credential. Contact your installation Agent.',
+    CF_IDENTITY_INVALID: 'Your Cloudflare identity could not be verified. Sign in again.',
+
     AUTHORIZATION_REMOVED:
       'This authorization was removed or expired. Start again from the client.',
     AUTHORIZATION_NOT_APPROVED: 'This request has not been approved.',
@@ -321,15 +295,10 @@ export const en = {
 
     INVALID_LOGIN: 'That password is not correct.',
     LOGIN_ATTEMPTS_EXHAUSTED: 'Too many attempts. Wait a moment and try again.',
-    LAST_LOGIN_METHOD: 'Keep at least one login method.',
     PASSWORD_REQUIRED: 'Enter a password.',
     PASSKEY_NOT_CONFIGURED: 'No passkey is registered yet.',
     PASSKEY_REQUEST_EXPIRED: 'The browser prompt expired. Try again.',
     PASSKEY_VERIFICATION_FAILED: 'The passkey could not be verified.',
-    CLAIM_EXPIRED: 'This request expired. Start a new one.',
-    CLAIM_NOT_VERIFIED: 'The deployment has not been detected yet.',
-    CLAIM_ATTEMPTS_EXHAUSTED:
-      'Too many new verification requests. Try again later. Existing requests can still continue.',
     AUTHORIZATION_EXPIRED: 'This authorization expired. Start again from your agent.',
     AUTHORIZATION_INTERRUPTED: 'Authorization was interrupted. Start again from your agent.',
     AUTHORIZATION_CANCELLED: 'Authorization was cancelled. Start again from your agent.',

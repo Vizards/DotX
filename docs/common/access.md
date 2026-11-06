@@ -22,7 +22,7 @@ For a Server that does not exist yet, use [deployment login](../server/wrangler-
 | --- | --- |
 | Another Agent has target Worker management access | Hand off the exact action and target using [the management template](handoff.md#hand-off-a-task). No browser login setup is needed |
 | An authorized management browser is available | Use `/admin/devices` for devices or `/admin/agents` for PA connections; verify the exact item |
-| User wants browser management but has never configured it | Complete [browser setup](../server/browser-login.md), then return to the original action |
+| User wants browser management | Recommend [Sign in with Cloudflare](../server/browser-login.md), then return to the original action. Existing password/passkey methods also work |
 | 401 from management | Check the selected official Wrangler login and recover it if needed |
 | 403 from management | Obtain a management path with target Worker permission; signing in again alone does not grant it |
 | CF/network failure | Preserve the error as an upstream failure, not proof of absent permission. Read state before retrying an uncertain write |
@@ -32,4 +32,4 @@ Agent management uses official Wrangler OAuth and direct permission to modify/de
 
 A failed read is unknown state, not an empty list. The management page displays `N/A` for failed counts and `0` for a successfully read empty result. Retry the read before deciding to install, approve or recreate anything.
 
-Browser management uses this service's password/passkey. It is independent of Cloudflare membership and PA OAuth. A PA's MCP grant is not management access; the same Agent may separately have an authorized Wrangler environment.
+Browser management supports Cloudflare, password and Passkey. Cloudflare login checks direct management permission for this Worker; local credentials are independent of Cloudflare membership. Browser login and PA OAuth are separate. A PA's MCP grant is not management access; the same Agent may separately have an authorized Wrangler environment.
