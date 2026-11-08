@@ -4,43 +4,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { z } from 'zod';
+import { checkedPath } from '../local/paths.ts';
 
-const desktopSchema = z.object({
-  app: z.string(),
-  cli: z.string(),
-  node: z.string(),
-  version: z.string(),
-});
-type Desktop = z.infer<typeof desktopSchema>;
-let windowsDesktop: Desktop | undefined;
-function discoverWindows(): Desktop {
-  if (windowsDesktop) return windowsDesktop;
-  const root = process.env.DOTX_PLUGIN_ROOT || path.dirname(fileURLToPath(import.meta.url));
-  const output =
-    process.env.DOTX_DESKTOP_RUNTIME ||
-    execFileSync(
-      path.join(
-        process.env.SystemRoot || 'C:\\Windows',
-        'System32/WindowsPowerShell/v1.0/powershell.exe',
+export function discoverDesktop(appPath = process.env.DOTX_APP_PATH) {
+  // Private host-provided executable, used without package discovery. Desktop
+  // version metadata is not required to probe the actual native capabilities.
+  if (process.platform === 'win32')
+    return {
+      cli: checkedPath(
+        process.env.CODEX_APP_RUNTIME_CLI_PATH,
+        'CODEX_APP_RUNTIME_CLI_PATH_REQUIRED',
       ),
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        path.join(root, 'runtime.ps1'),
-        '-Json',
-      ],
-      { encoding: 'utf8', timeout: DEFAULT_TIMEOUT_MS, windowsHide: true },
-    );
-  return (windowsDesktop = desktopSchema.parse(JSON.parse(output.replace(/^\uFEFF/, ''))));
-}
-
-export function discoverDesktop(appPath = process.env.DOTX_APP_PATH): Desktop {
-  if (process.platform === 'win32') return discoverWindows();
+      version: 'unknown',
+    };
   const apps = appPath
     ? [appPath]
     : ['/Applications', path.join(os.homedir(), 'Applications')].flatMap((dir) => {
