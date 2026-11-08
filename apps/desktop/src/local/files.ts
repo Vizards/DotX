@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { secureDirectory, verifyPrivate, replacePrivate } from '../platform/windows/files.ts';
+import { secureDirectory } from '../platform/windows/files.ts';
 export function privateDir(dir: string) {
   if (process.platform === 'win32') {
     secureDirectory(dir);
@@ -12,7 +12,6 @@ export function privateDir(dir: string) {
   return dir;
 }
 export function readJson<T = unknown>(file: string): T {
-  if (process.platform === 'win32') verifyPrivate(file);
   return JSON.parse(fs.readFileSync(file, 'utf8')) as T;
 }
 export function writePrivate(file: string, value: string) {
@@ -26,11 +25,8 @@ export function writePrivate(file: string, value: string) {
     } finally {
       fs.closeSync(fd);
     }
-    if (process.platform === 'win32') {
-      replacePrivate(temporary, file);
-      return;
-    }
     fs.renameSync(temporary, file);
+    if (process.platform === 'win32') return;
     const parent = fs.openSync(directory, 'r');
     try {
       fs.fsyncSync(parent);

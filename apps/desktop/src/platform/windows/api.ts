@@ -31,13 +31,6 @@ function createApi() {
     attributes: k(
       'int GetFileInformationByHandleEx(void *handle, int kind, void *info, uint32 size)',
     ),
-    moveFile: k('int MoveFileExW(str16 from, str16 to, uint32 flags)'),
-    lock: k(
-      'int LockFileEx(void *handle, uint32 flags, uint32 reserved, uint32 low, uint32 high, void *overlapped)',
-    ),
-    unlock: k(
-      'int UnlockFileEx(void *handle, uint32 reserved, uint32 low, uint32 high, void *overlapped)',
-    ),
     openProcess: k('void *OpenProcess(uint32 access, int inherit, uint32 pid)'),
     processSession: k('int ProcessIdToSessionId(uint32 pid, _Out_ uint32 *session)'),
     processImage: k(
