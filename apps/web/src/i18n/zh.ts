@@ -273,7 +273,6 @@ export const zh: Messages = {
     CF_LOGIN_FAILED: 'Cloudflare 未能完成授权，请重新开始。',
     CF_UNAVAILABLE: '暂时无法连接 Cloudflare，请稍后重试。',
     CF_RELAY_UNAVAILABLE: '暂时无法连接登录服务，请稍后重试。',
-    CF_REFRESH_UNAVAILABLE: '登录服务尚未提供自动续期凭据，请联系安装 Agent。',
     CF_IDENTITY_INVALID: '无法验证 Cloudflare 身份，请重新登录。',
 
     AUTHORIZATION_REMOVED: '这次授权已被移除或已过期，请从客户端重新开始。',

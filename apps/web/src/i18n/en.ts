@@ -284,8 +284,6 @@ export const en = {
     CF_LOGIN_FAILED: 'Cloudflare could not complete authorization. Start again.',
     CF_UNAVAILABLE: 'Cloudflare is temporarily unavailable. Try again later.',
     CF_RELAY_UNAVAILABLE: 'The sign-in service is temporarily unavailable. Try again later.',
-    CF_REFRESH_UNAVAILABLE:
-      'The sign-in service did not provide a refresh credential. Contact your installation Agent.',
     CF_IDENTITY_INVALID: 'Your Cloudflare identity could not be verified. Sign in again.',
 
     AUTHORIZATION_REMOVED:

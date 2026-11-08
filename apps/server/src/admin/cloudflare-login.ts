@@ -181,7 +181,7 @@ export class CloudflareLogin {
       });
       if (!tokens.refresh_token) {
         await revokeCloudflareToken(BROWSER_CLIENT_ID, tokens.access_token);
-        throw new HttpError(503, 'CF_REFRESH_UNAVAILABLE');
+        throw new HttpError(503, 'CF_LOGIN_FAILED');
       }
       let identity;
       try {
