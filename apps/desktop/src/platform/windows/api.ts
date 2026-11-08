@@ -19,9 +19,15 @@ function createApi() {
   const k = (signature: string) => kernel.func(signature);
   const a = (signature: string) => security.func(signature);
   const sa = ffi.struct({ length: 'uint32', descriptor: 'void *', inherit: 'int' });
+  const waitCallback = ffi.proto('void __stdcall DotxWaitCallback(void *context, uint8 timedOut)');
   const api = {
     ffi,
     sa,
+    waitCallback: ffi.pointer(waitCallback),
+    registerWait: k(
+      'int RegisterWaitForSingleObject(_Out_ void **wait, void *event, DotxWaitCallback *callback, void *context, uint32 timeout, uint32 flags)',
+    ),
+    unregisterWait: k('int UnregisterWaitEx(void *wait, void *completionEvent)'),
     lastError: k('uint32 GetLastError()'),
     close: k('int CloseHandle(void *handle)'),
     localFree: k('void *LocalFree(void *memory)'),

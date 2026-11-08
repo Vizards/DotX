@@ -17,8 +17,8 @@ import {
 import type { Handle } from './api.ts';
 
 // OVERLAPPED and data must remain at stable addresses until cancellation has
-// completed. Never hand Windows a transient JS Buffer for pending I/O. Polling
-// completion is nonblocking and leaves Node's worker pool free for DNS/fs work.
+// completed. Windows signals the event once; pending I/O occupies neither a JS
+// polling timer nor a Node worker thread.
 function operation(
   handle: Handle,
   start: (memory: Handle, overlapped: Handle) => number,
@@ -34,7 +34,8 @@ function operation(
   ffi.encode(overlapped, 24, 'void *', event);
   if (input) ffi.encode(memory, 'uint8', input, input.length);
   let done = false,
-    timer: ReturnType<typeof setTimeout> | undefined;
+    callback: ReturnType<typeof ffi.register> | undefined;
+  const wait: (Handle | null)[] = [null];
   let resolve!: (value: Buffer) => void, reject!: (error: Error) => void;
   const promise = new Promise<Buffer>((yes, no) => {
     resolve = yes;
@@ -43,30 +44,47 @@ function operation(
   const finish = (error?: Error, count = 0) => {
     if (done) return;
     done = true;
-    clearTimeout(timer);
-    const result = error ? undefined : Buffer.from(ffi.decode(memory, 'uint8', count));
-    ffi.free(memory);
-    ffi.free(overlapped);
-    api.close(event);
-    if (error) reject(error);
-    else resolve(result!);
+    const release = () => {
+      if (callback) ffi.unregister(callback);
+      const result = error ? undefined : Buffer.from(ffi.decode(memory, 'uint8', count));
+      ffi.free(memory);
+      ffi.free(overlapped);
+      api.close(event);
+      if (error) reject(error);
+      else resolve(result!);
+    };
+    if (!wait[0]) {
+      release();
+      return;
+    }
+    // A Koffi callback runs on JS while the Windows callback thread waits for
+    // it to return. Join that callback off-thread, then release its trampoline
+    // and event. This brief cleanup wait starts only after I/O has completed.
+    api.unregisterWait.async(wait[0], INVALID_HANDLE, (cleanupError: Error | null, ok: number) => {
+      if (cleanupError || !ok) {
+        // Do not free memory which an unjoined native callback could still use.
+        reject(cleanupError ?? new BridgeError('PIPE_WAIT_CLEANUP_FAILED'));
+        return;
+      }
+      release();
+    });
   };
-  const poll = () => {
+  const completed = () => {
+    if (done) return;
     const count = [0];
     if (api.result(handle, overlapped, count, 0)) finish(undefined, count[0]);
-    else {
-      const code = Number(api.lastError());
-      if (code === 996) timer = setTimeout(poll, 10);
-      else finish(failure('Pipe I/O', code));
-    }
+    else finish(failure('Pipe I/O'));
   };
   try {
-    if (start(memory, overlapped)) poll();
+    callback = ffi.register(completed, api.waitCallback);
+    // Register before starting I/O so registration failure leaves no pending
+    // operation. INFINITE + WT_EXECUTEONLYONCE also covers immediate completion.
+    check(api.registerWait(wait, event, callback, null, 0xffffffff, 8), 'Register pipe wait');
+    if (start(memory, overlapped)) completed();
     else {
       const code = Number(api.lastError());
-      if (code === 997) poll();
-      else if (code === 535 && size === 0) finish(); // Client connected before ConnectNamedPipe.
-      else finish(failure('Pipe I/O', code));
+      if (code === 535 && size === 0) finish(); // Client connected before ConnectNamedPipe.
+      else if (code !== 997) finish(failure('Pipe I/O', code));
     }
   } catch (error) {
     finish(error as Error);
@@ -79,13 +97,6 @@ function operation(
   };
 }
 type Operation = ReturnType<typeof operation>;
-type ProcessLease = ReturnType<typeof processLease>;
-let desktopProcess: ProcessLease | undefined;
-export const desktopAlive = () => !desktopProcess || desktopProcess.alive();
-export function closeDesktopProcess() {
-  desktopProcess?.close();
-  desktopProcess = undefined;
-}
 
 function peer(handle: Handle, server: boolean, desktopImage?: string) {
   const pid = [0],
@@ -100,18 +111,10 @@ function peer(handle: Handle, server: boolean, desktopImage?: string) {
       const canonical = (file: string) => fs.realpathSync.native(file).toLowerCase();
       if (canonical(lease.image) !== canonical(desktopImage))
         throw new BridgeError('DESKTOP_PIPE_PROCESS_MISMATCH');
-      if (desktopProcess && desktopProcess.pid !== lease.pid)
-        throw new BridgeError('DESKTOP_PIPE_PROCESS_CHANGED');
-      if (!desktopProcess) {
-        desktopProcess = lease;
-        return;
-      }
     }
-  } catch (error) {
+  } finally {
     lease.close();
-    throw error;
   }
-  lease.close();
 }
 export class WindowsPipe extends Duplex {
   private handle?: Handle;

@@ -1,4 +1,4 @@
-import { parentLifetime } from './platform/lifetime.ts';
+import fs from 'node:fs';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { createDeviceMcp } from './mcp.ts';
 import { Runtime } from './runtime.ts';
@@ -6,11 +6,10 @@ import { dataDir, pluginRoot } from './local/paths.ts';
 import { errorValue } from '@dotx/shared/errors';
 import packageInfo from '../package.json' with { type: 'json' };
 process.umask(0o077);
-const pipe = process.env.CODEX_APP_TOOLS_PIPE_PATH;
-let lifetime: ReturnType<typeof parentLifetime> | undefined;
+const parent = process.ppid,
+  pipe = process.env.CODEX_APP_TOOLS_PIPE_PATH;
 let runtime: Runtime | undefined, initialError: unknown;
 try {
-  lifetime = parentLifetime(pipe);
   const dir = dataDir(),
     root = pluginRoot();
   process.chdir(dir);
@@ -43,18 +42,21 @@ async function stop() {
   clearInterval(timer);
   await runtime?.stop();
   await stdio.close();
-  lifetime?.close();
   process.exit(0);
 }
 const timer = setInterval(() => {
-  if (lifetime && !lifetime.alive()) {
+  // macOS launches Node directly. Windows launches it through waiting shell
+  // wrappers, so its immediate parent is not a useful host-lifetime signal.
+  if (process.platform !== 'win32' && (process.ppid !== parent || (pipe && !fs.existsSync(pipe)))) {
     void stop();
     return;
   }
   void runtime?.start();
 }, 1000);
 process.stdin.once('end', () => {
-  if (!pipe) void stop();
+  // On Windows, the MCP host owns this input pipe. End-of-input stops this
+  // entry even before its first native connection, including configured owners.
+  if (process.platform === 'win32' || !pipe) void stop();
 });
 process.once('SIGTERM', () => {
   void stop();
