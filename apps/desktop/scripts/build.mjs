@@ -16,5 +16,5 @@ await build({
     js: "import { createRequire as bundleRequire } from 'node:module'; const require = bundleRequire(import.meta.url);",
   },
 });
-for (const file of ['runtime.ps1', 'private-path.ps1'])
+for (const file of ['runtime.ps1', 'private-directory.ps1'])
   fs.copyFileSync(`plugin/${file}`, `dist/${file}`);

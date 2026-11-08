@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createPrivateKey, createPublicKey, createHash, generateKeyPairSync } from 'node:crypto';
 import { publicKeySchema } from '@dotx/shared/http/enrollment';
-import { writePrivate, preparePrivateFile } from './files.ts';
+import { writePrivate } from './files.ts';
 export function identity(dir: string, initialize = false) {
   const file = path.join(dir, 'identity/private-key.pem');
   if (!fs.existsSync(file)) {
@@ -12,7 +12,6 @@ export function identity(dir: string, initialize = false) {
     writePrivate(file, pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString());
   }
   let privateKey;
-  preparePrivateFile(file);
   try {
     privateKey = createPrivateKey(fs.readFileSync(file, 'utf8'));
     if (privateKey.asymmetricKeyType !== 'ed25519') throw new Error();

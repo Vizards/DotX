@@ -5,10 +5,10 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 
-const prepared = new Set<string>();
-function prepareWindowsPath(file: string, directory = false) {
-  const key = `${directory}:${path.resolve(file).toLowerCase()}`;
-  if (prepared.has(key)) return;
+const preparedDirectories = new Set<string>();
+function prepareWindowsDirectory(dir: string) {
+  const key = path.resolve(dir).toLowerCase();
+  if (preparedDirectories.has(key)) return;
   const root = process.env.DOTX_PLUGIN_ROOT || path.dirname(fileURLToPath(import.meta.url));
   execFileSync(
     path.join(
@@ -21,23 +21,17 @@ function prepareWindowsPath(file: string, directory = false) {
       '-ExecutionPolicy',
       'Bypass',
       '-File',
-      path.join(root, 'private-path.ps1'),
+      path.join(root, 'private-directory.ps1'),
       '-Path',
-      path.resolve(file),
-      ...(directory ? ['-Directory'] : []),
+      path.resolve(dir),
     ],
     { timeout: DEFAULT_TIMEOUT_MS, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] },
   );
-  prepared.add(key);
-}
-export function preparePrivateFile(file: string) {
-  if (process.platform !== 'win32') return;
-  privateDir(path.dirname(file));
-  prepareWindowsPath(file);
+  preparedDirectories.add(key);
 }
 export function privateDir(dir: string) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if (process.platform === 'win32') prepareWindowsPath(dir, true);
+  if (process.platform === 'win32') prepareWindowsDirectory(dir);
   else fs.chmodSync(dir, 0o700);
   return dir;
 }
