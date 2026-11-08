@@ -1,14 +1,44 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { secureDirectory } from '../platform/windows/files.ts';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
+
+const prepared = new Set<string>();
+function prepareWindowsPath(file: string, directory = false) {
+  const key = `${directory}:${path.resolve(file).toLowerCase()}`;
+  if (prepared.has(key)) return;
+  const root = process.env.DOTX_PLUGIN_ROOT || path.dirname(fileURLToPath(import.meta.url));
+  execFileSync(
+    path.join(
+      process.env.SystemRoot || 'C:\\Windows',
+      'System32/WindowsPowerShell/v1.0/powershell.exe',
+    ),
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      path.join(root, 'private-path.ps1'),
+      '-Path',
+      path.resolve(file),
+      ...(directory ? ['-Directory'] : []),
+    ],
+    { timeout: DEFAULT_TIMEOUT_MS, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] },
+  );
+  prepared.add(key);
+}
+export function preparePrivateFile(file: string) {
+  if (process.platform !== 'win32') return;
+  privateDir(path.dirname(file));
+  prepareWindowsPath(file);
+}
 export function privateDir(dir: string) {
-  if (process.platform === 'win32') {
-    secureDirectory(dir);
-    return dir;
-  }
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  fs.chmodSync(dir, 0o700);
+  if (process.platform === 'win32') prepareWindowsPath(dir, true);
+  else fs.chmodSync(dir, 0o700);
   return dir;
 }
 export function readJson<T = unknown>(file: string): T {

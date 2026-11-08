@@ -2,39 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { privateDir } from './files.ts';
-// libuv's Windows-only UV_FS_O_EXLOCK is not exported by fs.constants.
+// libuv's public Windows-only UV_FS_O_EXLOCK is not exported by fs.constants.
 // https://github.com/libuv/libuv/blob/v1.52.1/src/win/fs.c#L460
 const UV_FS_O_EXLOCK = 0x10000000;
-let exclusiveOpenChecked = false;
 function openWindowsLock(file: string) {
-  let fd: number;
   try {
-    fd = fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | UV_FS_O_EXLOCK, 0o600);
+    return fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | UV_FS_O_EXLOCK, 0o600);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EBUSY') return null;
     throw error;
   }
-  try {
-    // Fail closed if a future bundled runtime stops honoring the private flag.
-    // Probe the held lock once per process, without modifying its contents.
-    if (!exclusiveOpenChecked) {
-      let competing: number | undefined;
-      try {
-        competing = fs.openSync(file, 'r+');
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EBUSY') throw error;
-      }
-      if (competing !== undefined) {
-        fs.closeSync(competing);
-        throw new Error('EXCLUSIVE_OPEN_UNSUPPORTED');
-      }
-      exclusiveOpenChecked = true;
-    }
-  } catch (error) {
-    fs.closeSync(fd);
-    throw error;
-  }
-  return fd;
 }
 export function tryLock(dir: string, name: 'connector.lock' | 'installation.lock') {
   if (process.platform !== 'darwin' && process.platform !== 'win32')

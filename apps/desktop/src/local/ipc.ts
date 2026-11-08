@@ -2,33 +2,31 @@ import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import { connectOwner } from '../platform/pipes.ts';
-import { verifyPrivate } from '../platform/windows/files.ts';
-import { serveWindowsStatus } from '../platform/windows/pipes.ts';
-// Both entry points fix cwd to PLUGIN_DATA before using IPC. Passing a relative
-// address avoids the Unix socket path limit even when the data directory is long.
-const endpoint = 'owner.sock';
+import { connectOwner, ownerEndpoint } from '../platform/pipes.ts';
 function validateDirectory(dir: string) {
-  if (process.platform === 'win32') {
-    verifyPrivate(dir, true);
-    return;
-  }
+  if (process.platform === 'win32') return;
   const stat = fs.lstatSync(dir);
   if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid?.())
     throw new Error('OWNER_IPC_DIRECTORY_INVALID');
   if ((stat.mode & 0o777) !== 0o700) throw new Error('OWNER_IPC_PERMISSIONS_INVALID');
 }
-// The owner lock must be held before unlinking or listening on this path.
+// The owner lock must be held before unlinking or listening on this endpoint.
+// Windows uses Node's default pipe permissions: status is readable metadata only.
 export async function serveStatus(dir: string, status: () => unknown) {
   validateDirectory(dir);
-  if (process.platform === 'win32') return serveWindowsStatus(dir, status);
-  const file = path.join(dir, endpoint);
-  try {
-    fs.unlinkSync(file);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  const endpoint = ownerEndpoint(dir);
+  const file = process.platform === 'win32' ? undefined : path.join(dir, endpoint);
+  if (file) {
+    try {
+      fs.unlinkSync(file);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
   }
+  const sockets = new Set<net.Socket>();
   const server = net.createServer((socket) => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
     socket.on('error', () => {});
     socket.end(JSON.stringify(status()) + '\n');
   });
@@ -39,16 +37,20 @@ export async function serveStatus(dir: string, status: () => unknown) {
       resolve();
     });
   });
-  fs.chmodSync(file, 0o600);
-  return () =>
-    new Promise<void>((resolve) =>
+  if (file) fs.chmodSync(file, 0o600);
+  return () => {
+    for (const socket of sockets) socket.destroy();
+    return new Promise<void>((resolve) =>
       server.close(() => {
-        try {
-          fs.unlinkSync(file);
-        } catch {}
+        if (file) {
+          try {
+            fs.unlinkSync(file);
+          } catch {}
+        }
         resolve();
       }),
     );
+  };
 }
 export async function readOwner(dir: string): Promise<unknown> {
   validateDirectory(dir);
@@ -60,16 +62,9 @@ export async function readOwner(dir: string): Promise<unknown> {
       DEFAULT_TIMEOUT_MS,
     );
     socket.once('close', () => clearTimeout(timer));
+    socket.setEncoding('utf8');
     socket.on('data', (chunk) => {
-      body += chunk.toString();
-      if (body.includes('\n')) {
-        socket.destroy();
-        try {
-          resolve(JSON.parse(body));
-        } catch {
-          reject(new Error('OWNER_STATUS_INVALID'));
-        }
-      }
+      body += chunk;
     });
     socket.once('error', reject);
     socket.once('end', () => {

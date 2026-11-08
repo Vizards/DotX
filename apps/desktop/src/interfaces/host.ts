@@ -12,7 +12,6 @@ const desktopSchema = z.object({
   cli: z.string(),
   node: z.string(),
   version: z.string(),
-  image: z.string().optional(),
 });
 type Desktop = z.infer<typeof desktopSchema>;
 let windowsDesktop: Desktop | undefined;
@@ -37,14 +36,7 @@ function discoverWindows(): Desktop {
       ],
       { encoding: 'utf8', timeout: DEFAULT_TIMEOUT_MS, windowsHide: true },
     );
-  const desktop = desktopSchema.parse(JSON.parse(output.replace(/^\uFEFF/, '')));
-  for (const file of [desktop.cli, desktop.node, desktop.image])
-    if (!file || !path.isAbsolute(file) || !fs.statSync(file).isFile())
-      throw new BridgeError(
-        'DESKTOP_NOT_FOUND',
-        'The registered Windows desktop runtime is incomplete',
-      );
-  return (windowsDesktop = desktop);
+  return (windowsDesktop = desktopSchema.parse(JSON.parse(output.replace(/^\uFEFF/, ''))));
 }
 
 export function discoverDesktop(appPath = process.env.DOTX_APP_PATH): Desktop {
