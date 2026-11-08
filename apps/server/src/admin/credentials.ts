@@ -11,7 +11,6 @@ import {
 import type { Env } from '../env.ts';
 import { saveExpiring, type Store } from '../hub/storage.ts';
 import { attemptKeys, consumeAttempt } from '../hub/attempts.ts';
-import { AdminVault } from './vault.ts';
 import {
   CloudflareSessions,
   browserSessionKey as sessionKey,
@@ -68,13 +67,11 @@ export interface BrowserAuthority {
 export class AdminCredentials {
   private readonly store: DurableObjectStorage;
   private readonly env: Env;
-  readonly vault: AdminVault;
   private readonly cloudflareSessions: CloudflareSessions;
   constructor(store: DurableObjectStorage, env: Env) {
     this.store = store;
     this.env = env;
-    this.vault = new AdminVault(store);
-    this.cloudflareSessions = new CloudflareSessions(store, env, this.vault);
+    this.cloudflareSessions = new CloudflareSessions(store, env);
   }
   private async credentials(tx: Store): Promise<Credentials> {
     return (await tx.get<Credentials>(credentialsKey)) ?? { user_id: randomSecret(), passkeys: [] };
@@ -135,7 +132,7 @@ export class AdminCredentials {
       })),
     };
   }
-  async session(id: string, csrf?: string, validateProvider = true) {
+  async session(id: string, csrf?: string) {
     const before = await this.live<StoredSession>(
       this.store,
       sessionKey(id),
@@ -143,7 +140,7 @@ export class AdminCredentials {
     );
     if (csrf !== undefined && !sameSecret(before.csrf, csrf))
       throw new HttpError(403, 'CSRF_REQUIRED');
-    if (validateProvider && before.cloudflare) await this.cloudflareSessions.validate(id);
+    if (before.cloudflare) await this.cloudflareSessions.validate(id);
     // Check and extend atomically; a late request cannot recreate a revoked session.
     return this.store.transaction(async (tx) => {
       const session = await this.live<StoredSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
@@ -159,8 +156,15 @@ export class AdminCredentials {
       };
     });
   }
-  async logout(id: string) {
-    await this.store.delete(sessionKey(id));
+  async logout(id: string, csrf?: string) {
+    await this.store.transaction(async (tx) => {
+      // Public logout supplies CSRF; internal cleanup only deletes the session.
+      if (csrf !== undefined) {
+        const session = await this.live<StoredSession>(tx, sessionKey(id), 'ADMIN_LOGIN_REQUIRED');
+        if (!sameSecret(session.csrf, csrf)) throw new HttpError(403, 'CSRF_REQUIRED');
+      }
+      await tx.delete(sessionKey(id));
+    });
   }
   private async authority(tx: Store, auth: BrowserAuthority): Promise<Credentials> {
     if (auth.setup) {
@@ -200,8 +204,7 @@ export class AdminCredentials {
     // Revoke other sessions and unfinished ceremonies, retaining the current
     // authentication method when issuing its replacement cookie.
     const records = await tx.list({ prefix: temporary });
-    for (const key of records.keys())
-      if (key !== attemptKeys.login && key !== attemptKeys.oauth) await tx.delete(key);
+    for (const key of records.keys()) if (key !== attemptKeys.login) await tx.delete(key);
     return this.createSession(tx, current?.cloudflare);
   }
   async setPassword(auth: BrowserAuthority, password: unknown) {

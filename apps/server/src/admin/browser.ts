@@ -16,6 +16,17 @@ import {
   setCookie,
 } from './sessions.ts';
 
+function loginResult(error?: 'expired' | 'failed') {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      Location: cloudflareResult + (error ? '?error=' + error : ''),
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+    },
+  });
+}
+
 export async function browserRoutes(request: Request, env: Env): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   if (!path.startsWith('/admin/auth/') && path !== '/setup/admin/api') return null;
@@ -32,33 +43,15 @@ export async function browserRoutes(request: Request, env: Env): Promise<Respons
     if (path === cloudflareCallback && request.method === 'GET') {
       const query = new URL(request.url).searchParams;
       const binding = cookie(request, LOGIN_COOKIE);
-      if (
-        !binding ||
-        query.getAll('state').length !== 1 ||
-        query.getAll('code').length > 1 ||
-        query.getAll('error').length > 1 ||
-        (query.has('iss') && query.get('iss') !== 'https://dash.cloudflare.com')
-      )
-        throw new HttpError(401, 'CF_LOGIN_EXPIRED');
+      const state = query.get('state');
+      if (!binding || !state) throw new HttpError(401, 'CF_LOGIN_EXPIRED');
       await control(env, 'admin/oauth-callback', {
         id: await sha256(binding),
-        state: query.get('state'),
+        state,
         code: query.get('code'),
         error: query.get('error'),
       });
-      return new Response(null, {
-        status: 303,
-        headers: {
-          Location: cloudflareResult,
-          'Cache-Control': 'no-store',
-          'Referrer-Policy': 'no-referrer',
-        },
-      });
-    }
-    if (path === '/admin/auth/cloudflare/status' && request.method === 'GET') {
-      const binding = cookie(request, LOGIN_COOKIE);
-      if (!binding) throw new HttpError(401, 'CF_LOGIN_EXPIRED');
-      return json(await control(env, 'admin/oauth-status', { id: await sha256(binding) }));
+      return loginResult();
     }
     if (request.method !== 'POST') throw new HttpError(405, 'METHOD_NOT_ALLOWED');
     if (request.headers.get('Origin') !== env.PUBLIC_ORIGIN) throw new HttpError(403, 'BAD_ORIGIN');
@@ -133,6 +126,10 @@ export async function browserRoutes(request: Request, env: Env): Promise<Respons
     await clearSession(request, env);
     return sessionResponse(env, session);
   } catch (error) {
+    if (path === cloudflareCallback && request.method === 'GET')
+      return loginResult(
+        error instanceof HttpError && error.code === 'CF_LOGIN_EXPIRED' ? 'expired' : 'failed',
+      );
     return failure(error);
   }
 }

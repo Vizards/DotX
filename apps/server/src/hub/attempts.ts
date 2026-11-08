@@ -3,17 +3,12 @@ import type { Store } from './storage.ts';
 
 export const attemptKeys = {
   login: 'admin:browser:attempts',
-  oauth: 'admin:browser:oauth-attempts',
   enrollment: 'device-enrollment:attempts',
 };
 const policies = {
   login: {
     code: 'LOGIN_ATTEMPTS_EXHAUSTED',
     message: () => 'Too many login attempts. Try again after this one-minute window.',
-  },
-  oauth: {
-    code: 'LOGIN_ATTEMPTS_EXHAUSTED',
-    message: () => 'Too many sign-in requests. Try again in one minute.',
   },
   enrollment: {
     code: 'ENROLLMENT_ATTEMPTS_EXHAUSTED',

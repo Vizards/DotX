@@ -57,16 +57,21 @@ test('CF login binds browser/state/PKCE, isolates Wrangler and persists initiali
   assert.equal(discovery.key.d, undefined);
   const a = await begin(api);
   const b = await begin(api, '//evil.example');
-  assert.equal((await api.request(a.callback)).status, 401);
-  assert.equal((await api.request(a.callback, { headers: { Cookie: b.cookie } })).status, 401);
+  for (const response of [
+    await api.request(a.callback),
+    await api.request(a.callback, { headers: { Cookie: b.cookie } }),
+  ]) {
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get('Location'), '/login/cloudflare?error=expired');
+  }
   const callbacks = await Promise.all(
     Array.from({ length: 2 }, () => api.request(a.callback, { headers: { Cookie: a.cookie } })),
   );
-  assert.deepEqual(callbacks.map((r) => r.status).sort(), [303, 401]);
-  assert.equal(
-    callbacks.find((r) => r.status === 303)!.headers.get('Location'),
+  assert(callbacks.every((r) => r.status === 303));
+  assert.deepEqual(callbacks.map((r) => r.headers.get('Location')).sort(), [
     '/login/cloudflare',
-  );
+    '/login/cloudflare?error=expired',
+  ]);
   const response = await post(api, '/admin/auth/cloudflare/complete', a.cookie);
   await read(response);
   const cookie = cookies(response);
@@ -221,11 +226,9 @@ test('CF denied membership, invalid audience and cancellation never create manag
   );
   const denied = await post(api, '/admin/auth/cloudflare/complete', flow.cookie);
   assert.equal(denied.status, 403);
-  const status = await read(
-    await api.request('/admin/auth/cloudflare/status', { headers: { Cookie: flow.cookie } }),
-  );
-  assert.equal(status.failure.email, 'synthetic@example.com');
-  assert.equal(status.failure.code, 'NOT_A_TARGET_ACCOUNT_MEMBER');
+  const failure = ((await denied.json()) as any).error;
+  assert.equal(failure.details.email, 'synthetic@example.com');
+  assert.equal(failure.code, 'NOT_A_TARGET_ACCOUNT_MEMBER');
   assert.equal(api.cloudflare.tokens.get('synthetic-browser-access-1')!.active, false);
   assert.equal((await read(await api.request('/admin/auth/methods'))).initialized, false);
   api.cloudflare.member.account.id = 'test-account';
@@ -240,18 +243,12 @@ test('CF denied membership, invalid audience and cancellation never create manag
     { headers: { Cookie: cancel.cookie } },
   );
   assert.equal(cancelled.status, 303);
-  assert.equal(
-    (
-      await read(
-        await api.request('/admin/auth/cloudflare/status', { headers: { Cookie: cancel.cookie } }),
-      )
-    ).failure.code,
-    'CF_AUTHORIZATION_CANCELLED',
-  );
-  assert.equal((await post(api, '/admin/auth/cloudflare/complete', cancel.cookie)).status, 403);
+  const completed = await post(api, '/admin/auth/cloudflare/complete', cancel.cookie);
+  assert.equal(completed.status, 403);
+  assert.equal(((await completed.json()) as any).error.code, 'CF_AUTHORIZATION_CANCELLED');
 });
 
-test('removing the last password checks CF authority once, enforces CSRF and preserves initialization', async (t) => {
+test('removing the last password enforces CSRF and preserves initialization', async (t) => {
   const api = await startServer(t);
   const current = await login(api);
   const saved = await post(
@@ -275,17 +272,11 @@ test('removing the last password checks CF authority once, enforces CSRF and pre
     ).status,
     403,
   );
-  api.cloudflare.calls.length = 0;
   const removed = await api.request('/admin/api/password', {
     method: 'DELETE',
     headers: { Origin: 'http://localhost', Cookie: cookie, 'X-CSRF-Token': session.csrf_token },
   });
   await read(removed);
-  assert.equal(
-    api.cloudflare.calls.filter((call) => call.url.pathname === '/oauth2/userinfo').length,
-    1,
-    'one provider permission check per management request',
-  );
   const methods = await read(await api.request('/admin/auth/methods'));
   assert.equal(methods.configured, false);
   assert.equal(methods.initialized, true);

@@ -3,6 +3,7 @@ import { HttpError } from '../http/responses.ts';
 import { qualification, type Membership } from './permissions.ts';
 import type { Env } from '../env.ts';
 const WRANGLER_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7';
+export const BROWSER_CLIENT_ID = '7c1a0268cd92aa8705e4c0604b162942';
 const DASH = 'https://dash.cloudflare.com';
 const API = 'https://api.cloudflare.com/client/v4';
 interface ApiResult<T> {
@@ -10,7 +11,7 @@ interface ApiResult<T> {
   result: T;
   result_info?: { total_pages?: number; total_count?: number };
 }
-async function upstream<T>(url: string, init: RequestInit): Promise<T> {
+async function upstream(url: string, init: RequestInit): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -31,10 +32,9 @@ async function upstream<T>(url: string, init: RequestInit): Promise<T> {
     throw new HttpError(401, 'CF_LOGIN_REQUIRED', 'Sign in to Cloudflare again.');
   if (response.status === 403)
     throw new HttpError(403, 'CF_ACCESS_DENIED', 'Cloudflare denied access to this resource.');
-  if (response.status === 400 && url === `${DASH}/oauth2/token`) {
-    const error = await response.json<{ error?: string }>().catch(() => null);
-    if (error?.error === 'invalid_grant') throw new HttpError(401, 'CF_LOGIN_REQUIRED');
-  }
+  return response;
+}
+async function result<T>(response: Response): Promise<T> {
   if (!response.ok) throw new HttpError(503, 'CF_RESPONSE_INVALID');
   try {
     return await response.json<T>();
@@ -42,8 +42,8 @@ async function upstream<T>(url: string, init: RequestInit): Promise<T> {
     throw new HttpError(503, 'CF_RESPONSE_INVALID');
   }
 }
-const read = <T>(url: string, token: string) =>
-  upstream<T>(url, { headers: { Authorization: `Bearer ${token}` } });
+const read = async <T>(url: string, token: string) =>
+  result<T>(await upstream(url, { headers: { Authorization: `Bearer ${token}` } }));
 // The caller supplies the trusted client configuration, never a browser input.
 // CLI requests continue to accept only Wrangler's audience.
 export async function checkCloudflare(token: string, env: Env, audience = WRANGLER_CLIENT_ID) {
@@ -108,18 +108,21 @@ export interface CloudflareTokens {
   access_token: string;
   refresh_token?: string;
   expires_in: number;
-  token_type: string;
 }
 export async function requestCloudflareToken(clientId: string, fields: Record<string, string>) {
-  const tokens = await upstream<CloudflareTokens>(`${DASH}/oauth2/token`, {
+  const response = await upstream(`${DASH}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ ...fields, client_id: clientId }).toString(),
   });
+  if (response.status === 400) {
+    const error = await response.json<{ error?: string }>().catch(() => null);
+    if (error?.error === 'invalid_grant') throw new HttpError(401, 'CF_LOGIN_REQUIRED');
+  }
+  const tokens = await result<CloudflareTokens>(response);
   if (
     typeof tokens.access_token !== 'string' ||
     !tokens.access_token ||
-    tokens.token_type?.toLowerCase() !== 'bearer' ||
     !Number.isFinite(tokens.expires_in) ||
     tokens.expires_in <= 0 ||
     (tokens.refresh_token !== undefined && typeof tokens.refresh_token !== 'string')

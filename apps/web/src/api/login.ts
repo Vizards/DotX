@@ -55,12 +55,5 @@ export const startCloudflareLogin = (return_to: string) =>
     method: 'POST',
     body: { return_to },
   });
-export interface CloudflareLoginStatus {
-  return_to: string;
-  phase: 'waiting' | 'callback' | 'exchanging' | 'checking' | 'failed';
-  failure?: { code: string; email: string | null };
-}
-export const cloudflareLoginStatus = (signal?: AbortSignal) =>
-  api<CloudflareLoginStatus>('/admin/auth/cloudflare/status', { signal });
 export const completeCloudflareLogin = () =>
   api<{ return_to: string }>('/admin/auth/cloudflare/complete', { method: 'POST', body: {} });

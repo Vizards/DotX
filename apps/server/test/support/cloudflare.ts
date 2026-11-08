@@ -55,7 +55,7 @@ export function cloudflareFixture(
   const fixture = {
     member,
     membershipResponse,
-    clientId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    clientId: '7c1a0268cd92aa8705e4c0604b162942',
     authorizations: [] as {
       state: string;
       code_challenge: string;
@@ -77,8 +77,6 @@ export function cloudflareFixture(
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.origin === 'https://oauth.dotx.run') {
-      if (url.pathname === '/.well-known/oauth-relay')
-        return Response.json({ version: 1, client_id: fixture.clientId });
       if (url.pathname === '/register') {
         const { assertion } = (await request.json()) as { assertion: string };
         const claim = JSON.parse(Buffer.from(assertion.split('.')[1]!, 'base64url').toString());

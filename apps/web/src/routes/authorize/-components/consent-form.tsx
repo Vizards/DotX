@@ -25,8 +25,7 @@ export function ConsentForm({
 }) {
   const methods = useQuery(loginMethodsQuery());
   const submit = useMutation(authorizationMutation());
-  const [selectedMethod, setMethod] = useState<'agent' | 'browser'>('browser');
-  const method = selectedMethod;
+  const [method, setMethod] = useState<'agent' | 'browser'>('browser');
   const attempted = useRef(false);
   const mutate = submit.mutate;
   const now = useNow();
