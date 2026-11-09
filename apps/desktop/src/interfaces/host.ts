@@ -33,7 +33,7 @@ function windowsDesktopVersion() {
 }
 
 export function discoverDesktop(appPath = process.env.DOTX_APP_PATH) {
-  // Private host-provided executable, used without package discovery. Desktop
+  // Private host-provided executable, used without package discovery.
   // Package metadata supplies diagnostics only, never the executable path.
   if (process.platform === 'win32')
     return {
