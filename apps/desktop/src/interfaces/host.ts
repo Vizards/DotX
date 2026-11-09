@@ -1,11 +1,48 @@
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import { BridgeError } from '@dotx/shared/errors';
+import { BridgeError, errorValue } from '@dotx/shared/errors';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { checkedPath } from '../local/paths.ts';
+import { runPowerShell } from '../platform/powershell.ts';
+
+let windowsVersion: string | undefined;
+function windowsDesktopVersion() {
+  if (windowsVersion !== undefined) return windowsVersion;
+  try {
+    windowsVersion = runPowerShell(
+      [
+        '-Command',
+        "$ErrorActionPreference = 'Stop'; " +
+          '$package = Get-AppxPackage -Name OpenAI.Codex | Sort-Object Version -Descending | Select-Object -First 1; ' +
+          "if (!$package) { throw 'OpenAI.Codex is not registered for the current Windows user.' }; " +
+          '$package.Version',
+      ],
+      'Cannot read the Codex desktop package version',
+      30_000,
+    ).trim();
+    if (!windowsVersion) throw new Error('CODEX_PACKAGE_VERSION_MISSING');
+  } catch (error) {
+    windowsVersion = 'unknown';
+    process.stderr.write(
+      JSON.stringify({ code: 'DESKTOP_VERSION_UNAVAILABLE', cause: errorValue(error) }) + '\n',
+    );
+  }
+  return windowsVersion;
+}
 
 export function discoverDesktop(appPath = process.env.DOTX_APP_PATH) {
+  // Private host-provided executable, used without package discovery.
+  // Package metadata supplies diagnostics only, never the executable path.
+  if (process.platform === 'win32')
+    return {
+      cli: checkedPath(
+        process.env.CODEX_APP_RUNTIME_CLI_PATH,
+        'CODEX_APP_RUNTIME_CLI_PATH_REQUIRED',
+      ),
+      version: windowsDesktopVersion(),
+    };
   const apps = appPath
     ? [appPath]
     : ['/Applications', path.join(os.homedir(), 'Applications')].flatMap((dir) => {

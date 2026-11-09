@@ -10,6 +10,7 @@ import type { InterfaceStatus } from '@dotx/shared/devices';
 import type { Adapter, Method } from '../adapter.ts';
 import { readNativeCatalog } from './schema.ts';
 import packageInfo from '../../../package.json' with { type: 'json' };
+import { appServerEnvironment } from '../../platform/environment.ts';
 export class AppServerAdapter implements Adapter {
   readonly runtimeId = randomUUID();
   readonly process: ChildProcessByStdio<Writable, Readable, null>;
@@ -43,13 +44,11 @@ export class AppServerAdapter implements Adapter {
     } catch (error) {
       this.catalogError = error;
     }
-    const env = Object.fromEntries(
-      Object.entries(process.env).filter(([k]) => !k.startsWith('CODEX_')),
-    );
-    env.CODEX_HOME = options.home;
+    const env = appServerEnvironment(options.home);
     this.process = spawn(options.cli, ['app-server', '--listen', 'stdio://'], {
       cwd: options.cwd,
       env,
+      windowsHide: true,
       stdio: ['pipe', 'pipe', 'inherit'],
     });
     readline.createInterface({ input: this.process.stdout }).on('line', (line) => {

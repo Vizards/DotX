@@ -2,8 +2,8 @@
   "mcpServers": {
     "dotx_desktop": {
       "type": "stdio",
-      "command": "sh",
-      "args": ["${PLUGIN_ROOT}/launch.sh", "${PLUGIN_ROOT}"],
+      "command": "./launch",
+      "args": [],
       "cwd": "${PLUGIN_DATA}",
       "env": {
         "DOTX_PLUGIN_DATA": "${PLUGIN_DATA}",

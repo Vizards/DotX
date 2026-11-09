@@ -45,14 +45,18 @@ async function stop() {
   process.exit(0);
 }
 const timer = setInterval(() => {
-  if (process.ppid !== parent || (pipe && !fs.existsSync(pipe))) {
+  // macOS launches Node directly. Windows launches it through waiting shell
+  // wrappers, so its immediate parent is not a useful host-lifetime signal.
+  if (process.platform !== 'win32' && (process.ppid !== parent || (pipe && !fs.existsSync(pipe)))) {
     void stop();
     return;
   }
   void runtime?.start();
 }, 1000);
 process.stdin.once('end', () => {
-  if (!pipe) void stop();
+  // On Windows, the MCP host owns this input pipe. End-of-input stops this
+  // entry even before its first native connection, including configured owners.
+  if (process.platform === 'win32' || !pipe) void stop();
 });
 process.once('SIGTERM', () => {
   void stop();

@@ -1,16 +1,22 @@
 #!/bin/sh
 set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+entry=connector.mjs
+if [ "${1:-}" = --cli ]; then
+  entry=cli.mjs
+  shift
+fi
 if [ -n "${DOTX_APP_PATH:-}" ]; then
-  exec "$DOTX_APP_PATH/Contents/Resources/cua_node/bin/node" "$1/connector.mjs"
+  exec "$DOTX_APP_PATH/Contents/Resources/cua_node/bin/node" "$root/$entry" "$@"
 fi
 for directory in /Applications "$HOME/Applications"; do
   for application in "$directory"/ChatGPT*.app "$directory"/Codex*.app; do
     runtime="$application/Contents/Resources/cua_node/bin/node"
     if [ -x "$runtime" ]; then
       export DOTX_APP_PATH="$application"
-      exec "$runtime" "$1/connector.mjs"
+      exec "$runtime" "$root/$entry" "$@"
     fi
   done
 done
-echo 'DOTX_DESKTOP_NOT_FOUND: install the Codex desktop application' >&2
+echo 'DESKTOP_NOT_FOUND: install the Codex desktop application' >&2
 exit 1

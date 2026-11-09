@@ -6,7 +6,7 @@ import { cliDataDir } from './local/paths.ts';
 import { readConfig, type DeviceConfig } from './local/config.ts';
 import { identity } from './local/identity.ts';
 import { tryLock } from './local/locks.ts';
-import { writeJson } from './local/files.ts';
+import { initializeDataDir, writeJson } from './local/files.ts';
 import { readOwner } from './local/ipc.ts';
 import { serviceInfo } from './connection/service.ts';
 import { enroll } from './connection/enrollment.ts';
@@ -42,6 +42,7 @@ async function main() {
     throw new Error(
       'Usage: cli.mjs status --state HOST_PLUGIN_DATA | connect --state HOST_PLUGIN_DATA --url HTTPS_ORIGIN [--name NAME]',
     );
+  initializeDataDir(dir);
   const release = tryLock(dir, 'installation.lock');
   if (!release) throw new Error('INSTALLATION_BUSY');
   try {

@@ -1,6 +1,6 @@
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import net from 'node:net';
-import fs from 'node:fs';
+import type { Duplex } from 'node:stream';
+import { connectDesktop } from '../../platform/pipes.ts';
 import { randomUUID } from 'node:crypto';
 import { BridgeError } from '@dotx/shared/errors';
 import { FrameDecoder } from '../framing.ts';
@@ -17,7 +17,7 @@ export class CoordinationWire {
     onMessage: (message: WireMessage) => void;
     onDisconnect: (error: Error) => void;
   };
-  socket?: net.Socket;
+  socket?: Duplex;
   clientId?: string;
   connecting?: Promise<void>;
   private readonly decoder = new FrameDecoder();
@@ -43,11 +43,8 @@ export class CoordinationWire {
     return this.connecting;
   }
   private async open() {
-    const st = fs.lstatSync(this.options.endpoint);
-    if (!st.isSocket() || st.uid !== process.getuid?.() || st.mode & 0o077)
-      throw new BridgeError('COORDINATION_SOCKET_IDENTITY_MISMATCH');
     this.decoder.reset();
-    const socket = net.createConnection(this.options.endpoint);
+    const socket = connectDesktop(this.options.endpoint, true);
     this.socket = socket;
     socket.on('data', (chunk) => {
       if (this.socket === socket) this.receive(chunk);
@@ -92,7 +89,7 @@ export class CoordinationWire {
       throw error;
     }
   }
-  disconnected(socket: net.Socket, error: Error = new BridgeError('COORDINATION_DISCONNECTED')) {
+  disconnected(socket: Duplex, error: Error = new BridgeError('COORDINATION_DISCONNECTED')) {
     if (this.socket !== socket) return;
     this.socket = undefined;
     this.clientId = undefined;
@@ -106,7 +103,7 @@ export class CoordinationWire {
   }
   private receive(chunk: Buffer) {
     try {
-      // Full native snapshots stay local; only derived summaries leave the Mac.
+      // Full native snapshots stay local; only derived summaries leave the computer.
       for (const frame of this.decoder.push(chunk)) {
         let message: WireMessage;
         try {
