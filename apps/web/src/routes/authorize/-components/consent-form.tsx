@@ -67,6 +67,7 @@ export function ConsentForm({
         {submit.isError && !restartRequired && (
           <Button
             block
+            large
             disabled={submit.isPending}
             onClick={() => finish(cancelled ? 'deny' : 'finish')}
           >
