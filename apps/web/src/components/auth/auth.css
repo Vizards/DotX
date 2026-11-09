@@ -82,7 +82,8 @@
 .login-help li + li {
   margin-top: 10px;
 }
-.login-help a {
+.login-help a,
+.login-account-hint a {
   font-weight: 600;
   white-space: nowrap;
 }

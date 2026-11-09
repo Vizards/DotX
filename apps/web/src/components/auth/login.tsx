@@ -47,7 +47,7 @@ export function Login({
             <Setup onBack={() => setView('cloudflare')} />
           ) : (
             <div
-              className={`auth-card${view === 'password' ? ' auth-card--signin' : denied ? '' : ' auth-card--signin auth-card--passkey'}`}
+              className={`auth-card${view === 'password' ? ' auth-card--signin' : denied || first ? '' : ' auth-card--signin auth-card--passkey'}`}
             >
               <img className="auth-mark" src="/branding/dotx.png" alt="" />
               <h1>{view !== 'password' && denied ? t.login.deniedTitle : t.login.title}</h1>
@@ -75,6 +75,20 @@ export function Login({
                       )}
                       <p className="lede">{t.login.deniedBody}</p>
                     </>
+                  )}
+                  {first && (
+                    <p className="lede login-account-hint">
+                      {t.login.cloudflareAccountHint}
+                      <a
+                        href="#cloudflare-account"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setAccountHelp(true);
+                        }}
+                      >
+                        {t.login.askInstallationAgent}
+                      </a>
+                    </p>
                   )}
                   <Alert error={start.error} />
                   <Button
@@ -112,18 +126,6 @@ export function Login({
                   )}
                   {first ? (
                     <ul className="login-help">
-                      <li>
-                        {t.login.cloudflareAccountHint}
-                        <a
-                          href="#cloudflare-account"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            setAccountHelp(true);
-                          }}
-                        >
-                          {t.login.askInstallationAgent}
-                        </a>
-                      </li>
                       <li>
                         {t.login.learnPrivacy}
                         <a
