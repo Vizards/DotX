@@ -181,8 +181,8 @@ export const en = {
     otherMethods: 'Other sign-in methods',
     passkeyAlternative: 'Sign in with passkey',
     cloudflareAccountHint:
-      'Sign in with the Cloudflare account used to deploy this Server. If you are unsure which one, ',
-    askInstallationAgent: 'ask your installation Agent',
+      'Sign in to the Cloudflare account hosting this DotX Server. Not sure which account? ',
+    askInstallationAgent: 'Ask your installation Agent',
     accountHelpTitle: 'Find your Cloudflare account',
     accountHelpBody: 'Copy this prompt and send it to your installation Agent.',
     accountHelpPrompt:

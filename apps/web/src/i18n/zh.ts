@@ -172,7 +172,7 @@ export const zh: Messages = {
     cloudflareAction: '使用 Cloudflare 登录',
     otherMethods: '其他登录方式',
     passkeyAlternative: 'Passkey 登录',
-    cloudflareAccountHint: '使用部署此 Server 的 Cloudflare 账号登录。如果不确定是哪个，请',
+    cloudflareAccountHint: '使用 DotX Server 所在的 Cloudflare 帐户登录。不知道安装去哪了？',
     askInstallationAgent: '询问安装 Agent',
     accountHelpTitle: '确认 Cloudflare 账号',
     accountHelpBody: '复制下面的提示词，发给安装 Agent。',
