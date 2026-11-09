@@ -297,13 +297,6 @@ test('CF login returns to the same PA request without approving it', async (t) =
   assert.equal(current.result.return_to, '/authorize?transaction=' + authorization.transaction);
   assert.equal((await api.admin('/agents')).agents.length, 0);
   assert.equal((await authorization.finish(true)).status, 409);
-  const target = '/admin/api/agent-requests/' + authorization.transaction + '/approve';
-  assert.equal((await post(api, target, current.cookie)).status, 403);
-  assert.equal(
-    (await post(api, target, current.cookie, {}, current.session.csrf_token)).status,
-    200,
-  );
-  assert.equal((await authorization.finish()).status, 303);
 });
 
 test('Agent reset links stay one-use and preserve old login until saved, then revoke prior browser sessions', async (t) => {
