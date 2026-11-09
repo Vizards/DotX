@@ -1,38 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
+import { runPowerShell } from '../platform/powershell.ts';
 
-const preparedDirectories = new Set<string>();
-function prepareWindowsDirectory(dir: string) {
-  const key = path.resolve(dir).toLowerCase();
-  if (preparedDirectories.has(key)) return;
+// Called once by each MCP entry or setup command before reading/writing its data.
+// Windows children inherit this root DACL, including newly generated credentials.
+export function initializeDataDir(dir: string) {
+  privateDir(dir);
+  if (process.platform !== 'win32') return;
   const root = process.env.DOTX_PLUGIN_ROOT || path.dirname(fileURLToPath(import.meta.url));
-  execFileSync(
-    path.join(
-      process.env.SystemRoot || 'C:\\Windows',
-      'System32/WindowsPowerShell/v1.0/powershell.exe',
-    ),
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      path.join(root, 'private-directory.ps1'),
-      '-Path',
-      path.resolve(dir),
-    ],
-    { timeout: DEFAULT_TIMEOUT_MS, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] },
+  runPowerShell(
+    ['-File', path.join(root, 'private-directory.ps1'), '-Path', path.resolve(dir)],
+    `Cannot initialize private data directory permissions for ${dir}`,
   );
-  preparedDirectories.add(key);
 }
 export function privateDir(dir: string) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if (process.platform === 'win32') prepareWindowsDirectory(dir);
-  else fs.chmodSync(dir, 0o700);
+  if (process.platform !== 'win32') fs.chmodSync(dir, 0o700);
   return dir;
 }
 export function readJson<T = unknown>(file: string): T {

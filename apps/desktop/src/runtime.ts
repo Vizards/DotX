@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { readConfig, validateConfig, type ReadyConfig } from './local/config.ts';
 import { identity } from './local/identity.ts';
+import { initializeDataDir } from './local/files.ts';
 import { tryLock } from './local/locks.ts';
 import { nextGeneration } from './local/connector-state.ts';
 import { serveStatus, readOwner } from './local/ipc.ts';
@@ -22,6 +23,13 @@ export class Runtime {
   constructor(dir: string, root: string) {
     this.dir = dir;
     this.root = root;
+    try {
+      initializeDataDir(dir);
+    } catch (error) {
+      this.role = 'unavailable';
+      this.diagnostic = errorValue(error);
+      return;
+    }
     this.loadInitialConfig();
   }
   private loadInitialConfig() {

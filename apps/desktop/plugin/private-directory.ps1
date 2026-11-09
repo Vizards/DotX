@@ -1,7 +1,7 @@
 param([Parameter(Mandatory)][string]$Path)
 $ErrorActionPreference = 'Stop'
 # Node's mode bits do not restrict Windows readers. New credential files inherit
-# this protected directory DACL, initialized once per process/directory.
+# the data root DACL, initialized once by each entry or setup command.
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $acl = [System.Security.AccessControl.DirectorySecurity]::new()
 $acl.SetSecurityDescriptorSddlForm(
