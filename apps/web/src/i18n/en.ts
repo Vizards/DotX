@@ -180,6 +180,13 @@ export const en = {
     cloudflareAction: 'Sign in with Cloudflare',
     otherMethods: 'Other sign-in methods',
     passkeyAlternative: 'Sign in with passkey',
+    cloudflareAccountHint:
+      'Sign in with the Cloudflare account used to deploy this Server. If you are unsure which one, ',
+    askInstallationAgent: 'ask your installation Agent',
+    accountHelpTitle: 'Find your Cloudflare account',
+    accountHelpBody: 'Copy this prompt and send it to your installation Agent.',
+    accountHelpPrompt:
+      'Which Cloudflare account was used to deploy this DotX Server? Tell me the email address to sign in with: {origin}\nGuide: {guide}',
     learnPrivacy: 'Learn about ',
     privacyTitle: 'Cloudflare login and privacy',
     agentAlternative: 'Have concerns or need help? Ask your installation Agent to help you ',

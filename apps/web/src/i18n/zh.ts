@@ -172,6 +172,12 @@ export const zh: Messages = {
     cloudflareAction: '使用 Cloudflare 登录',
     otherMethods: '其他登录方式',
     passkeyAlternative: 'Passkey 登录',
+    cloudflareAccountHint: '使用部署此 Server 的 Cloudflare 账号登录。如果不确定是哪个，请',
+    askInstallationAgent: '询问安装 Agent',
+    accountHelpTitle: '确认 Cloudflare 账号',
+    accountHelpBody: '复制下面的提示词，发给安装 Agent。',
+    accountHelpPrompt:
+      '请确认这个 DotX Server 部署在哪个 Cloudflare 账号下，并告诉我登录邮箱：{origin}\n指南：{guide}',
     learnPrivacy: '了解 ',
     privacyTitle: 'Cloudflare 登录与隐私',
     agentAlternative: '仍有顾虑或遇到问题？还可以通过安装 Agent 帮助你',

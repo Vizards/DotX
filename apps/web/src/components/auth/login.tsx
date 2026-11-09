@@ -27,6 +27,7 @@ export function Login({
   const [view, setView] = useState<'cloudflare' | 'agent' | 'password'>('cloudflare');
   const [recover, setRecover] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [accountHelp, setAccountHelp] = useState(false);
   const first = !methods.data?.initialized && !denied;
   return (
     <div className="focus-shell">
@@ -112,6 +113,18 @@ export function Login({
                   {first ? (
                     <ul className="login-help">
                       <li>
+                        {t.login.cloudflareAccountHint}
+                        <a
+                          href="#cloudflare-account"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setAccountHelp(true);
+                          }}
+                        >
+                          {t.login.askInstallationAgent}
+                        </a>
+                      </li>
+                      <li>
                         {t.login.learnPrivacy}
                         <a
                           href="#privacy"
@@ -154,6 +167,20 @@ export function Login({
         )}
       </div>
       <RecoverDialog open={recover} onClose={() => setRecover(false)} />
+      <Dialog
+        open={accountHelp}
+        title={t.login.accountHelpTitle}
+        kind="modal"
+        onClose={() => setAccountHelp(false)}
+      >
+        <p className="lede">{t.login.accountHelpBody}</p>
+        <Prompt
+          value={fill(t.login.accountHelpPrompt, {
+            origin: window.location.origin,
+            guide: guideUrl('server/browser-login.md'),
+          })}
+        />
+      </Dialog>
       <Dialog
         open={privacy}
         title={t.login.privacyTitle}
