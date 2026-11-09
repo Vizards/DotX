@@ -172,7 +172,8 @@ export const zh: Messages = {
     cloudflareAction: '使用 Cloudflare 登录',
     otherMethods: '其他登录方式',
     passkeyAlternative: 'Passkey 登录',
-    cloudflareAccountHint: '使用 DotX Server 所在的 Cloudflare 帐户登录。不知道安装去哪了？',
+    cloudflareAccountHint: '使用 DotX Server 所在的 Cloudflare 帐户登录。',
+    cloudflareAccountQuestion: '不知道安装去哪了？',
     askInstallationAgent: '询问安装 Agent',
     accountHelpTitle: '确认 Cloudflare 账号',
     accountHelpBody: '复制下面的提示词，发给安装 Agent。',
@@ -182,13 +183,12 @@ export const zh: Messages = {
     privacyTitle: 'Cloudflare 登录与隐私',
     agentAlternative: '仍有顾虑或遇到问题？还可以通过安装 Agent 帮助你',
     setupAlternative: '设置登录方式',
-    privacyPermissions:
-      '此 Server 会读取你的 Cloudflare 用户资料和账号成员信息，用于确认管理权限，不申请修改 Cloudflare 资源的权限。',
-    privacyCredentials:
-      'Cloudflare 密码由 Cloudflare 处理。登录凭据保存在此 Server，用于自动保持登录。',
+    privacyRedirect: '通过 Cloudflare 登录时，你将跳转到 DotX 的公共登录中转 oauth.dotx.run。',
     privacyRelay:
-      '公共中转处理登录跳转和临时授权码，不保存访问或续期令牌；它会接触 Server 地址、IP 等请求信息。',
-    privacyChoice: '你可以在 Cloudflare 撤销授权，也可以请安装 Agent 帮助设置密码或 Passkey。',
+      '它用于完成一次性授权跳转，不读取你的 Cloudflare 帐户信息。授权页涉及的用户资料、账号成员信息和登录凭据（访问及续期令牌），均由此 Server 直接从 Cloudflare 获取，不经过 oauth.dotx.run。中转会接触 Server 地址、IP 和一次性授权码。',
+    privacyChoice: '如果对公共 OAuth 服务有顾虑，也可以',
+    privacySetup: '请安装 Agent 设置密码或 Passkey',
+    privacyDirect: '，直接登录此 Server，无需经过 Cloudflare 登录。',
     authorizedTitle: '授权成功',
     checkingBody: '正在检查此 Cloudflare 账号的管理权限，请稍候',
     deniedTitle: '无管理权限',

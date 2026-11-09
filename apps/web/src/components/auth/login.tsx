@@ -76,20 +76,7 @@ export function Login({
                       <p className="lede">{t.login.deniedBody}</p>
                     </>
                   )}
-                  {first && (
-                    <p className="lede login-account-hint">
-                      {t.login.cloudflareAccountHint}
-                      <a
-                        href="#cloudflare-account"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          setAccountHelp(true);
-                        }}
-                      >
-                        {t.login.askInstallationAgent}
-                      </a>
-                    </p>
-                  )}
+                  {first && <p className="lede">{t.login.cloudflareAccountHint}</p>}
                   <Alert error={start.error} />
                   <Button
                     variant="solid"
@@ -126,6 +113,18 @@ export function Login({
                   )}
                   {first ? (
                     <ul className="login-help">
+                      <li>
+                        {t.login.cloudflareAccountQuestion}
+                        <a
+                          href="#cloudflare-account"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setAccountHelp(true);
+                          }}
+                        >
+                          {t.login.askInstallationAgent}
+                        </a>
+                      </li>
                       <li>
                         {t.login.learnPrivacy}
                         <a
@@ -190,10 +189,22 @@ export function Login({
         onClose={() => setPrivacy(false)}
       >
         <div className="login-privacy">
-          <p>{t.login.privacyPermissions}</p>
-          <p>{t.login.privacyCredentials}</p>
+          <p>{t.login.privacyRedirect}</p>
           <p>{t.login.privacyRelay}</p>
-          <p>{t.login.privacyChoice}</p>
+          <p>
+            {t.login.privacyChoice}
+            <a
+              href="#setup-login"
+              onClick={(event) => {
+                event.preventDefault();
+                setPrivacy(false);
+                setView('agent');
+              }}
+            >
+              {t.login.privacySetup}
+            </a>
+            {t.login.privacyDirect}
+          </p>
         </div>
       </Dialog>
     </div>

@@ -180,8 +180,8 @@ export const en = {
     cloudflareAction: 'Sign in with Cloudflare',
     otherMethods: 'Other sign-in methods',
     passkeyAlternative: 'Sign in with passkey',
-    cloudflareAccountHint:
-      'Sign in to the Cloudflare account hosting this DotX Server. Not sure which account? ',
+    cloudflareAccountHint: 'Sign in to the Cloudflare account hosting this DotX Server.',
+    cloudflareAccountQuestion: 'Not sure which account? ',
     askInstallationAgent: 'Ask your installation Agent',
     accountHelpTitle: 'Find your Cloudflare account',
     accountHelpBody: 'Copy this prompt and send it to your installation Agent.',
@@ -191,14 +191,13 @@ export const en = {
     privacyTitle: 'Cloudflare login and privacy',
     agentAlternative: 'Have concerns or need help? Ask your installation Agent to help you ',
     setupAlternative: 'set up a sign-in method',
-    privacyPermissions:
-      'This Server reads your Cloudflare profile and account memberships to verify management permission. It does not request permission to modify Cloudflare resources.',
-    privacyCredentials:
-      'Cloudflare handles your Cloudflare password. This Server stores login credentials to keep you signed in automatically.',
+    privacyRedirect:
+      'Cloudflare sign-in redirects you through oauth.dotx.run, the public DotX sign-in relay.',
     privacyRelay:
-      'The public relay handles redirects and temporary authorization codes. It does not store access or refresh tokens; it can see the Server address, IP and other request information.',
-    privacyChoice:
-      'You can revoke authorization in Cloudflare, or ask your installation Agent to help set up a password or passkey.',
+      'The relay handles the one-time authorization redirect without reading your Cloudflare account information. This Server obtains your profile, account memberships and sign-in credentials (access and refresh tokens) directly from Cloudflare; they do not pass through oauth.dotx.run. The relay can see the Server address, IP address and one-time authorization code.',
+    privacyChoice: 'If you have concerns about the public OAuth service, you can ',
+    privacySetup: 'ask your installation Agent to set up a password or Passkey',
+    privacyDirect: ' and sign in directly to this Server without Cloudflare sign-in.',
     authorizedTitle: 'Authorization successful',
     checkingBody: 'Checking this Cloudflare account’s management permission. Please wait.',
     deniedTitle: 'No management permission',

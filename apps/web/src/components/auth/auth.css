@@ -82,13 +82,19 @@
 .login-help li + li {
   margin-top: 10px;
 }
-.login-help a,
-.login-account-hint a {
+.login-help a {
   font-weight: 600;
   white-space: nowrap;
 }
 .login-privacy p + p {
   margin-top: 16px;
+}
+.login-privacy a {
+  color: var(--accent);
+  font-weight: 600;
+}
+.login-privacy a:hover {
+  text-decoration: underline;
 }
 .login-separator {
   display: flex;
