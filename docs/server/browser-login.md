@@ -10,6 +10,8 @@ Use when the user wants to manage DotX at `/admin`. Need: the Server URL. Browse
 
 No user-created OAuth client or runtime verification variable is needed. An accepted account membership alone is insufficient; group-only permission is not supported. If the page reports no management permission, use the Cloudflare account that manages the deployment or ask the installation Agent to identify it. If sign-in expires or fails temporarily, return to login and start again; a network failure does not mean permission is absent.
 
+To identify the login for an existing Server, read `account_id` from its deployment configuration and [find a Wrangler login](wrangler-login.md#find-an-existing-login) that includes that account. Complete the [target-specific access check](../common/access.md), then report that login's email and return to browser sign-in. `whoami` identifies the current login, not the historical deployer.
+
 The first login page offers **Cloudflare login and privacy** as a short optional explanation. The full policy is at <https://oauth.dotx.run/privacy>. The public relay handles redirects and temporary codes; each Server exchanges and stores its own tokens. Do not request the user's Cloudflare password, tokens, browser cookies or passkey data.
 
 ## Use or set up a password or passkey

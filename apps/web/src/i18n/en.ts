@@ -186,7 +186,7 @@ export const en = {
     accountHelpTitle: 'Find your Cloudflare account',
     accountHelpBody: 'Copy this prompt and send it to your installation Agent.',
     accountHelpPrompt:
-      'Which Cloudflare account was used to deploy this DotX Server? Tell me the email address to sign in with: {origin}\nGuide: {guide}',
+      'Which Cloudflare account hosts this DotX Server ({origin})? Tell me the email address to sign in with.\nGuide: {guide}',
     learnPrivacy: 'Learn about ',
     privacyTitle: 'Cloudflare login and privacy',
     agentAlternative: 'Have concerns or need help? Ask your installation Agent to help you ',
