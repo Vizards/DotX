@@ -14,7 +14,7 @@ export function Dialog({
   kind?: 'alert' | 'modal';
   /** A panel that carries a whole flow needs more than 460px. */
   wide?: boolean;
-  /** Hide the corner button when the dialog already has a Cancel action. */
+  /** Hide the corner button when paired footer actions already include Cancel. */
   showClose?: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -49,26 +49,25 @@ export function Dialog({
       {open && (
         <div className="sheet-panel" data-kind={kind} data-wide={wide || undefined}>
           <h2>{title}</h2>
-          {showClose && (
-            <button
-              type="button"
-              className="sheet-close"
-              aria-label={t.common.close}
-              onClick={onClose}
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                <path
-                  d="M3.5 3.5l9 9m0-9l-9 9"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          )}
+          {showClose && <DialogClose onClose={onClose} />}
           {children}
         </div>
       )}
     </dialog>
+  );
+}
+
+export function DialogClose({ onClose }: { onClose: () => void }) {
+  return (
+    <button type="button" className="sheet-close" aria-label={t.common.close} onClick={onClose}>
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path
+          d="M3.5 3.5l9 9m0-9l-9 9"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    </button>
   );
 }

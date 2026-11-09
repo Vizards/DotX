@@ -255,6 +255,7 @@
 }
 
 .action-sheet {
+  position: relative;
   width: 100%;
   padding: 8px;
   border: 1px solid var(--line-3);
@@ -265,10 +266,20 @@
 }
 
 .action-sheet-title {
-  margin: 4px 12px 6px;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 0 44px 4px 12px;
   font-size: var(--fs-micro);
   color: var(--text-3);
   overflow-wrap: anywhere;
+}
+
+.action-sheet > .sheet-close {
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
 }
 
 .act--sheet {
@@ -290,20 +301,6 @@
 
 .act--sheet.act--danger {
   color: var(--risk-text);
-}
-
-.action-sheet-cancel {
-  width: 100%;
-  min-height: 50px;
-  margin-top: 4px;
-  border: 0;
-  border-top: 1px solid var(--line-2);
-  border-radius: 0 0 var(--r-control) var(--r-control);
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--fs-table);
-  font-weight: 600;
 }
 
 @keyframes sheet-in {

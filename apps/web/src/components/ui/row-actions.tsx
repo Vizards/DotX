@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from '@tanstack/react-router';
+import { DialogClose } from './dialog.tsx';
 import { useCompact } from '../../hooks/use-compact.ts';
 import { t } from '../../i18n/index.ts';
 /** One row action. Secondary ones fold into "more" on wide screens. */
@@ -166,7 +167,8 @@ function MobileActions({ actions, title }: { actions: RowAction[]; title: string
             }}
           >
             <div className="action-sheet" ref={sheet} role="dialog" aria-label={t.common.actions}>
-              {title && <p className="action-sheet-title">{title}</p>}
+              <p className="action-sheet-title">{title || t.common.actions}</p>
+              <DialogClose onClose={dismiss} />
               {actions.map((action) => (
                 <Action
                   key={action.label}
@@ -178,9 +180,6 @@ function MobileActions({ actions, title }: { actions: RowAction[]; title: string
                   }}
                 />
               ))}
-              <button type="button" className="action-sheet-cancel" onClick={dismiss}>
-                {t.common.cancel}
-              </button>
             </div>
           </div>,
           document.body,

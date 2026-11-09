@@ -151,7 +151,6 @@ function Security() {
         open={editing !== null}
         title={editing?.kind === 'passkey' ? t.security.addPasskey : t.security.passwordTitle}
         kind="modal"
-        showClose={false}
         onClose={() => setEditing(null)}
       >
         {editing?.kind === 'password' && (
@@ -181,9 +180,6 @@ function Security() {
             />
           </>
         )}
-        <div className="acts">
-          <Button onClick={() => setEditing(null)}>{t.common.cancel}</Button>
-        </div>
       </Dialog>
 
       {renaming && (

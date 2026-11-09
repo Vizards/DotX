@@ -229,8 +229,19 @@
   margin-top: var(--space-3);
 }
 
-form > .alert {
-  margin-bottom: var(--space-4);
+/* Feedback needs the same separation outside forms, including callbacks and
+   clipboard failures. Keep action groups' own spacing. */
+.alert + .btn,
+.btn + .alert,
+.alert + .alert,
+.consent-footer + .alert,
+.auth-card > h1 + .alert,
+.step-card > h1 + .alert {
+  margin-top: var(--space-4);
+}
+
+.page > .alert {
+  margin-bottom: var(--space-5);
 }
 
 .loading {
