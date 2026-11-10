@@ -4,7 +4,7 @@
 
 <h1 align="center">DotX</h1>
 
-<p align="center">Let any personal agent use your Codex — including computer use.</p>
+<p align="center">Let any personal agent drive Codex across your computers — including computer use.</p>
 
 <p align="center">
   <a href="https://github.com/Vizards/DotX/releases/latest">
@@ -15,9 +15,18 @@
   </a>
 </p>
 
-![DotX workflow: resume a Codex task on your Mac and relay questions back to the same Personal Agent conversation.](.github/assets/how-it-works.png)
+<p align="center">
+  English |
+  <a href="README.zh-cn.md">简体中文</a>
+</p>
 
-Connect your MCP-compatible agent to Codex on macOS and Windows. Start tasks, continue conversations, and let Codex work with your local files, apps, and browser.
+![DotX workflow: resume a Codex task on your computer and relay questions back to the same Personal Agent conversation.](.github/assets/how-it-works.webp)
+
+Connect your MCP-compatible agent to Codex on your computers. Start tasks, continue conversations, and let Codex work with your local files, apps, and browser.
+
+- **Any agent.** Not just dot: use the Personal Agent you already have.
+- **Every computer.** Connect as many as you need, and any approved agent can reach all of them.
+- **Several agents.** Approve more than one Personal Agent, and each can work with any Codex in your network.
 
 ## Get started
 
