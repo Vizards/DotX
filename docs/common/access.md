@@ -28,7 +28,7 @@ For a Server that does not exist yet, use [deployment login](../server/wrangler-
 | CF/network failure | Preserve the error as an upstream failure, not proof of absent permission. Read state before retrying an uncertain write |
 | No known management path | Tell the user which target and action need an administrator; do not ask for raw credentials |
 
-Agent management uses official Wrangler OAuth and direct permission to modify/deploy the target Worker, including account-wide direct permission. Group-only permission is unsupported in 0.1.0. `admin.mjs` obtains the credential once per invocation; Wrangler handles normal renewal. Do not read private token files or copy tokens into requests/handoffs.
+Agent management uses official Wrangler OAuth and direct permission to modify/deploy the target Worker, including account-wide direct permission. Group-only permission is unsupported. `admin.mjs` obtains the credential once per invocation; Wrangler handles normal renewal. Do not read private token files or copy tokens into requests/handoffs.
 
 A failed read is unknown state, not an empty list. The management page displays `N/A` for failed counts and `0` for a successfully read empty result. Retry the read before deciding to install, approve or recreate anything.
 

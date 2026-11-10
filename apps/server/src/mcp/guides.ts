@@ -4,6 +4,7 @@ import server_install from '../../../../docs/server/install.md';
 import server_update from '../../../../docs/server/update.md';
 import codex_connect from '../../../../docs/codex/connect.md';
 import codex_update from '../../../../docs/codex/update.md';
+import codex_runtime from '../../../../docs/codex/runtime.md';
 import personal_agent from '../../../../docs/personal-agents/index.md';
 import dot from '../../../../docs/personal-agents/dot/index.md';
 import cue from '../../../../docs/personal-agents/cue/index.md';
@@ -28,6 +29,7 @@ import approval from '../../../../docs/personal-agents/approval.md';
 import device_approval from '../../../../docs/codex/approve.md';
 import plugin_loading from '../../../../docs/troubleshooting/plugin-loading.md';
 import device_recovery from '../../../../docs/troubleshooting/device.md';
+import browser_login_recovery from '../../../../docs/troubleshooting/browser-login.md';
 import answers from '../../../../docs/usage/answers.md';
 
 export const INSTRUCTIONS_GUIDANCE =
@@ -56,6 +58,11 @@ export const INSTRUCTION_GUIDES = {
   server_update: guide('Update Server and web pages', 'server/update.md', server_update),
   codex_connect: guide('Connect a local Codex', 'codex/connect.md', codex_connect),
   codex_update: guide('Update the local Codex plugin', 'codex/update.md', codex_update),
+  codex_runtime: guide(
+    'Use the local Codex runtime and commands',
+    'codex/runtime.md',
+    codex_runtime,
+  ),
   personal_agent: guide('Connect a Personal Agent', 'personal-agents/index.md', personal_agent),
   dot: guide('Connect, configure or update dot', 'personal-agents/dot/index.md', dot),
   cue: guide('Connect, configure or update Cue', 'personal-agents/cue/index.md', cue),
@@ -74,7 +81,7 @@ export const INSTRUCTION_GUIDES = {
   ),
   wrangler_login: guide('Select the deployment login', 'server/wrangler-login.md', wrangler_login),
   browser_login: guide(
-    'Sign in or recover browser management',
+    'Sign in or set up browser management',
     'server/browser-login.md',
     browser_login,
   ),
@@ -94,6 +101,11 @@ export const INSTRUCTION_GUIDES = {
     'Resolve an unavailable Codex',
     'troubleshooting/device.md',
     device_recovery,
+  ),
+  browser_login_recovery: guide(
+    'Recover browser management access',
+    'troubleshooting/browser-login.md',
+    browser_login_recovery,
   ),
   handoff: guide('Verify completion and hand off the next step', 'common/handoff.md', handoff),
   connections: guide('Find devices and choose an interface', 'usage/connections.md', connections),

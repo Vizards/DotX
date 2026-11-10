@@ -17,7 +17,7 @@
 
 ![DotX workflow: resume a Codex task on your Mac and relay questions back to the same Personal Agent conversation.](.github/assets/how-it-works.png)
 
-Connect your MCP-compatible agent to Codex on your Macs. Start tasks, continue conversations, and let Codex work with your local files, apps, and browser.
+Connect your MCP-compatible agent to Codex on macOS and Windows. Start tasks, continue conversations, and let Codex work with your local files, apps, and browser.
 
 ## Get started
 
@@ -39,19 +39,19 @@ Send to the Personal Agent you want to add.
 Connect yourself to my DotX: https://github.com/Vizards/DotX
 ```
 
-### Connect another Mac's Codex
+### Connect another computer's Codex
 
-Send to Codex on that Mac.
+Send to Codex on that computer.
 
 ```text
-Connect this Mac's Codex to my DotX: https://github.com/Vizards/DotX
+Connect this computer's Codex to my DotX: https://github.com/Vizards/DotX
 ```
 
 ## What you can do
 
-DotX exposes Codex's native App Server and App Tools through MCP, so your Personal Agent can operate Codex directly on your Macs, using its native conversations, tools, and capabilities.
+DotX exposes Codex's native App Server and App Tools through MCP, so your Personal Agent can operate Codex directly on your computers, using its native conversations, tools, and capabilities.
 
-### Work with apps and browsers on your Mac
+### Work with apps and browsers on your computer
 
 Ask your Personal Agent to have Codex work with local apps, browsers, and files. With computer use enabled in Codex, it can check a page, interact with an app, and bring the results back to your conversation.
 
@@ -59,13 +59,13 @@ Ask your Personal Agent to have Codex work with local apps, browsers, and files.
 
 ### Pick up where you left off
 
-Continue a Codex conversation already running on your Mac, check its progress, or send it the next task. Your Personal Agent can also start a new conversation in the right project.
+Continue a Codex conversation already running on your computer, check its progress, or send it the next task. Your Personal Agent can also start a new conversation in the right project.
 
 ![Cue continues the same Codex task on Mac mini to check memory usage.](.github/assets/cue-continue-task.webp)
 
-### Work across your Macs
+### Work across your computers
 
-Your Personal Agent can coordinate Codex tasks on several Macs at once and bring their progress and results into one conversation.
+Your Personal Agent can coordinate Codex tasks on several computers at once and bring their progress and results into one conversation.
 
 ![Cue asks Codex on both Macs to check free disk space and brings their results into one conversation.](.github/assets/cue-across-macs.webp)
 

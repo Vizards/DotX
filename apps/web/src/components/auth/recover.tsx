@@ -11,7 +11,7 @@ export function RecoverDialog({ open, onClose }: { open: boolean; onClose: () =>
         <Prompt
           value={fill(t.login.recoverPrompt, {
             origin: window.location.origin,
-            guide: guideUrl('server/browser-login.md'),
+            guide: guideUrl('troubleshooting/browser-login.md'),
           })}
         />
       </section>

@@ -41,23 +41,23 @@ export const en = {
     okBody: 'No device or agent connection needs your attention.',
     pendingRequest: '{name} is asking to connect',
     incompatible: '{name} speaks wire {wire}; this Server speaks wire {server}',
-    incompatibleNext: 'Update this Mac',
+    incompatibleNext: 'Update this device',
     review: 'Review',
-    addMacTitle: 'Connect a new Mac',
-    addMacBody:
-      'Paste one request into the Codex on that Mac and it handles the install. Its request then arrives here for approval.',
-    addMacAction: 'Connect',
+    addDeviceTitle: 'Connect a Codex device',
+    addDeviceBody:
+      'Paste one request into the Codex on that computer and it handles the install. Its request then arrives here for approval.',
+    addDeviceAction: 'Connect',
     addAgentTitle: 'Connect a Personal Agent',
     addAgentBody:
       'Give this Server’s MCP address to a Personal Agent, then approve its connection request.',
     addAgentAction: 'Connect',
 
-    macSheetBody:
-      'Send this to the Codex on that Mac. It installs DotX Desktop and connects to this Server.',
-    macPrompt: "Connect this Mac's Codex to my DotX: {origin}\nGuide: {guide}",
-    macSheetTail: 'Once installed, approve its request on the Codex devices page.',
+    deviceSheetBody:
+      'Send this to Codex on the Mac or Windows computer you want to connect. It installs DotX Desktop and connects to this Server.',
+    devicePrompt: "Connect this computer's Codex to my DotX: {origin}\nGuide: {guide}",
+    deviceSheetTail: 'Once installed, approve its request on the Codex devices page.',
 
-    wireSheetTitle: 'Update this Mac',
+    wireSheetTitle: 'Update this device',
     wireSheetBody:
       '{name} runs DotX Desktop on wire {wire}; this Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything.',
     wireSheetTail:
@@ -67,18 +67,19 @@ export const en = {
   devices: {
     title: 'Codex devices',
     emptyTitle: 'No Codex devices yet',
-    emptyBody: 'Install DotX Desktop on a Mac to send its first request.',
+    emptyBody: 'Install DotX Desktop on a Mac or Windows computer to send its first request.',
     add: 'Add',
     rejectTitle: 'Reject request?',
     rejectBody: '“{name}” ({label}) will need a new request to connect.',
     verificationLabel: 'Verification label',
     requestStatus: {
       approved: 'Already approved.',
-      rejected: 'Rejected. Ask Codex on that Mac to reapply if needed.',
-      expired: 'Expired. Ask Codex on that Mac to reapply.',
-      revoked: 'Access removed. Ask Codex on that Mac to reapply if needed.',
+      rejected: 'Rejected. Ask Codex on that computer to reapply if needed.',
+      expired: 'Expired. Ask Codex on that computer to reapply.',
+      revoked: 'Access removed. Ask Codex on that computer to reapply if needed.',
     },
-    requestUnavailable: 'This request is no longer available. Ask Codex on that Mac to check it.',
+    requestUnavailable:
+      'This request is no longer available. Ask Codex on that computer to check it.',
     pendingExpires: 'Expires {time}',
     statAwaiting: 'to approve',
     approve: 'Approve',
@@ -106,13 +107,13 @@ export const en = {
     upgrade: 'Upgrade',
     fixTitle: 'Fix {name}',
     fixWireBody:
-      'This Mac runs wire {wire}; the Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything, so the prompt has to be carried over by hand.',
+      'This device runs wire {wire}; the Server speaks wire {server}. They cannot talk, and the Server can no longer send it anything, so the prompt has to be carried over by hand.',
     fixWirePrompt:
       'Update DotX Desktop on {name} to a version compatible with this Server: {origin}\nGuide: {guide}',
     fixOfflineBody:
-      'This Mac is not connected to the Server right now. Send this to the Codex on it so it can check plugin loading and the connection.',
+      'This device is not connected to the Server right now. Send this to the Codex on it so it can check plugin loading and the connection.',
     fixInterfaceBody:
-      'This Mac is connected, but its Codex interfaces are unavailable. Send this to Codex on that Mac to investigate.',
+      'This device is connected, but its Codex interfaces are unavailable. Send this to Codex on that computer to investigate.',
     fixPrompt: 'Check and fix DotX on {name}: {origin}\nGuide: {guide}',
     fixTail: 'After fixing it, refresh this page to check the status.',
     wireMismatch: 'wire {wire} · this Server speaks wire {server}',
@@ -214,15 +215,16 @@ export const en = {
     passwordSignIn: 'Sign in',
     reset: 'Having trouble?',
     or: 'or',
-    recoverTitle: 'Reset browser login',
+    recoverTitle: 'Reset password or passkeys',
     recoverAgentBody:
-      'Send this request to your installation Agent to get a browser login reset link.',
+      'Send this request to your installation Agent to get a password or passkey reset link.',
     unconfiguredTitle: 'Set up browser login',
     unconfiguredLede: 'Set a password or passkey to manage DotX from a browser.',
     unconfiguredAgent: 'Send this request to the Agent that installed this Server',
     unconfiguredAgentBody: 'It issues you a one-time setup link.',
     setupManual: 'Sign in with Cloudflare',
-    recoverPrompt: 'Give me a link to reset browser login for this DotX: {origin}\nGuide: {guide}',
+    recoverPrompt:
+      'Give me a link to reset the local password or passkeys for this DotX: {origin}\nGuide: {guide}',
     setupPrompt: 'Give me a link to set up browser login for this DotX: {origin}\nGuide: {guide}',
   },
 

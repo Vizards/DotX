@@ -19,7 +19,7 @@ export const Route = createFileRoute('/admin/')({ component: Overview });
 
 /** Which hand-off is open. Two of them are prompts; one carries a device. */
 type Sheet =
-  | { kind: 'mac' }
+  | { kind: 'device' }
   | { kind: 'agent' }
   | { kind: 'wire'; name: string; wire: number; server: number }
   | null;
@@ -71,7 +71,7 @@ function Overview() {
         to: '/admin/agents',
       });
 
-  // The Server cannot send anything to an incompatible Mac, so the only channel
+  // The Server cannot send anything to an incompatible device, so the only channel
   // left is a prompt the user carries over by hand.
   for (const device of approved)
     if (device.compatible === false)
@@ -148,10 +148,10 @@ function Overview() {
         )}
 
         <article className="motive">
-          <h2>{t.overview.addMacTitle}</h2>
-          <p>{t.overview.addMacBody}</p>
-          <Button variant="solid" small onClick={() => setSheet({ kind: 'mac' })}>
-            {t.overview.addMacAction}
+          <h2>{t.overview.addDeviceTitle}</h2>
+          <p>{t.overview.addDeviceBody}</p>
+          <Button variant="solid" small onClick={() => setSheet({ kind: 'device' })}>
+            {t.overview.addDeviceAction}
           </Button>
         </article>
 
@@ -165,7 +165,7 @@ function Overview() {
       </section>
 
       <NewDeviceDialog
-        open={sheet?.kind === 'mac'}
+        open={sheet?.kind === 'device'}
         origin={origin}
         onClose={() => setSheet(null)}
       />
