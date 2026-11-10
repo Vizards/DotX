@@ -6,8 +6,8 @@ If this is an interrupted installation, inspect and reuse its resources. For an 
 
 ## Install
 
-1. Resolve missing target/release choices. Download the selected Server Release attachment and read its README, release notes, `release.json` and `toolchain.json`. Meet its Node/pnpm requirements. Prepare a persistent service directory with a separate actual `wrangler.json`; do not deploy template development values.
-2. [Prepare Wrangler and select the login](wrangler-login.md), then return here with the verified target account/profile. Continue running commands from that service directory.
+1. Resolve missing target/release choices. Download the selected Server Release attachment and read its README, release notes, `release.json` and `toolchain.json`. Meet the management tool's Node requirement and have official Wrangler available. Keep the actual `wrangler.json` outside the release attachment; do not deploy template development values.
+2. [Verify the deployment login](wrangler-login.md), then return here with the intended account/profile.
 3. Use the selected attachment's management tool to look up the exact selected Worker. Create it only when absent and intended:
 
    ```sh
@@ -18,12 +18,7 @@ If this is an interrupted installation, inspect and reuse its resources. For an 
 
    Add `--profile NAME` for a named login. Save the returned immutable Worker ID. If creation has an unknown result, read the exact name before retrying. A failed read does not prove absence; do not overwrite an unrelated Worker.
 4. Fill the [deployment configuration](configuration.md#new-service-values), including that ID, and create the service's OAuth KV namespace as described there. Return here once the actual bindings/vars and code/assets paths are ready.
-5. Review and deploy with the service directory's official Wrangler:
-
-   ```sh
-   pnpm exec wrangler deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.json
-   pnpm exec wrangler deploy --config /ABSOLUTE/SERVICE/wrangler.json
-   ```
+5. Use official Wrangler to dry-run, then deploy the actual configuration with the verified account/profile.
 
 ## Verify and continue
 

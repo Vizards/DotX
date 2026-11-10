@@ -1,15 +1,14 @@
-import { spawn } from 'node:child_process';
+import { spawn } from 'cross-spawn';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
 
 // Only the official CLI may load or refresh its credentials. Never expose its
 // stdout/stderr, which can contain the exported token or provider diagnostics.
-// Use the caller's service directory and installed CLI, as for login/deployment.
-// Tool installation and updates belong to the installation/maintenance Agent.
+// Reuse the caller's Wrangler executable and login context.
 export async function wranglerToken(profile?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(
-      'pnpm',
-      ['exec', 'wrangler', 'auth', 'token', '--json', ...(profile ? ['--profile', profile] : [])],
+      'wrangler',
+      ['auth', 'token', '--json', ...(profile ? ['--profile', profile] : [])],
       {
         env: {
           ...process.env,
@@ -34,7 +33,7 @@ export async function wranglerToken(profile?: string): Promise<string> {
     child.stderr.resume();
     child.once('error', () => {
       clearTimeout(timer);
-      reject(new Error('WRANGLER_START_FAILED: pnpm must be available on PATH'));
+      reject(new Error('WRANGLER_START_FAILED: wrangler must be available on PATH'));
     });
     child.once('close', (code) => {
       clearTimeout(timer);
@@ -42,7 +41,7 @@ export async function wranglerToken(profile?: string): Promise<string> {
         reject(
           new Error(
             failure ??
-              'WRANGLER_AUTH_FAILED: check pnpm exec wrangler auth token --help and the intended login with pnpm exec wrangler whoami --json from the service directory',
+              'WRANGLER_AUTH_FAILED: check the Wrangler login, selected profile and network',
           ),
         );
         return;

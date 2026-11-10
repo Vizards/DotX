@@ -2,11 +2,11 @@
 
 This independent attachment contains a bundled Worker, all web pages and branding in `public/`, an official Wrangler template, a local `admin.mjs` management tool and version-matched Agent guides. Desktop is a separate attachment.
 
-Start at [the guide index](docs/index.md), [Server installation](docs/server/install.md) or [Server update](docs/server/update.md). `release.json` identifies the release, wire version and component changes; `toolchain.json` records the Node requirement and the pnpm/Wrangler versions used to build the release. Wrangler can be maintained independently of DotX; its recorded version is not an exact installation requirement. The target GitHub Release notes describe version-specific installation and update requirements.
+Start at [the guide index](docs/index.md), [Server installation](docs/server/install.md) or [Server update](docs/server/update.md). `release.json` identifies the release, wire version and component changes; `toolchain.json` records the Node requirement and the pnpm/Wrangler build versions, which do not constrain the user's Wrangler installation. The target GitHub Release notes describe version-specific installation and update requirements.
 
 Keep the actual deployment configuration outside this attachment. Deploy `worker.mjs` and `public/` together as one Worker, with one SQLite DeviceHub DO and OAuth KV. Agent management uses Wrangler's direct permission to modify the target Worker. Browser management recommends Cloudflare sign-in through the public DotX relay; no CF OAuth client is needed. Password and Passkey are optional alternatives stored in this service's DeviceHub.
 
-The management CLI uses `pnpm exec wrangler` to obtain the current official OAuth login; it does not install or update Wrangler. [Prepare the service directory](docs/server/wrangler-login.md#prepare-the-service-directory), then run login, deployment and management from that directory using the selected attachment's absolute path:
+The management CLI invokes `wrangler auth token --json` through PATH, using the caller's [Wrangler login context](docs/server/wrangler-login.md). Run the selected attachment's tool where that CLI is available:
 
 ```sh
 node /ABSOLUTE/RELEASE/admin.mjs --url https://YOUR_WORKER.workers.dev session

@@ -4,17 +4,10 @@ Use when the target release supports updating the existing service in place. Nee
 
 ## Update
 
-1. Read the target Release notes, attachment and toolchain, plus the component scope from [update coordination](../maintenance/update.md). Verify [management access](../common/access.md), then return here.
+1. Read the target Release notes, attachment and toolchain, plus the component scope from [update coordination](../maintenance/update.md). The new management tool requires `wrangler` on PATH with the intended login context. Verify [management access](../common/access.md), then return here.
 2. Identify the existing account, Worker, origin, service ID and deployed configuration. If local files are absent or unreliable, [recover the configuration](configuration.md#recover-deployment-configuration-on-another-machine), then return here. Inability to read it is a handoff, not permission to deploy defaults.
 3. Compare the target template with actual settings. Preserve account/Worker/URL, `SERVICE_ID`, storage bindings and data, browser login methods, secrets and intentional variables such as `RECORD_RETENTION_DAYS`. Apply only changes required by the target release. Secrets remain in CF; deployment does not require their values. Changing account, Worker or hostname is a separate migration.
-4. Point both `main` and `assets.directory` to the target attachment. Follow release-specific migrations/order and run the service directory's official Wrangler:
-
-   ```sh
-   pnpm exec wrangler deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.json
-   pnpm exec wrangler deploy --config /ABSOLUTE/SERVICE/wrangler.json
-   ```
-
-   Reuse the service's Wrangler installation and login. Updating DotX does not itself require updating Wrangler; update it if a required command is unavailable or the user requests toolchain maintenance. It need not match the target attachment's recorded build version.
+4. Point both `main` and `assets.directory` to the target attachment. Follow release-specific migrations/order, then dry-run and deploy the actual configuration with official Wrangler and the verified account/profile. Reuse the existing Wrangler installation; a DotX update does not require matching its build version.
 
 ## Verify and continue
 

@@ -8,7 +8,7 @@ Judge actual tools and environment, not the Agent's product name.
 
 | Task | Required capability | If missing |
 | --- | --- | --- |
-| Deploy Server | Compatible Node/pnpm, official Wrangler and access to the target account | Request CF authorization or hand off deployment; browser automation is optional |
+| Deploy Server | Compatible Node, official Wrangler and access to the target account | Request CF authorization or hand off deployment; browser automation is optional |
 | Connect Codex | Access to the intended computer's actual Codex host | Hand off to Codex on that computer; your own cloud shell is not that host |
 | Approve a Codex or PA request | Verified Worker management access or authorized management browser | Hand off the actual request; a Wrangler-capable Agent needs no browser-login setup |
 | Configure a PA | Its real plugin/MCP tools or settings | Hand off the missing configuration or consent step; the user can operate the browser |

@@ -23,7 +23,7 @@ Password and Passkey are additional login methods. Configured methods appear dir
 | Requested action | Next step |
 | --- | --- |
 | Already signed in; add or change a method | Open `/admin/security` |
-| Initial local setup; Agent has verified [Wrangler management access](../common/access.md) | From the service directory, run `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN setup` |
+| Initial local setup; Agent has verified [Wrangler management access](../common/access.md) | Run `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN setup` |
 | Local credentials are lost or unusable | Follow [local-credential recovery](../troubleshooting/browser-login.md#recover-local-credentials) |
 | User asks another installation Agent for setup | On the first login page choose **Set up a sign-in method** and copy the prompt, including its versioned guide link |
 | Login or management fails | Choose the matching [recovery branch](../troubleshooting/browser-login.md) |

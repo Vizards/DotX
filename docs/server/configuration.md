@@ -4,13 +4,7 @@ Use only the section requested by [installation](install.md) or [update](update.
 
 ## New service values
 
-Preserve the release template's `DEVICES` SQLite DO binding, migration, compatibility settings and asset behavior. Create a namespace unique to this service, keeping the binding name `OAUTH_KV`:
-
-```sh
-pnpm exec wrangler kv namespace create WORKER_NAME-oauth --config /ABSOLUTE/SERVICE/wrangler.json
-```
-
-Run from the [prepared service directory](wrangler-login.md#prepare-the-service-directory) with the selected login. Put the returned namespace ID and these non-secret values into the actual configuration:
+Preserve the release template's `DEVICES` SQLite DO binding, migration, compatibility settings and asset behavior. Use the verified account/profile to create a KV namespace unique to this service, keeping the binding name `OAUTH_KV`. Put its namespace ID and these non-secret values into the actual configuration:
 
 | Configuration | Value |
 | --- | --- |
@@ -33,7 +27,7 @@ For the default `workers.dev` address, read the selected account's subdomain bef
 GET https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/workers/subdomain
 ```
 
-Use existing authenticated CF tooling. With only Wrangler available, capture the official `pnpm exec wrangler auth token --json` output inside the calling process, using the service directory and selected profile, and send the token only in the CF request's Authorization header. Keep it out of terminal output, files and chat; do not read private credential files.
+Use existing authenticated CF tooling. If using Wrangler OAuth for this request, keep its credential inside the calling process and send it only in the CF request's Authorization header; do not print it, save it or read private credential files.
 
 Read `result.subdomain` from a successful response and set `PUBLIC_ORIGIN` to `https://WORKER_NAME.ACCOUNT_SUBDOMAIN.workers.dev`. Do not derive the subdomain from an email, account display name or profile name. The script-level `/workers/scripts/WORKER_NAME/subdomain` endpoint reports enablement, not the account subdomain.
 
