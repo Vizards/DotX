@@ -12,15 +12,17 @@ Use the evidence available in the current environment:
 
 A maintenance Agent with Wrangler access does not need a Personal Agent connection to update Server. A missing/unavailable update hint is not proof that a component is current or broken. Read the selected target GitHub Release notes, component change flags and attachments before changing anything. Reuse the user's stated scope; resolve only missing choices that affect which components or machines will change.
 
+A 0.0.1 installation (wire 4) cannot update in place to the wire 5 installation model. Use [fresh Server installation](../server/install.md) and [fresh Codex connection](../codex/connect.md) for the selected release, following its upgrade notes. Preserve native Codex accounts, projects and conversations. This historical boundary is separate from ordinary updates that retain their installation identities.
+
 ## Apply the selected release
 
 - changes.server: follow [Server update](../server/update.md). It includes web pages and bundled Server guides.
-- changes.desktop: follow [Codex update](../codex/update.md) locally on each affected Mac. It includes the plugin's bundled guides.
+- changes.desktop: follow [Codex update](../codex/update.md) locally on each affected computer. It includes the plugin's bundled guides.
 - changes.remote_catalog: [refresh each Personal Agent's tools](../personal-agents/index.md#refresh-tools).
 
 Follow the target release's required operation order. Product versions alone do not imply incompatibility; wire must match. It is acceptable for a link to be temporarily unavailable while updating components. Report component completion and link restoration separately, and do not automatically resend unknown in-flight calls after reconnection.
 
-An Agent without deployment or local Mac capability should perform available checks, then hand off the exact target artifact, guide, identities, completed work and remaining steps. A native task may continue after the remote connection drops; inspect its current state before further action.
+An Agent without deployment or access to the target Codex host should perform available checks, then hand off the exact target artifact, guide, identities, completed work and remaining steps. A native task may continue after the remote connection drops; inspect its current state before further action.
 
 No project test suite or synthetic task belongs in a user's ordinary update. Use read-only discovery/native checks. Finish with [handoff](../common/handoff.md).
 

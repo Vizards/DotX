@@ -3,6 +3,6 @@
   "changes": {
     "server": true,
     "desktop": true,
-    "remote_catalog": false
+    "remote_catalog": true
   }
 }

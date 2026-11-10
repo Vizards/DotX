@@ -50,7 +50,7 @@ Return to the configuration table. After deployment, compare Wrangler's reported
 | Category | What to preserve |
 | --- | --- |
 | Target and public identity | Account, Worker name/ID, origin, `SERVICE_ID`, routes and workers.dev exposure |
-| Plain variables | Current values, including release repository/channel and record retention; remove retired CF_OAUTH_CLIENT_ID / CF_OAUTH_CLIENT_SECRET bindings only as required by the target release |
+| Plain variables | Current values, including release repository/channel and record retention; change bindings only as required by the target release |
 | Secrets | Existing secret binding names; keep their values in CF and do not replace them with placeholders |
 | Storage | `OAUTH_KV` namespace ID and `DEVICES` Durable Object binding/class; reuse existing resources |
 | Runtime | Deployed compatibility settings and other intentional settings, changed only as required by the release |

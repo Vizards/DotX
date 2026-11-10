@@ -6,7 +6,8 @@ Start with the actual failure, not a full installation checklist. Use evidence a
 | --- | --- |
 | Installed Codex plugin's tool is absent | [Load the installed plugin](plugin-loading.md) |
 | Device pending, offline, incompatible or missing an interface | [Resolve an unavailable Codex](device.md) |
-| Browser management cannot sign in | [Browser login/recovery](../server/browser-login.md) |
+| Browser management cannot sign in | [Browser login recovery](browser-login.md) |
+| Windows runtime path, PowerShell or desktop-version error | [Windows runtime diagnosis](device.md#windows-runtime-and-powershell) |
 | Wrangler management request fails | [Find management access](../common/access.md#if-you-cannot-perform-it) |
 | PA approval, OAuth callback or renewal fails | [OAuth recovery](../personal-agents/authorization.md#recover-an-interruption) |
 | PA tools are absent or stale | [Find the client's refresh route](../personal-agents/index.md#refresh-tools) |
