@@ -27,7 +27,7 @@
   "devDependencies": {
     "@types/semver": "7.8.0",
     "esbuild": "0.28.2",
-    "wrangler": "4.151.0"
+    "wrangler": "4.160.0"
   },
   "license": "MIT"
 }

@@ -4,3 +4,13 @@ packages:
 
 # Dependencies are bundled or ship platform binaries; installation runs no build scripts.
 ignoreScripts: true
+
+minimumReleaseAgeExclude:
+  - '@cloudflare/workerd-darwin-64@1.20261110.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20261110.1'
+  - '@cloudflare/workerd-linux-64@1.20261110.1'
+  - '@cloudflare/workerd-linux-arm64@1.20261110.1'
+  - '@cloudflare/workerd-windows-64@1.20261110.1'
+  - miniflare@5.20261110.0-beta
+  - workerd@1.20261110.1
+  - wrangler@4.160.0

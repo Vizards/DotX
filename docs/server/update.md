@@ -7,14 +7,14 @@ Use when the target release supports updating the existing service in place. Nee
 1. Read the target Release notes, attachment and toolchain, plus the component scope from [update coordination](../maintenance/update.md). Verify [management access](../common/access.md), then return here.
 2. Identify the existing account, Worker, origin, service ID and deployed configuration. If local files are absent or unreliable, [recover the configuration](configuration.md#recover-deployment-configuration-on-another-machine), then return here. Inability to read it is a handoff, not permission to deploy defaults.
 3. Compare the target template with actual settings. Preserve account/Worker/URL, `SERVICE_ID`, storage bindings and data, browser login methods, secrets and intentional variables such as `RECORD_RETENTION_DAYS`. Apply only changes required by the target release. Secrets remain in CF; deployment does not require their values. Changing account, Worker or hostname is a separate migration.
-4. Point both `main` and `assets.directory` to the target attachment. Follow release-specific migrations/order and use official Wrangler:
+4. Point both `main` and `assets.directory` to the target attachment. Follow release-specific migrations/order and run the service directory's official Wrangler:
 
    ```sh
-   pnpm dlx wrangler@4.151.0 deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.json
-   pnpm dlx wrangler@4.151.0 deploy --config /ABSOLUTE/SERVICE/wrangler.json
+   pnpm exec wrangler deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.json
+   pnpm exec wrangler deploy --config /ABSOLUTE/SERVICE/wrangler.json
    ```
 
-   Substitute the target attachment's toolchain version when different.
+   Reuse the service's Wrangler installation and login. Update Wrangler independently when required for security or compatibility; it need not match the target attachment's recorded build version.
 
 ## Verify and continue
 
