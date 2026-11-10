@@ -18,16 +18,33 @@ export interface StoredSession {
 
 export class CloudflareSessions {
   private readonly pending = new Map<string, Promise<void>>();
+  private readonly operations = new Map<string, Promise<unknown>>();
   private readonly store: DurableObjectStorage;
   private readonly env: Env;
   constructor(store: DurableObjectStorage, env: Env) {
     this.store = store;
     this.env = env;
   }
+  // Refresh and replacement share a queue; logout still deletes immediately.
+  async exclusive<T>(id: string | undefined, action: () => Promise<T>): Promise<T> {
+    if (!id) return action();
+    const previous = this.operations.get(id);
+    const current = (async () => {
+      // Each action checks the live session again after the preceding operation.
+      if (previous) await previous.catch(() => undefined);
+      return action();
+    })();
+    this.operations.set(id, current);
+    try {
+      return await current;
+    } finally {
+      if (this.operations.get(id) === current) this.operations.delete(id);
+    }
+  }
   async validate(id: string) {
     const previous = this.pending.get(id);
     if (previous) return previous;
-    const operation = this.check(id);
+    const operation = this.exclusive(id, () => this.check(id));
     this.pending.set(id, operation);
     try {
       await operation;

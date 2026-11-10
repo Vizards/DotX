@@ -208,11 +208,13 @@ export class AdminCredentials {
     return this.createSession(tx, current?.cloudflare);
   }
   async setPassword(auth: BrowserAuthority, password: unknown) {
-    return this.store.transaction(async (tx) => {
-      const credentials = await this.authority(tx, auth);
-      credentials.password = passwordHash(password);
-      return this.changed(tx, credentials, auth);
-    });
+    return this.cloudflareSessions.exclusive(auth.session, () =>
+      this.store.transaction(async (tx) => {
+        const credentials = await this.authority(tx, auth);
+        credentials.password = passwordHash(password);
+        return this.changed(tx, credentials, auth);
+      }),
+    );
   }
   async renamePasskey(auth: BrowserAuthority, passkeyId: string, name: unknown) {
     return this.store.transaction(async (tx) => {
@@ -231,12 +233,14 @@ export class AdminCredentials {
     });
   }
   async remove(auth: BrowserAuthority, passkeyId?: string) {
-    return this.store.transaction(async (tx) => {
-      const credentials = await this.authority(tx, auth);
-      if (passkeyId === undefined) delete credentials.password;
-      else credentials.passkeys = credentials.passkeys.filter((key) => key.id !== passkeyId);
-      return this.changed(tx, credentials, auth);
-    });
+    return this.cloudflareSessions.exclusive(auth.session, () =>
+      this.store.transaction(async (tx) => {
+        const credentials = await this.authority(tx, auth);
+        if (passkeyId === undefined) delete credentials.password;
+        else credentials.passkeys = credentials.passkeys.filter((key) => key.id !== passkeyId);
+        return this.changed(tx, credentials, auth);
+      }),
+    );
   }
   private async attempt() {
     // Commit the budget before verification; failures must not roll it back.
@@ -311,22 +315,24 @@ export class AdminCredentials {
     }
     if (!result.verified) throw new HttpError(400, 'PASSKEY_VERIFICATION_FAILED');
     const credential = result.registrationInfo.credential;
-    return this.store.transaction(async (tx) => {
-      const credentials = await this.authority(tx, auth);
-      // Setup has no persistent user yet. The server-generated handle belongs to
-      // this consumed, authority-bound ceremony, never to a browser input.
-      if (auth.setup) credentials.user_id = ceremony.user_id;
-      if (credentials.user_id !== ceremony.user_id)
-        throw new HttpError(401, 'PASSKEY_REQUEST_EXPIRED');
-      if (credentials.passkeys.some((key) => key.id === credential.id))
-        throw new HttpError(409, 'PASSKEY_ALREADY_ADDED');
-      credentials.passkeys.push({
-        ...credential,
-        name: typeof name === 'string' && name.trim() ? name.trim() : 'Passkey',
-        created_at: Date.now(),
-      });
-      return this.changed(tx, credentials, auth);
-    });
+    return this.cloudflareSessions.exclusive(auth.session, () =>
+      this.store.transaction(async (tx) => {
+        const credentials = await this.authority(tx, auth);
+        // Setup has no persistent user yet. The server-generated handle belongs to
+        // this consumed, authority-bound ceremony, never to a browser input.
+        if (auth.setup) credentials.user_id = ceremony.user_id;
+        if (credentials.user_id !== ceremony.user_id)
+          throw new HttpError(401, 'PASSKEY_REQUEST_EXPIRED');
+        if (credentials.passkeys.some((key) => key.id === credential.id))
+          throw new HttpError(409, 'PASSKEY_ALREADY_ADDED');
+        credentials.passkeys.push({
+          ...credential,
+          name: typeof name === 'string' && name.trim() ? name.trim() : 'Passkey',
+          created_at: Date.now(),
+        });
+        return this.changed(tx, credentials, auth);
+      }),
+    );
   }
   async authenticationOptions(id: string) {
     await this.attempt();
