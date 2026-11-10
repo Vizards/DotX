@@ -2,7 +2,7 @@
 
 Choose your starting point; read only the guide needed for the next action.
 
-Codex devices use the same Desktop package on macOS and Windows. Platform runtime requirements and local commands are in the [runtime reference](codex/runtime.md).
+For supported platforms, runtime requirements and local commands, see the [runtime reference](codex/runtime.md#check-the-host).
 
 ## Installation and continuation
 

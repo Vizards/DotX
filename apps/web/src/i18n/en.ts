@@ -45,7 +45,7 @@ export const en = {
     review: 'Review',
     addDeviceTitle: 'Connect a Codex device',
     addDeviceBody:
-      'Paste one request into the Codex on that computer and it handles the install. Its request then arrives here for approval.',
+      'Paste one request into Codex on that computer and it handles the install. Its request then arrives here for approval.',
     addDeviceAction: 'Connect',
     addAgentTitle: 'Connect a Personal Agent',
     addAgentBody:
@@ -53,7 +53,7 @@ export const en = {
     addAgentAction: 'Connect',
 
     deviceSheetBody:
-      'Send this to Codex on the Mac or Windows computer you want to connect. It installs DotX Desktop and connects to this Server.',
+      'Send this to Codex on the computer you want to connect. It installs DotX Desktop and connects to this Server.',
     devicePrompt: "Connect this computer's Codex to my DotX: {origin}\nGuide: {guide}",
     deviceSheetTail: 'Once installed, approve its request on the Codex devices page.',
 
@@ -67,7 +67,7 @@ export const en = {
   devices: {
     title: 'Codex devices',
     emptyTitle: 'No Codex devices yet',
-    emptyBody: 'Install DotX Desktop on a Mac or Windows computer to send its first request.',
+    emptyBody: 'Install DotX Desktop on a computer to send its first request.',
     add: 'Add',
     rejectTitle: 'Reject request?',
     rejectBody: '“{name}” ({label}) will need a new request to connect.',
@@ -111,7 +111,7 @@ export const en = {
     fixWirePrompt:
       'Update DotX Desktop on {name} to a version compatible with this Server: {origin}\nGuide: {guide}',
     fixOfflineBody:
-      'This device is not connected to the Server right now. Send this to the Codex on it so it can check plugin loading and the connection.',
+      'This device is not connected to the Server right now. Send this to Codex on that computer so it can check plugin loading and the connection.',
     fixInterfaceBody:
       'This device is connected, but its Codex interfaces are unavailable. Send this to Codex on that computer to investigate.',
     fixPrompt: 'Check and fix DotX on {name}: {origin}\nGuide: {guide}',

@@ -1,6 +1,6 @@
 # Connect this computer's Codex
 
-Run in local Codex on the computer being added. The same Desktop package supports macOS and native Windows. Need: the target Server URL and selected Desktop release; ask for missing inputs. Server deployment or upgrade is a separate user request. Complete: the actual owner is connected to that Server, approved, and exposes the required native interfaces.
+Run in local Codex on the computer being added. Need: the target Server URL and selected Desktop release; ask for missing inputs. Server deployment or upgrade is a separate user request. Complete: the actual owner is connected to that Server, approved, and exposes the required native interfaces.
 
 ## Connect
 

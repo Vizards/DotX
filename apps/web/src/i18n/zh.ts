@@ -43,14 +43,14 @@ export const zh: Messages = {
     review: '去处理',
     addDeviceTitle: '接入 Codex 设备',
     addDeviceBody:
-      '在那台电脑的 Codex 里粘贴一段请求，它会完成安装。之后那台机器的申请出现在这里，等你批准。',
+      '在那台电脑上的 Codex 里粘贴一段请求，它会完成安装。之后接入申请出现在这里，等你批准。',
     addDeviceAction: '去接入',
     addAgentTitle: '接入 Personal Agent',
     addAgentBody: '把这个 Server 的 MCP 地址交给 Personal Agent，再批准它的接入申请。',
     addAgentAction: '去接入',
 
     deviceSheetBody:
-      '把下面这段发给要接入的 Mac 或 Windows 电脑上的 Codex。它会安装 DotX Desktop 并接入这台 Server。',
+      '把下面这段发给要接入的电脑上的 Codex。它会安装 DotX Desktop 并接入这台 Server。',
     devicePrompt: '把这台电脑的 Codex 接入我的 DotX：{origin}\n指南：{guide}',
     deviceSheetTail: '安装完成后，在 Codex 设备页批准它的接入申请。',
 
@@ -63,7 +63,7 @@ export const zh: Messages = {
   devices: {
     title: 'Codex 设备',
     emptyTitle: '还没有 Codex 设备',
-    emptyBody: '在 Mac 或 Windows 电脑上安装 DotX Desktop，提交第一份申请。',
+    emptyBody: '在电脑上安装 DotX Desktop，提交第一份申请。',
     add: '添加',
     rejectTitle: '拒绝申请？',
     rejectBody: '「{name}」（{label}）需要重新申请才能接入。',
@@ -104,9 +104,9 @@ export const zh: Messages = {
       '这台电脑是 wire {wire}，本 Server 是 wire {server}，两者无法通信。Server 现在发不出任何指令，只能由人把下面这段带过去。',
     fixWirePrompt: '把 {name} 上的 DotX Desktop 更新到与这个 Server 兼容：{origin}\n指南：{guide}',
     fixOfflineBody:
-      '这台电脑现在没有连接到本 Server。把下面这段发给它上面的 Codex，让它检查插件加载和连接状态。',
+      '这台电脑现在没有连接到本 Server。把下面这段发给那台电脑上的 Codex，让它检查插件加载和连接状态。',
     fixInterfaceBody:
-      '这台电脑已连接，但 Codex 原生接口不可用。把下面这段发给该电脑上的 Codex 排查。',
+      '这台电脑已连接，但 Codex 原生接口不可用。把下面这段发给那台电脑上的 Codex 排查。',
     fixPrompt: '检查并修复 {name} 上的 DotX：{origin}\n指南：{guide}',
     fixTail: '修好后回到本页刷新，检查状态。',
     wireMismatch: 'wire {wire} · 本 Server 使用 wire {server}',
