@@ -177,11 +177,19 @@ jobs:
             ['apps/desktop/dist/plugin.mjs', `${plugin}/connector.mjs`],
             ['apps/desktop/dist/cli.mjs', `${plugin}/cli.mjs`],
             ['apps/desktop/marketplace.json', `${desktop}/.agents/plugins/marketplace.json`],
-            ['apps/desktop/README.md', `${desktop}/README.md`],
             ['apps/server/dist/worker.mjs', `${server}/worker.mjs`],
             ['apps/server/dist/admin.mjs', `${server}/admin.mjs`],
-            ['apps/server/README.md', `${server}/README.md`],
           ]) fs.copyFileSync(from, to);
+          // Source entry points link to repository docs; release copies use bundled guides.
+          for (const [from, to, docsRoot] of [
+            ['apps/desktop/README.md', `${desktop}/README.md`, 'plugins/dotx-desktop/docs/'],
+            ['apps/server/README.md', `${server}/README.md`, 'docs/'],
+            ['apps/desktop/skills/dotx/SKILL.md', `${plugin}/skills/dotx/SKILL.md`, '../../docs/'],
+          ]) {
+            const sourceRoot = path.posix.relative(path.posix.dirname(from), 'docs') + '/';
+            const content = fs.readFileSync(from, 'utf8');
+            fs.writeFileSync(to, content.replaceAll(`](${sourceRoot}`, `](${docsRoot}`));
+          }
           const config = JSON.parse(fs.readFileSync('apps/server/wrangler.json', 'utf8'));
           delete config.$schema;
           config.main = 'worker.mjs';
