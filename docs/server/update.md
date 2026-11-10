@@ -14,7 +14,7 @@ Use when the target release supports updating the existing service in place. Nee
    pnpm exec wrangler deploy --config /ABSOLUTE/SERVICE/wrangler.json
    ```
 
-   Reuse the service's Wrangler installation and login. Update Wrangler independently when required for security or compatibility; it need not match the target attachment's recorded build version.
+   Reuse the service's Wrangler installation and login. Updating DotX does not itself require updating Wrangler; update it if a required command is unavailable or the user requests toolchain maintenance. It need not match the target attachment's recorded build version.
 
 ## Verify and continue
 

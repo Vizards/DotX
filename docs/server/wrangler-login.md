@@ -6,22 +6,21 @@ Use when a task needs a Wrangler installation or CF account/profile that has not
 
 Run login, deployment and management commands from the persistent directory containing the service's actual `wrangler.json`, outside the release attachment. Use Node and pnpm compatible with the release's `toolchain.json`; its `wrangler` field records the build version, not an exact installation requirement.
 
-Check `pnpm exec wrangler --version` and reuse the available official installation. If missing, resolve the current stable version and install it once in this directory:
+Check `pnpm exec wrangler --version` and reuse the available official installation. If missing, install it once in this directory using the package manager's existing dependency policies:
 
 ```sh
-pnpm view wrangler version
 pnpm config set --location=project ignoreScripts true
-pnpm add -D wrangler@VERSION
+pnpm add -D wrangler
 pnpm exec wrangler --version
 ```
 
-Replace `VERSION` with the stable version selected above, including any required security fixes; it need not match the release's build version. The service directory uses packaged platform binaries and does not need dependency install scripts. Keep this setting local to the service, and retain its dependency manifest, lockfile and `pnpm-workspace.yaml`. Maintain Wrangler independently for security fixes and required commands. See [Cloudflare's installation guide](https://developers.cloudflare.com/workers/wrangler/install-and-update/).
+The service directory uses packaged platform binaries and does not need dependency install scripts. Keep this setting local to the service, and retain its dependency manifest, lockfile and `pnpm-workspace.yaml`. DotX requires support for the commands used by the task, not the latest Wrangler or the release's recorded build version. See [Cloudflare's installation guide](https://developers.cloudflare.com/workers/wrangler/install-and-update/).
 
-The management tool uses `pnpm exec wrangler auth token --json` in this same directory; it does not install or update Wrangler. Check support with `pnpm exec wrangler auth token --help`, without printing a token. Use the selected release's absolute `admin.mjs` path when running management commands.
+The management tool uses `pnpm exec wrangler auth token --json` in this same directory; it does not install or update Wrangler. Check support with `pnpm exec wrangler auth token --help`, without printing a token. If a required command is unavailable, update to a version that supports it. Use the selected release's absolute `admin.mjs` path when running management commands.
 
 ### If package preparation fails
 
-For `ERR_PNPM_IGNORED_BUILDS`, apply the service-local `ignoreScripts` setting above and rerun installation; a one-off `--ignore-scripts` flag does not cover later pnpm dependency checks. Package release-age policies can make `@latest` resolve to an older version. Verify the installed version and review any version-specific exceptions needed for the selected security fix; do not disable machine-wide package policies. Return to the capability check above, then continue with the login below.
+For `ERR_PNPM_IGNORED_BUILDS`, apply the service-local `ignoreScripts` setting above and rerun installation; a one-off `--ignore-scripts` flag does not cover later pnpm dependency checks. Return to the capability check above, then continue with the login below.
 
 ## Find an existing login
 
