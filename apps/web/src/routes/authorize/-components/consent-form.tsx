@@ -25,8 +25,7 @@ export function ConsentForm({
 }) {
   const methods = useQuery(loginMethodsQuery());
   const submit = useMutation(authorizationMutation());
-  const [selectedMethod, setMethod] = useState<'agent' | 'browser'>();
-  const method = selectedMethod ?? (methods.data?.configured ? 'browser' : 'agent');
+  const [method, setMethod] = useState<'agent' | 'browser'>('browser');
   const attempted = useRef(false);
   const mutate = submit.mutate;
   const now = useNow();
@@ -68,6 +67,7 @@ export function ConsentForm({
         {submit.isError && !restartRequired && (
           <Button
             block
+            large
             disabled={submit.isPending}
             onClick={() => finish(cancelled ? 'deny' : 'finish')}
           >
@@ -92,8 +92,8 @@ export function ConsentForm({
             value={method}
             onChange={setMethod}
             items={[
-              { value: 'agent', label: t.authorize.agentTab },
               { value: 'browser', label: t.authorize.browserTab },
+              { value: 'agent', label: t.authorize.agentTab },
             ]}
           />
           <div
@@ -112,11 +112,9 @@ export function ConsentForm({
               </>
             ) : (
               <>
-                <p className="lede">
-                  {methods.data.configured ? t.authorize.browserHint : t.authorize.setupHint}
-                </p>
+                <p className="lede">{t.authorize.browserHint}</p>
                 <Button variant="solid" block large onClick={onLogin}>
-                  {methods.data.configured ? t.authorize.signIn : t.authorize.setup}
+                  {t.authorize.signIn}
                 </Button>
               </>
             )}

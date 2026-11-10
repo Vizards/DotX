@@ -4,6 +4,7 @@ Use after the local plugin submitted its application to the intended Server. Nee
 
 1. [Find a management path](../common/access.md), then return here.
 2. Read `device-requests` through the [management CLI](../common/commands.md), or open the exact `application.approval_url` returned by installation. The page highlights that application. Match its identity and target, not just a friendly name; CLI approval always uses the full `operation_id`.
+   If login is needed, recommend **Sign in with Cloudflare**; existing password/Passkey methods also work. Login returns to the same approval URL and does not approve the device.
 3. Approve the matching request with `device-approve --id OPERATION_ID` or the page action. Read the device afterward. If already approved, do not create another request.
 4. Return to [Codex verification](connect.md#verify-and-continue), or tell the waiting local Agent to call `device_status` again. Server notifies the connected plugin; no refresh is needed merely for approval.
 

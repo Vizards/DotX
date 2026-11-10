@@ -3,6 +3,7 @@ import { HttpError } from '../http/responses.ts';
 import { qualification, type Membership } from './permissions.ts';
 import type { Env } from '../env.ts';
 const WRANGLER_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7';
+export const BROWSER_CLIENT_ID = '7c1a0268cd92aa8705e4c0604b162942';
 const DASH = 'https://dash.cloudflare.com';
 const API = 'https://api.cloudflare.com/client/v4';
 interface ApiResult<T> {
@@ -10,7 +11,7 @@ interface ApiResult<T> {
   result: T;
   result_info?: { total_pages?: number; total_count?: number };
 }
-async function upstream<T>(url: string, init: RequestInit): Promise<T> {
+async function upstream(url: string, init: RequestInit): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -31,6 +32,9 @@ async function upstream<T>(url: string, init: RequestInit): Promise<T> {
     throw new HttpError(401, 'CF_LOGIN_REQUIRED', 'Sign in to Cloudflare again.');
   if (response.status === 403)
     throw new HttpError(403, 'CF_ACCESS_DENIED', 'Cloudflare denied access to this resource.');
+  return response;
+}
+async function result<T>(response: Response): Promise<T> {
   if (!response.ok) throw new HttpError(503, 'CF_RESPONSE_INVALID');
   try {
     return await response.json<T>();
@@ -38,9 +42,11 @@ async function upstream<T>(url: string, init: RequestInit): Promise<T> {
     throw new HttpError(503, 'CF_RESPONSE_INVALID');
   }
 }
-const read = <T>(url: string, token: string) =>
-  upstream<T>(url, { headers: { Authorization: `Bearer ${token}` } });
-export async function checkCloudflare(token: string, env: Env) {
+const read = async <T>(url: string, token: string) =>
+  result<T>(await upstream(url, { headers: { Authorization: `Bearer ${token}` } }));
+// The caller supplies the trusted client configuration, never a browser input.
+// CLI requests continue to accept only Wrangler's audience.
+export async function checkCloudflare(token: string, env: Env, audience = WRANGLER_CLIENT_ID) {
   if (!env.CF_ACCOUNT_ID || !env.CF_WORKER_ID)
     throw new HttpError(503, 'MANAGEMENT_NOT_CONFIGURED');
   const identity = await read<{ iss: string; aud: string | string[]; sub: string }>(
@@ -51,8 +57,9 @@ export async function checkCloudflare(token: string, env: Env) {
   if (
     identity.iss !== DASH ||
     audiences.length !== 1 ||
-    audiences[0] !== WRANGLER_CLIENT_ID ||
-    typeof identity.sub !== 'string'
+    audiences[0] !== audience ||
+    typeof identity.sub !== 'string' ||
+    !identity.sub
   )
     throw new HttpError(401, 'CF_IDENTITY_INVALID');
   let member: Membership | undefined;
@@ -95,4 +102,49 @@ export async function checkCloudflare(token: string, env: Env) {
       'Direct permission to modify this Worker is required. Group-only permission is not supported.',
     );
   return { subject: identity.sub, qualification: reason };
+}
+
+export interface CloudflareTokens {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+}
+export async function requestCloudflareToken(clientId: string, fields: Record<string, string>) {
+  const response = await upstream(`${DASH}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ ...fields, client_id: clientId }).toString(),
+  });
+  if (response.status === 400) {
+    const error = await response.json<{ error?: string }>().catch(() => null);
+    if (error?.error === 'invalid_grant') throw new HttpError(401, 'CF_LOGIN_REQUIRED');
+  }
+  const tokens = await result<CloudflareTokens>(response);
+  if (
+    typeof tokens.access_token !== 'string' ||
+    !tokens.access_token ||
+    !Number.isFinite(tokens.expires_in) ||
+    tokens.expires_in <= 0 ||
+    (tokens.refresh_token !== undefined && typeof tokens.refresh_token !== 'string')
+  )
+    throw new HttpError(503, 'CF_TOKEN_RESPONSE_INVALID');
+  return tokens;
+}
+export async function cloudflareEmail(token: string): Promise<string | null> {
+  const result = await read<ApiResult<{ email?: string }>>(`${API}/user`, token);
+  return result.success && typeof result.result?.email === 'string' ? result.result.email : null;
+}
+export async function revokeCloudflareToken(clientId: string, token: string) {
+  // Best effort after local deletion. Never log the credential or provider body.
+  try {
+    await fetch(`${DASH}/oauth2/revoke`, {
+      method: 'POST',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: clientId, token }).toString(),
+    });
+  } catch {
+    /* Local session revocation does not depend on Cloudflare availability. */
+  }
 }

@@ -8,7 +8,6 @@ import type { AdminSetupStatus, AdminSecurity } from '@dotx/shared/http/admin';
 import { api } from './client.ts';
 export interface LoginAuthority {
   setup?: string;
-  claim?: boolean;
   csrf?: string;
 }
 export const loginMethods = (signal?: AbortSignal) =>
@@ -50,3 +49,11 @@ export async function registerPasskey(auth: LoginAuthority, name: string) {
     body: { response, name },
   });
 }
+
+export const startCloudflareLogin = (return_to: string) =>
+  api<{ authorization_url: string }>('/admin/auth/cloudflare/start', {
+    method: 'POST',
+    body: { return_to },
+  });
+export const completeCloudflareLogin = () =>
+  api<{ return_to: string }>('/admin/auth/cloudflare/complete', { method: 'POST', body: {} });

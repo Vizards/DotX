@@ -19,7 +19,6 @@ interface ServerOptions {
   main?: string;
   releaseRepository?: string;
   releaseChannel?: string;
-  adminClaim?: string;
 }
 
 export function toolData(result: any) {
@@ -61,7 +60,6 @@ export async function startServer(
             CF_WORKER_ID: 'test-worker',
             CF_WORKER_NAME: 'test-worker',
             ...(options.retentionDays ? { RECORD_RETENTION_DAYS: options.retentionDays } : {}),
-            ...(options.adminClaim !== undefined ? { DOTX_ADMIN_CLAIM: options.adminClaim } : {}),
           },
         },
       },
@@ -91,7 +89,6 @@ export async function startServer(
               ...(changes.releaseChannel !== undefined
                 ? { RELEASE_CHANNEL: changes.releaseChannel }
                 : {}),
-              ...(changes.adminClaim !== undefined ? { DOTX_ADMIN_CLAIM: changes.adminClaim } : {}),
             },
           },
         };

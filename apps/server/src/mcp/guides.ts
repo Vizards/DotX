@@ -73,7 +73,11 @@ export const INSTRUCTION_GUIDES = {
     management_commands,
   ),
   wrangler_login: guide('Select the deployment login', 'server/wrangler-login.md', wrangler_login),
-  browser_login: guide('Set up or recover browser login', 'server/browser-login.md', browser_login),
+  browser_login: guide(
+    'Sign in or recover browser management',
+    'server/browser-login.md',
+    browser_login,
+  ),
   server_configuration: guide(
     'Prepare or recover deployment configuration',
     'server/configuration.md',

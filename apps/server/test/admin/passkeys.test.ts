@@ -141,4 +141,14 @@ test('Passkey rename requires browser authority, changes only the label, and pre
     .request('/admin/api/security', { headers: { Cookie: cookies(login) } })
     .then(read);
   assert.equal(authenticated.passkeys[0].name, 'My laptop');
+  const removal = await api.request('/admin/api/passkeys/' + id, { method: 'DELETE', headers });
+  await read(removal);
+  const methods = await read(await api.request('/admin/auth/methods'));
+  assert.equal(methods.passkey_enabled, false);
+  assert.equal(methods.password_enabled, false);
+  assert.equal(methods.initialized, true);
+  assert.equal(
+    (await api.request('/admin/api/session', { headers: { Cookie: cookies(removal) } })).status,
+    200,
+  );
 });

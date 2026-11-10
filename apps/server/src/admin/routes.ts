@@ -1,11 +1,12 @@
 import type { Env } from '../env.ts';
 import { serviceInfo } from '../env.ts';
 import { control, hub } from '../hub/namespace.ts';
-import { authenticate, authenticateSession } from './authenticate.ts';
+import { authenticate } from './authenticate.ts';
 import {
   clearSession,
-  browserAuthority,
+  readBrowserAuthority,
   sessionResponse,
+  sessionId,
   cookie,
   setCookie,
   SESSION_COOKIE,
@@ -33,8 +34,15 @@ export async function adminRoutes(
   };
   try {
     if (path === '/admin/logout' && request.method === 'POST') {
-      await authenticateSession(request, env);
-      return json({ ok: true }, 200, { 'Set-Cookie': await clearSession(request, env) });
+      if (request.headers.has('Authorization'))
+        throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
+      if (request.headers.get('Origin') !== env.PUBLIC_ORIGIN)
+        throw new HttpError(403, 'CSRF_REQUIRED');
+      await control(env, 'admin/logout', {
+        id: await sessionId(request),
+        csrf: request.headers.get('X-CSRF-Token') ?? '',
+      });
+      return json({ ok: true }, 200, { 'Set-Cookie': setCookie(env, SESSION_COOKIE, '', 0) });
     }
     if (
       ['/admin/api/setup', '/admin/api/reset-login'].includes(path) &&
@@ -74,7 +82,7 @@ export async function adminRoutes(
       const input = nameInput.safeParse(await readJson(request));
       if (!input.success) throw new HttpError(400, 'PASSKEY_NAME_REQUIRED');
       const passkeys = await control(env, 'admin/passkey-rename', {
-        auth: await browserAuthority(request),
+        auth: await readBrowserAuthority(request),
         passkeyId: renaming[1],
         name: input.data.name,
       });
@@ -83,7 +91,7 @@ export async function adminRoutes(
     const removal = /^\/admin\/api\/(password|passkeys\/([^/]+))$/.exec(path);
     if (removal && request.method === 'DELETE') {
       const session = await control<BrowserSession & { secret: string }>(env, 'admin/remove', {
-        auth: await browserAuthority(request),
+        auth: await readBrowserAuthority(request),
         passkeyId: removal[2],
       });
       return sessionResponse(env, session);

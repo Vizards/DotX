@@ -40,12 +40,6 @@ test(
     assert.equal((await enroll()).status, 429, 'deployment does not reset the budget');
     assert.equal((await api.admin('/device-requests')).requests.length, 10);
     assert.equal((await api.admin('/devices')).devices[0].device_id, first.input.device_id);
-    const claim = await api.request('/admin/api/claim/start', {
-      method: 'POST',
-      headers: { Origin: 'http://localhost', 'Content-Type': 'application/json' },
-      body: '{}',
-    });
-    assert.equal(claim.status, 200, 'enrollment does not consume Claim attempts');
     const login = await api.request('/admin/auth/password', {
       method: 'POST',
       headers: { Origin: 'http://localhost', 'Content-Type': 'application/json' },

@@ -1,7 +1,7 @@
 import type { Env } from '../env.ts';
 import { HttpError } from '../http/responses.ts';
 import { checkCloudflare } from './cloudflare.ts';
-import { cookie, sessionId, SESSION_COOKIE } from './sessions.ts';
+import { readBrowserAuthority, cookie, sessionId, SESSION_COOKIE } from './sessions.ts';
 import { control } from '../hub/namespace.ts';
 import type { BrowserSession } from './credentials.ts';
 export async function authenticate(request: Request, env: Env) {
@@ -19,14 +19,14 @@ export async function authenticate(request: Request, env: Env) {
   }
   const session = await authenticateSession(request, env);
   return {
-    subject: 'administrator',
+    subject: session.subject ?? 'administrator',
     qualification: 'browser',
     csrf_token: session.csrf,
     expires_at: session.expires_at,
   };
 }
 
-// Browser administration is independent of Cloudflare account membership.
+// Local credentials work independently; provider sessions recheck their management permission.
 export async function authenticateSession(request: Request, env: Env) {
   if (request.headers.has('Authorization')) throw new HttpError(400, 'BROWSER_SESSION_REQUIRED');
   const id = await sessionId(request);
@@ -41,4 +41,11 @@ export async function authenticateSession(request: Request, env: Env) {
       ? undefined
       : (request.headers.get('X-CSRF-Token') ?? ''),
   });
+}
+
+// Login-setup routes accept a one-use setup link or an authenticated session.
+export async function authenticateBrowserAuthority(request: Request, env: Env) {
+  const auth = await readBrowserAuthority(request);
+  if (auth.session) await control(env, 'admin/session', { id: auth.session, csrf: auth.csrf });
+  return auth;
 }

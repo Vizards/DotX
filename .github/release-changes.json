@@ -1,8 +1,8 @@
 {
-  "base_release": "0.1.1",
+  "base_release": "0.1.2",
   "changes": {
     "server": true,
-    "desktop": false,
+    "desktop": true,
     "remote_catalog": false
   }
 }

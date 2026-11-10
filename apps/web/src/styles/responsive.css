@@ -18,41 +18,6 @@
     padding: 22px;
   }
 
-  /* Keep the body aligned under its title but give the content its width back. */
-  .claim-step-body {
-    padding-left: 0;
-  }
-
-  .claim-step {
-    padding: 12px 14px;
-  }
-
-  /* Two rows, not three: the title keeps the chevron beside it, and the
-     expiry takes the line under it. Wrapping a full-width expiry into the
-     same flex row pushed the chevron onto a third row of its own. */
-  .claim-step-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-  }
-
-  .claim-toggle {
-    grid-row: 1;
-    grid-column: 1;
-  }
-
-  .claim-expand {
-    grid-row: 1;
-    grid-column: 2;
-  }
-
-  .claim-expiry {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    width: auto;
-    padding-left: calc(24px + var(--space-3));
-  }
-
   .table-wrap {
     padding: 0;
   }

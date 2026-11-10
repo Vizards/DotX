@@ -103,6 +103,6 @@ Use actual names and URLs in a short completion message:
 - **Ready:** which PA reaches which Codex, checks passed, and any remaining verification. Do not claim full delivery from discovery alone.
 - **Use:** suggest one relevant request, such as “On Mac mini, read the progress of the Codex task I choose.” Do not send it unasked.
 - **Expand:** offer the handoffs above for another PA or Mac using this Server; do not start extra installations unasked.
-- **Manage:** give `/admin` and the configured password/passkey method, or state setup was deferred. Offer [browser setup](../server/browser-login.md) when wanted; it enables management without Wrangler.
+- **Manage:** give `/admin` and recommend [Sign in with Cloudflare](../server/browser-login.md). Mention existing password/Passkey methods or optional local setup when relevant. No local credential setup is required first.
 
 Lead with any incomplete action. Installation, approval, current conversation tool loading and actual remote use are separate results.

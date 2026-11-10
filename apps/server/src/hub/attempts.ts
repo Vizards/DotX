@@ -3,19 +3,17 @@ import type { Store } from './storage.ts';
 
 export const attemptKeys = {
   login: 'admin:browser:attempts',
-  claim: 'admin:browser:claim-attempts',
+  // Credential changes clear admin:browser: records, but must retain this budget.
+  cloudflare: 'admin:oauth:attempts',
   enrollment: 'device-enrollment:attempts',
 };
+const loginPolicy = {
+  code: 'LOGIN_ATTEMPTS_EXHAUSTED',
+  message: () => 'Too many login attempts. Try again after this one-minute window.',
+};
 const policies = {
-  login: {
-    code: 'LOGIN_ATTEMPTS_EXHAUSTED',
-    message: () => 'Too many login attempts. Try again after this one-minute window.',
-  },
-  claim: {
-    code: 'CLAIM_ATTEMPTS_EXHAUSTED',
-    message: (seconds: number) =>
-      `Too many new setup or recovery requests on this Server. Try again in ${seconds} seconds. Existing requests can still continue.`,
-  },
+  login: loginPolicy,
+  cloudflare: loginPolicy,
   enrollment: {
     code: 'ENROLLMENT_ATTEMPTS_EXHAUSTED',
     message: (seconds: number) =>
