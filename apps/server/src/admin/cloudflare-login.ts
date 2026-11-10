@@ -4,6 +4,7 @@ import { randomSecret, sha256, sameSecret } from '../http/crypto.ts';
 import { HttpError } from '../http/responses.ts';
 import { AdminCredentials } from './credentials.ts';
 import { saveExpiring } from '../hub/storage.ts';
+import { consumeAttempt } from '../hub/attempts.ts';
 import {
   BROWSER_CLIENT_ID,
   checkCloudflare,
@@ -103,6 +104,8 @@ export class CloudflareLogin {
     };
   }
   async start(id: string, previous: string | undefined, returnTo: unknown) {
+    // Commit before signing or contacting the relay; failed starts still count.
+    await this.store.transaction((tx) => consumeAttempt(tx, 'cloudflare'));
     const verifier = randomSecret(),
       state = randomSecret();
     const issued = Math.floor(Date.now() / 1000);
