@@ -16,13 +16,13 @@ If this is an interrupted installation, inspect and reuse its resources. For an 
    node /ABSOLUTE/RELEASE/admin.mjs worker-create --account ACCOUNT_ID --worker WORKER_NAME
    ```
 
-   Add `--profile NAME` for a named login. Save the returned immutable Worker ID. If creation has an unknown result, read the exact name before retrying. A failed read does not prove absence; do not overwrite an unrelated Worker.
+   Add `--profile NAME` for a named login. A successful lookup returns `found: true` with the immutable Worker ID, or `found: false` when Cloudflare confirms that the exact Worker does not exist. Create only for `found: false` and an intended new service; do not overwrite an unrelated Worker. Save the ID returned by lookup or creation. Any lookup error leaves existence unknown. If creation has an unknown result, read the exact name before retrying.
 4. Fill the [deployment configuration](configuration.md#new-service-values), including that ID, and create the service's OAuth KV namespace as described there. Return here once the actual bindings/vars and code/assets paths are ready.
 5. Use official Wrangler to dry-run, then deploy the actual configuration with the verified account/profile.
 
 ## Verify and continue
 
-Read `/health` and `/setup/info`; verify version, wire, public origin and service identity. Check that `/admin` loads. Run `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN session` with the selected profile. On failure, use [management access recovery](../common/access.md); do not recreate resources to fix upstream errors.
+Read `/health` and `/setup/info`; verify version, wire, public origin and service identity. Check that an HTTP GET to `/admin` returns 200 with an HTML content type. Run `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN session` with the selected profile. These checks complete Server installation. If public endpoints are not ready after deployment, use [deployment availability recovery](../troubleshooting/index.md#after-a-server-deployment); for management authorization failures, use [management access recovery](../common/access.md).
 
 Retain the service URL and non-secret deployment configuration. Give the user `/admin` and recommend [Sign in with Cloudflare](browser-login.md) for browser management. Password/Passkey setup is optional when the user prefers another method. Agent management continues through Wrangler.
 

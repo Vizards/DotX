@@ -101,16 +101,27 @@ async function workerResource(
         : 'CF_WORKER_CREATE_OUTCOME_UNKNOWN: look up the Worker by name before retrying',
     );
   }
-  if (!response.ok) throw new Error(`CF_WORKER_${action}_HTTP_${response.status}`);
   const body = (await response.json().catch(() => null)) as {
     success?: boolean;
+    errors?: { code?: unknown }[];
     result?: { name: string; id: string };
   } | null;
+  // Cloudflare's Worker-not-found response, not an arbitrary failed lookup.
+  if (
+    method === 'GET' &&
+    response.status === 404 &&
+    body?.success === false &&
+    Array.isArray(body.errors) &&
+    body.errors.length > 0 &&
+    body.errors.every((error) => error?.code === 10007)
+  )
+    return { account_id: account, worker_name: name, found: false };
+  if (!response.ok) throw new Error(`CF_WORKER_${action}_HTTP_${response.status}`);
   if (!body?.success || body.result?.name !== name || !/^[a-f0-9]{32}$/.test(body.result.id))
     throw new Error(
       method === 'GET'
         ? 'CF_WORKER_LOOKUP_INVALID'
         : 'CF_WORKER_CREATE_OUTCOME_UNKNOWN: look up the Worker by name before retrying',
     );
-  return { account_id: account, worker_name: name, worker_id: body.result.id };
+  return { account_id: account, worker_name: name, worker_id: body.result.id, found: true };
 }
