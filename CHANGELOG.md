@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.3](https://github.com/Vizards/DotX/compare/v0.1.2...v0.1.3) (2026-11-11)
+
+
+### Features
+
+* **desktop:** add native Windows support ([#12](https://github.com/Vizards/DotX/issues/12)) ([e0aea23](https://github.com/Vizards/DotX/commit/e0aea23744d616e5753c95f714dc7b4ac0dbc04b))
+* make Cloudflare the primary browser sign-in method ([#13](https://github.com/Vizards/DotX/issues/13)) ([b23fba9](https://github.com/Vizards/DotX/commit/b23fba92f07f1d9ab3ade496f1de9e4338f6f0b6))
+
+
+### Bug Fixes
+
+* make guide links work in GitHub and release packages ([#17](https://github.com/Vizards/DotX/issues/17)) ([5a676bd](https://github.com/Vizards/DotX/commit/5a676bd93e2a07e3a48de946427738d8f9ef08b9))
+* preserve guide links in source and release packages ([5a676bd](https://github.com/Vizards/DotX/commit/5a676bd93e2a07e3a48de946427738d8f9ef08b9))
+* secure Wrangler dependencies and reuse the available CLI ([#16](https://github.com/Vizards/DotX/issues/16)) ([54622c1](https://github.com/Vizards/DotX/commit/54622c184a083b19bcf88469119ed2761bc921a4))
+
 ## [0.1.2](https://github.com/Vizards/DotX/compare/v0.1.1...v0.1.2) (2026-11-03)
 
 
