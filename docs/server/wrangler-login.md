@@ -4,7 +4,9 @@ Use when deployment or management needs a verified CF account/profile. Complete:
 
 ## Management tool requirements
 
-DotX's `admin.mjs` invokes `wrangler auth token --json` through PATH and accepts only official Wrangler OAuth credentials. Run it in an environment where that command is available, using the intended working directory and profile. `--profile NAME` selects a named login. Wrangler installation and routine CLI usage follow [Cloudflare's documentation](https://developers.cloudflare.com/workers/wrangler/); DotX does not prescribe an installation method or exact version.
+DotX's `admin.mjs` requires a Wrangler executable on PATH that supports `wrangler auth token --json`, and accepts only official Wrangler OAuth credentials. Use the intended working directory and login context. Selecting a named login with `--profile NAME` additionally requires auth profile support. If a command or option is unsupported, use `wrangler auth token --help` to inspect the available options.
+
+Wrangler installation and routine CLI usage follow [Cloudflare's documentation](https://developers.cloudflare.com/workers/wrangler/); DotX does not prescribe an installation method or exact version.
 
 ## Find an existing login
 

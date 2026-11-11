@@ -11,7 +11,7 @@ Use when the target release supports updating the existing service in place. Nee
 
 ## Verify and continue
 
-Read `/health` and `/setup/info`; verify the target version, wire, public origin and preserved service identity. Check that an HTTP GET to `/admin` returns 200 with an HTML content type, and run `admin.mjs --url HTTPS_ORIGIN session` with the selected profile. These checks complete the Server update. If public endpoints are not ready after deployment, use [deployment availability recovery](../troubleshooting/index.md#after-a-server-deployment). Separately check devices for authenticated, wire-compatible links and required native interfaces. Temporary Desktop incompatibility does not undo Server completion or justify automatic rollback.
+Read `/health` and `/setup/info`; verify the target version, wire, public origin and preserved service identity. Check that an HTTP GET to `/admin` returns 200 with an HTML content type, and run `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN session` with the selected profile. These checks complete the Server update. If public endpoints are not ready after deployment, use [deployment availability recovery](../troubleshooting/index.md#after-a-server-deployment). Separately check devices for authenticated, wire-compatible links and required native interfaces. Temporary Desktop incompatibility does not undo Server completion or justify automatic rollback.
 
 For `changes.remote_catalog=true`, [refresh each Personal Agent's tools](../personal-agents/index.md#refresh-tools) using its client controls or recipe. Preserve existing connections. Return to [update coordination](../maintenance/update.md) for remaining components, then [report completion](../common/handoff.md).
 

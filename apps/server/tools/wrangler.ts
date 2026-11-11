@@ -41,7 +41,7 @@ export async function wranglerToken(profile?: string): Promise<string> {
         reject(
           new Error(
             failure ??
-              'WRANGLER_AUTH_FAILED: check the Wrangler login, selected profile and network',
+              'WRANGLER_AUTH_FAILED: check support for auth token --json and --profile if used (wrangler auth token --help), then check the login, selected profile and network',
           ),
         );
         return;
