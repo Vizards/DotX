@@ -4,21 +4,14 @@ Use when the target release supports updating the existing service in place. Nee
 
 ## Update
 
-1. Read the target Release notes, attachment and toolchain, plus the component scope from [update coordination](../maintenance/update.md). Verify [management access](../common/access.md), then return here.
+1. Read the target Release notes, attachment and toolchain, plus the component scope from [update coordination](../maintenance/update.md). The new management tool requires `wrangler` on PATH with the intended login context. Verify [management access](../common/access.md), then return here.
 2. Identify the existing account, Worker, origin, service ID and deployed configuration. If local files are absent or unreliable, [recover the configuration](configuration.md#recover-deployment-configuration-on-another-machine), then return here. Inability to read it is a handoff, not permission to deploy defaults.
 3. Compare the target template with actual settings. Preserve account/Worker/URL, `SERVICE_ID`, storage bindings and data, browser login methods, secrets and intentional variables such as `RECORD_RETENTION_DAYS`. Apply only changes required by the target release. Secrets remain in CF; deployment does not require their values. Changing account, Worker or hostname is a separate migration.
-4. Point both `main` and `assets.directory` to the target attachment. Follow release-specific migrations/order and use official Wrangler:
-
-   ```sh
-   pnpm dlx wrangler@4.151.0 deploy --dry-run --config /ABSOLUTE/SERVICE/wrangler.json
-   pnpm dlx wrangler@4.151.0 deploy --config /ABSOLUTE/SERVICE/wrangler.json
-   ```
-
-   Substitute the target attachment's toolchain version when different.
+4. Point both `main` and `assets.directory` to the target attachment. Follow release-specific migrations/order, then dry-run and deploy the actual configuration with official Wrangler and the verified account/profile. Reuse the existing Wrangler installation; a DotX update does not require matching its build version.
 
 ## Verify and continue
 
-Read `/health` and check management/public endpoints. Report Server component completion once the target version is running. Separately check devices for authenticated, wire-compatible links and required native interfaces. Temporary Desktop incompatibility does not undo Server completion or justify automatic rollback.
+Read `/health` and `/setup/info`; verify the target version, wire, public origin and preserved service identity. Check that an HTTP GET to `/admin` returns 200 with an HTML content type, and run `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN session` with the selected profile. These checks complete the Server update. If public endpoints are not ready after deployment, use [deployment availability recovery](../troubleshooting/index.md#after-a-server-deployment). Separately check devices for authenticated, wire-compatible links and required native interfaces. Temporary Desktop incompatibility does not undo Server completion or justify automatic rollback.
 
 For `changes.remote_catalog=true`, [refresh each Personal Agent's tools](../personal-agents/index.md#refresh-tools) using its client controls or recipe. Preserve existing connections. Return to [update coordination](../maintenance/update.md) for remaining components, then [report completion](../common/handoff.md).
 

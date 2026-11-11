@@ -1,8 +1,8 @@
 # Management command reference
 
-Use after [management access](access.md) is verified. Run from the Server attachment, or use its absolute `admin.mjs` path. Replace placeholders with identifiers read from the target service. Add `--profile NAME` when selecting a named official Wrangler login.
+Use after [management access](access.md) is verified. Use the selected Server attachment's `admin.mjs` in the verified Wrangler execution environment. Replace placeholders with identifiers read from the target service. Add `--profile NAME` when selecting a named official Wrangler login.
 
-| Task | Command after `node admin.mjs --url HTTPS_ORIGIN` |
+| Task | Command after `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN` |
 | --- | --- |
 | Verify management access | `session` |
 | Read pending Codex applications | `device-requests` |

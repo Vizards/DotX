@@ -7,6 +7,7 @@ Start with the actual failure, not a full installation checklist. Use evidence a
 | Installed Codex plugin's tool is absent | [Load the installed plugin](plugin-loading.md) |
 | Device pending, offline, incompatible or missing an interface | [Resolve an unavailable Codex](device.md) |
 | Browser management cannot sign in | [Browser login recovery](browser-login.md) |
+| Server URL returns 404, an old version or an unexpected response after deployment | [Check deployment availability](#after-a-server-deployment) |
 | Windows runtime path, PowerShell or desktop-version error | [Windows runtime diagnosis](device.md#windows-runtime-and-powershell) |
 | Wrangler management request fails | [Find management access](../common/access.md#if-you-cannot-perform-it) |
 | PA approval, OAuth callback or renewal fails | [OAuth recovery](../personal-agents/authorization.md#recover-an-interruption) |
@@ -18,3 +19,13 @@ Start with the actual failure, not a full installation checklist. Use evidence a
 | Update hint unavailable, including `GITHUB_HTTP_403` | [Release discovery](../maintenance/update.md#release-discovery); ordinary use can continue |
 
 Complete that branch, then return to the original task and repeat its relevant check. If no branch fits, report the versions, target, last verified result and native/platform error. Do not infer task failure from notification failure, or reset/reinstall solely because an upstream request failed.
+
+## After a Server deployment
+
+Use when Wrangler has reported a successful deployment but the public completion checks are not yet correct. Cloudflare deployment or routing changes may take time to become visible; a 404 alone does not establish that this is the cause.
+
+1. Confirm the requested URL matches Wrangler's reported address and the configured `PUBLIC_ORIGIN`.
+2. Retry the read-only completion checks a few times with short pauses. Do not redeploy, recreate resources or repeat OAuth solely because the first response is a 404, an old version or an unexpected page.
+3. If the checks still fail, stop waiting and inspect the selected Worker, active deployment/version, routes or `workers_dev`, and both `main` and `assets.directory`. Report the actual response and last successful step; investigate the mismatch before changing configuration.
+
+A 404 from the public Server URL is not a Worker resource lookup and does not mean `worker-identity` returned `found: false`. Resume the installation or update guide's completion checks once the intended endpoints respond correctly; deployment output alone is not completion.

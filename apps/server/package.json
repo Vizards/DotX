@@ -14,20 +14,22 @@
     "build:worker": "pnpm build && wrangler deploy --dry-run",
     "types:generate": "mkdir -p types && wrangler types types/cloudflare.d.ts --include-env=false",
     "build:code": "esbuild src/worker.ts --bundle --platform=browser --target=es2023 --format=esm --conditions=workerd,worker,browser --loader:.md=text '--external:node:*' '--external:cloudflare:*' --outfile=dist/worker.mjs",
-    "build:tools": "esbuild tools/admin.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/admin.mjs"
+    "build:tools": "esbuild tools/admin.ts --bundle --platform=node --target=node24 --format=esm --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --outfile=dist/admin.mjs"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "1.2.3",
     "@dotx/shared": "workspace:*",
     "@modelcontextprotocol/server": "2.3.1",
     "@simplewebauthn/server": "14.0.3",
+    "cross-spawn": "7.0.6",
     "semver": "7.8.5",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@types/cross-spawn": "6.0.6",
     "@types/semver": "7.8.0",
     "esbuild": "0.28.2",
-    "wrangler": "4.151.0"
+    "wrangler": "4.160.0"
   },
   "license": "MIT"
 }

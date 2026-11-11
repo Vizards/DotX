@@ -22,7 +22,7 @@ Cloudflare login starts have their own per-Server budget: ten attempts per fixed
 Use this branch when the user needs a password/Passkey setup or reset, not to repair Cloudflare account permissions.
 
 1. An Agent verifies [Wrangler management access](../common/access.md) for this Server. Browser login and a PA's MCP grant are not substitutes for that CLI authority.
-2. For an installation without local credentials, use `node admin.mjs --url HTTPS_ORIGIN setup`. For an explicitly requested replacement of existing credentials, use `node admin.mjs --url HTTPS_ORIGIN reset-login`. **Having trouble?** on the login page provides a copyable request for that installation Agent.
+2. Use `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN setup` for an installation without local credentials. For an explicitly requested replacement of existing credentials, use `node /ABSOLUTE/RELEASE/admin.mjs --url HTTPS_ORIGIN reset-login`. **Having trouble?** on the login page provides a copyable request for that installation Agent.
 3. Give the private link only to the intended administrator. They choose the password or Passkey on their DotX page; the Agent never receives it. Links last 24 hours; issuing another replaces the unfinished link. If a response was lost, read `setup-status` and confirm the user's result before issuing another.
 4. Existing credentials keep working until reset completion. Completion replaces the old password and Passkeys and ends other browser sessions. It preserves Codex devices, PA connections and business storage. Verify the saved local method with `setup-status` and actual browser access, then return to the original action.
 

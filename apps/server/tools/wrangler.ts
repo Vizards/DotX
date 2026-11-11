@@ -1,21 +1,14 @@
-import { spawn } from 'node:child_process';
+import { spawn } from 'cross-spawn';
 import { DEFAULT_TIMEOUT_MS } from '@dotx/shared/timeouts';
-import packageInfo from '../package.json' with { type: 'json' };
 
 // Only the official CLI may load or refresh its credentials. Never expose its
 // stdout/stderr, which can contain the exported token or provider diagnostics.
+// Reuse the caller's Wrangler executable and login context.
 export async function wranglerToken(profile?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(
-      'pnpm',
-      [
-        'dlx',
-        `wrangler@${packageInfo.devDependencies.wrangler}`,
-        'auth',
-        'token',
-        '--json',
-        ...(profile ? ['--profile', profile] : []),
-      ],
+      'wrangler',
+      ['auth', 'token', '--json', ...(profile ? ['--profile', profile] : [])],
       {
         env: {
           ...process.env,
@@ -40,7 +33,7 @@ export async function wranglerToken(profile?: string): Promise<string> {
     child.stderr.resume();
     child.once('error', () => {
       clearTimeout(timer);
-      reject(new Error('WRANGLER_START_FAILED: pnpm must be available on PATH'));
+      reject(new Error('WRANGLER_START_FAILED: wrangler must be available on PATH'));
     });
     child.once('close', (code) => {
       clearTimeout(timer);
@@ -48,18 +41,24 @@ export async function wranglerToken(profile?: string): Promise<string> {
         reject(
           new Error(
             failure ??
-              'WRANGLER_LOGIN_REQUIRED: run official wrangler login using the intended profile',
+              'WRANGLER_AUTH_FAILED: check support for auth token --json and --profile if used (wrangler auth token --help), then check the login, selected profile and network',
           ),
         );
         return;
       }
+      let value: { type?: unknown; token?: unknown } | null;
       try {
-        const value = JSON.parse(output);
-        if (value.type !== 'oauth' || typeof value.token !== 'string' || !value.token)
-          throw new Error();
-        resolve(value.token);
+        value = JSON.parse(output);
       } catch {
+        reject(new Error('WRANGLER_AUTH_INVALID_RESPONSE: expected auth token --json output'));
+        return;
+      }
+      if (value?.type === 'api_token' || value?.type === 'api_key') {
         reject(new Error('WRANGLER_OAUTH_REQUIRED: API tokens and global keys are not accepted'));
+      } else if (value?.type !== 'oauth' || typeof value.token !== 'string' || !value.token) {
+        reject(new Error('WRANGLER_AUTH_INVALID_RESPONSE: expected an OAuth token from Wrangler'));
+      } else {
+        resolve(value.token);
       }
     });
   });
@@ -102,16 +101,27 @@ async function workerResource(
         : 'CF_WORKER_CREATE_OUTCOME_UNKNOWN: look up the Worker by name before retrying',
     );
   }
-  if (!response.ok) throw new Error(`CF_WORKER_${action}_HTTP_${response.status}`);
   const body = (await response.json().catch(() => null)) as {
     success?: boolean;
+    errors?: { code?: unknown }[];
     result?: { name: string; id: string };
   } | null;
+  // Cloudflare's Worker-not-found response, not an arbitrary failed lookup.
+  if (
+    method === 'GET' &&
+    response.status === 404 &&
+    body?.success === false &&
+    Array.isArray(body.errors) &&
+    body.errors.length > 0 &&
+    body.errors.every((error) => error?.code === 10007)
+  )
+    return { account_id: account, worker_name: name, found: false };
+  if (!response.ok) throw new Error(`CF_WORKER_${action}_HTTP_${response.status}`);
   if (!body?.success || body.result?.name !== name || !/^[a-f0-9]{32}$/.test(body.result.id))
     throw new Error(
       method === 'GET'
         ? 'CF_WORKER_LOOKUP_INVALID'
         : 'CF_WORKER_CREATE_OUTCOME_UNKNOWN: look up the Worker by name before retrying',
     );
-  return { account_id: account, worker_name: name, worker_id: body.result.id };
+  return { account_id: account, worker_name: name, worker_id: body.result.id, found: true };
 }

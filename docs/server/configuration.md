@@ -4,13 +4,7 @@ Use only the section requested by [installation](install.md) or [update](update.
 
 ## New service values
 
-Preserve the release template's `DEVICES` SQLite DO binding, migration, compatibility settings and asset behavior. Create a namespace unique to this service, keeping the binding name `OAUTH_KV`:
-
-```sh
-pnpm dlx wrangler@4.151.0 kv namespace create WORKER_NAME-oauth --config /ABSOLUTE/SERVICE/wrangler.json
-```
-
-Use the attachment's toolchain version. Put the returned namespace ID and these non-secret values into the actual configuration:
+Preserve the release template's `DEVICES` SQLite DO binding, migration, compatibility settings and asset behavior. Use the verified account/profile to create a KV namespace unique to this service, keeping the binding name `OAUTH_KV`. Put its namespace ID and these non-secret values into the actual configuration:
 
 | Configuration | Value |
 | --- | --- |
@@ -33,7 +27,7 @@ For the default `workers.dev` address, read the selected account's subdomain bef
 GET https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/workers/subdomain
 ```
 
-Use existing authenticated CF tooling. With only Wrangler available, capture the official `wrangler auth token --json` output inside the calling process, using the selected profile, and send the token only in the CF request's Authorization header. Keep it out of terminal output, files and chat; do not read private credential files. Use the release's Wrangler version.
+Use existing authenticated CF tooling. If using Wrangler OAuth for this request, keep its credential inside the calling process and send it only in the CF request's Authorization header; do not print it, save it or read private credential files.
 
 Read `result.subdomain` from a successful response and set `PUBLIC_ORIGIN` to `https://WORKER_NAME.ACCOUNT_SUBDOMAIN.workers.dev`. Do not derive the subdomain from an email, account display name or profile name. The script-level `/workers/scripts/WORKER_NAME/subdomain` endpoint reports enablement, not the account subdomain.
 
@@ -58,6 +52,6 @@ Return to the configuration table. After deployment, compare Wrangler's reported
 
 The settings response is not a complete deployable project: check domains/routes separately and apply only the target release's required migration history. Do not treat an existing DO as a new resource or blindly rerun initialization from a fresh-install template.
 
-Wrangler 4.151.0 rejects `init --from-dash` for Workers with Assets, which includes DotX. Do not use that command as this version's recovery path. If the current toolchain changes, check its actual supported behavior before relying on it.
+Wrangler can reject `init --from-dash` for Workers with Assets, which includes DotX. The recovery steps above do not require that command. Before using it, verify the installed CLI's support and check the recovered configuration against the table above.
 
 If access to configuration is unavailable, request the missing non-secret settings or hand the deployment to an Agent with access. Name the missing field or binding and leave the existing service running.
